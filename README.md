@@ -30,10 +30,27 @@
 
 Ключ football-data.org не должен попадать в приложение: лимит общий на ключ, поэтому футбольные данные отдаёт бэкенд.
 
+## Быстрый старт
+
+Нужны Xcode 26 и [mise](https://mise.jdx.dev). Tuist ставится сам, версия закреплена в `mise.toml`.
+
+```bash
+./generate
+open Tribuna.xcworkspace
+```
+
+`.xcodeproj` и `.xcworkspace` генерируются и в git не хранятся.
+
 ## Структура репозитория
 
 ```
-App/                    iOS-приложение (в разработке)
+Tribuna/                Приложение: AppDelegate, SceneDelegate, таб-бар
+Features/Feature<Имя>/  Модуль на каждую фичу
+Core/Core<Имя>/         Общий код
+Project.swift           Манифест Tuist (все модули)
+Tuist/Package.swift     Внешние зависимости (SnapKit)
+generate                Генерация проекта
+docs/decisions.md       Журнал решений и грабли — читать перед работой
 TRIBUNA.pdf             Концепт MVP
 tribuna_api_check.py    Проверка бесплатных API
 tribuna_api_report/     Результат проверки от 18.11.2026
@@ -49,4 +66,4 @@ python3 tribuna_api_check.py
 
 ## Архитектура
 
-В обсуждении. Будет описана в `docs/`.
+UIKit + SnapKit, iOS 16+, Swift 6, Tuist, модуль на каждую фичу. Подробности и причины — в [docs/decisions.md](docs/decisions.md).

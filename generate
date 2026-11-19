@@ -1,0 +1,8 @@
+#!/bin/sh
+# Генерация Tribuna.xcworkspace. Запуск из любого места: ./generate [аргументы tuist generate]
+set -eu
+cd "$(dirname "$0")"
+mise trust --quiet mise.toml  # свой конфиг репозитория
+mise install
+mise exec -- tuist install
+mise exec -- tuist generate --no-open "$@"
