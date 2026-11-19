@@ -66,18 +66,22 @@ export function mapMatches(json: unknown): {
   return { competitions: [...competitions.values()], teams: [...teams.values()], matches };
 }
 
-export function mapStandings(json: unknown): { competitionId: number; rows: StandingRow[] } {
+export function mapStandings(json: unknown): { competitionId: number; teams: TeamRow[]; rows: StandingRow[] } {
   const competitionId = requireId((json as Json)?.competition?.id, "competition");
   const rows: StandingRow[] = [];
+  const teams = new Map<number, TeamRow>();
 
   for (const s of arrayField(json, "standings")) {
     if (s.type !== "TOTAL") continue;
+    if (typeof s.stage !== "string") throw new Error("football-data: нет stage у таблицы");
     for (const r of s.table ?? []) {
+      const teamId = requireId(r.team?.id, "team в таблице");
+      teams.set(teamId, mapTeam(r.team));
       rows.push({
         stage: s.stage,
         group_name: s.group ?? "",
         position: r.position,
-        team_id: requireId(r.team?.id, "team в таблице"),
+        team_id: teamId,
         played: r.playedGames ?? null,
         won: r.won ?? null,
         draw: r.draw ?? null,
@@ -91,5 +95,5 @@ export function mapStandings(json: unknown): { competitionId: number; rows: Stan
     }
   }
 
-  return { competitionId, rows };
+  return { competitionId, teams: [...teams.values()], rows };
 }

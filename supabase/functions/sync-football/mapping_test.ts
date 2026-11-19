@@ -55,3 +55,24 @@ Deno.test("невалидный ответ даёт понятную ошибк�
   assertThrows(() => mapMatches({}), Error, "matches");
   assertThrows(() => mapStandings({ standings: [] }), Error, "competition");
 });
+
+Deno.test("mapStandings: команды из таблицы", () => {
+  const { teams } = mapStandings(fixture("fd_standings_PL"));
+  assertEquals(teams.length, 20);
+  assert(teams.some((t) => t.id === 57 && t.tla === "ARS" && t.short_name === "Arsenal"));
+});
+
+Deno.test("mapStandings: только TOTAL, stage обязателен", () => {
+  const row = (id: number) => ({ position: 1, team: { id, name: `T${id}` }, points: 1 });
+  const json = {
+    competition: { id: 1 },
+    standings: [
+      { stage: "REGULAR_SEASON", type: "HOME", group: null, table: [row(1)] },
+      { stage: "REGULAR_SEASON", type: "TOTAL", group: null, table: [row(2)] },
+    ],
+  };
+  const { rows, teams } = mapStandings(json);
+  assertEquals(rows.map((r) => r.team_id), [2]);
+  assertEquals(teams.map((t) => t.id), [2]);
+  assertThrows(() => mapStandings({ competition: { id: 1 }, standings: [{ type: "TOTAL", table: [row(2)] }] }), Error, "stage");
+});
