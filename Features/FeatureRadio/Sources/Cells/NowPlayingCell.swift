@@ -1,0 +1,121 @@
+import CoreUI
+import SnapKit
+import UIKit
+
+/// Карточка «Сейчас играет» 176 pt: значок, название, подпись, play/pause и волна.
+/// Все отступы — замер макета от края карточки (ширина 350 pt).
+final class NowPlayingCell: UICollectionViewCell {
+    static let height: CGFloat = 176
+
+    var onPlayPause: (() -> Void)?
+
+    private let nameLabel = UILabel()
+    private let subtitleLabel = UILabel()
+    private let button = PlayButton(tint: Palette.onAccent)
+    private let wave = WaveView()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        contentView.backgroundColor = Palette.surfaceRaised
+        contentView.layer.cornerRadius = 24
+        contentView.layer.borderWidth = 1
+        contentView.layer.borderColor = Palette.track.cgColor
+
+        let dot = UIView()
+        dot.backgroundColor = Palette.accent
+        dot.layer.cornerRadius = 2.75
+        let captionFont = Typography.text(13, .bold)
+        let caption = UILabel()
+        caption.attributedText = NSAttributedString(string: "СЕЙЧАС ИГРАЕТ", attributes: [
+            .font: captionFont,
+            .foregroundColor: Palette.accent,
+            .kern: 0.2,
+        ])
+        let iconBox = UIView()
+        iconBox.backgroundColor = Palette.surfaceHigh
+        iconBox.layer.cornerRadius = 16
+        let icon = UIImageView(image: UIImage(named: "audio-lines", in: .module, compatibleWith: nil))
+        icon.tintColor = Palette.textPrimary
+        let nameFont = Typography.display(18)
+        nameLabel.font = nameFont
+        nameLabel.textColor = Palette.textPrimary
+        nameLabel.adjustsFontSizeToFitWidth = true
+        nameLabel.minimumScaleFactor = 0.7
+        let subtitleFont = Typography.text(14)
+        subtitleLabel.font = subtitleFont
+        button.backgroundColor = Palette.accent
+        button.layer.cornerRadius = 26
+        button.addAction(UIAction { [weak self] _ in self?.onPlayPause?() }, for: .touchUpInside)
+
+        [dot, caption, iconBox, nameLabel, subtitleLabel, button, wave].forEach(contentView.addSubview)
+        iconBox.addSubview(icon)
+        dot.snp.makeConstraints {
+            $0.size.equalTo(5.5)
+            $0.centerX.equalTo(contentView.snp.leading).offset(24.5)
+            $0.centerY.equalTo(contentView.snp.top).offset(28.5)
+        }
+        caption.snp.makeConstraints {
+            $0.leading.equalToSuperview().offset(33)
+            $0.firstBaseline.equalTo(dot.snp.centerY).offset(captionFont.capHeight / 2)
+        }
+        iconBox.snp.makeConstraints {
+            $0.leading.equalToSuperview().offset(21)
+            $0.top.equalToSuperview().offset(49.5)
+            $0.size.equalTo(64)
+        }
+        icon.snp.makeConstraints { $0.center.equalToSuperview() }
+        button.snp.makeConstraints {
+            $0.size.equalTo(52)
+            $0.trailing.equalToSuperview().inset(21)
+            $0.centerY.equalTo(iconBox)
+        }
+        nameLabel.snp.makeConstraints {
+            $0.leading.equalToSuperview().offset(99.5)
+            $0.trailing.lessThanOrEqualTo(button.snp.leading).offset(-8)
+            $0.firstBaseline.equalTo(contentView.snp.top).offset(64.5 + nameFont.capHeight)
+        }
+        subtitleLabel.snp.makeConstraints {
+            $0.leading.equalToSuperview().offset(100)
+            $0.trailing.lessThanOrEqualTo(button.snp.leading).offset(-8)
+            $0.firstBaseline.equalTo(contentView.snp.top).offset(89.5 + subtitleFont.capHeight)
+        }
+        // Столбики с 21 pt до 27.5 pt от правого края, середина в 141.25 pt от верха.
+        wave.snp.makeConstraints {
+            $0.leading.equalToSuperview().offset(21)
+            $0.trailing.equalToSuperview().inset(27.5)
+            $0.centerY.equalTo(contentView.snp.top).offset(141.25)
+            $0.height.equalTo(WaveView.height)
+        }
+        // VoiceOver: карточка — кнопка «открыть плеер», play/pause — отдельный элемент.
+        isAccessibilityElement = false
+        nameLabel.isAccessibilityElement = false
+        subtitleLabel.isAccessibilityElement = false
+        caption.isAccessibilityElement = false
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) не используется") }
+
+    private lazy var summary: UIAccessibilityElement = {
+        let element = UIAccessibilityElement(accessibilityContainer: contentView)
+        element.accessibilityTraits = .button
+        element.accessibilityHint = "Открыть плеер"
+        return element
+    }()
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        summary.accessibilityFrameInContainerSpace = contentView.bounds
+        contentView.accessibilityElements = [summary, button]
+    }
+
+    func configure(_ card: RadioState.NowPlaying) {
+        nameLabel.text = card.name
+        subtitleLabel.text = card.subtitle
+        subtitleLabel.textColor = card.isError ? Palette.destructive : Palette.textSecondary
+        button.configure(card.button)
+        wave.isAnimating = card.isAnimating
+        summary.accessibilityLabel = "Сейчас играет: \(card.name)"
+        summary.accessibilityValue = card.subtitle
+    }
+}

@@ -18,6 +18,8 @@ public enum Palette {
     public static let track = UIColor(hex: 0x26304D)
     public static let textPrimary = UIColor(hex: 0xEEF1F8)
     public static let textSecondary = UIColor(hex: 0x9AA4BD)
+    /// Подсказка в пустом поле поиска («Станция или жанр»).
+    public static let placeholder = UIColor(hex: 0x757575)
     public static let accent = UIColor(hex: 0xFFB020)
     /// Ореол вокруг точки логотипа (акцент 18 % на фоне).
     public static let accentHalo = UIColor(hex: 0x372D20)

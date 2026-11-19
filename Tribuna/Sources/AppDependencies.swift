@@ -1,3 +1,4 @@
+import Combine
 import CoreDomain
 import CoreRepositories
 import Foundation
@@ -74,6 +75,51 @@ extension AppDependencies {
         let services = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey, defaults: defaults)
         if !services.bookmarks.bookmarks.contains(liverpool) { services.bookmarks.toggle(liverpool) }
         return (MockMatchesRepository(matches: matches), MockStandingsRepository(), services.bookmarks, services.reminders, services.stations)
+    }
+}
+#endif
+
+#if DEBUG
+/// Каталог и плеер как в макете «Эфир» (`-RadioMockData`): играет «Стадион FM». Только в отладке, до сборки плеера в приложении.
+private struct MockStationsRepository: StationsRepository {
+    func stations() async throws -> [Station] {
+        func station(_ id: String, _ name: String, _ genres: Set<StationGenre>, _ subtitle: String, _ featured: Int?) -> Station {
+            Station(id: id, name: name, streamURL: URL(string: "https://example.com/\(id)")!, country: "Россия",
+                    bitrate: 128, genres: genres, subtitle: subtitle, featuredOrder: featured)
+        }
+        return [
+            station("golos", "Голос матча", [.sport, .football], "Футбол · репортажи", 1),
+            station("hockey", "Хоккей Радио", [.sport, .hockey], "Хоккей · ток-шоу", 2),
+            station("news", "Спорт Новости 24", [.sport, .news], "Новости · каждые 30 мин", 3),
+            station("stadion", "Стадион FM", [.sport, .football], "Футбол · эфир", nil),
+        ]
+    }
+}
+
+/// Плеер без звука: только меняет состояние.
+@MainActor
+private final class MockAudioPlayer: AudioPlayer {
+    private let subject: CurrentValueSubject<PlaybackState, Never>
+
+    init(playing station: Station) {
+        subject = CurrentValueSubject(PlaybackState(item: station, status: .playing, sleepTimerEndsAt: nil))
+    }
+
+    var state: PlaybackState { subject.value }
+    var statePublisher: AnyPublisher<PlaybackState, Never> { subject.eraseToAnyPublisher() }
+    func play(_ station: Station) { subject.value = PlaybackState(item: station, status: .playing, sleepTimerEndsAt: nil) }
+    func togglePlayPause() { subject.value.status = subject.value.status == .playing ? .paused : .playing }
+    func stop() { subject.value = PlaybackState(item: nil, status: .idle, sleepTimerEndsAt: nil) }
+    func setSleepTimer(minutes: Int?) {}
+}
+
+extension AppDependencies {
+    /// `-RadioMockData`: «Эфир» на данных макета вместо заглушки вкладки.
+    static func radioMock() -> (stations: StationsRepository, player: AudioPlayer)? {
+        guard ProcessInfo.processInfo.arguments.contains("-RadioMockData") else { return nil }
+        let stadion = Station(id: "stadion", name: "Стадион FM", streamURL: URL(string: "https://example.com/stadion")!,
+                              country: "Россия", bitrate: 128, genres: [.sport, .football], subtitle: "Футбол · эфир", featuredOrder: nil)
+        return (MockStationsRepository(), MockAudioPlayer(playing: stadion))
     }
 }
 #endif
