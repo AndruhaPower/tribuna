@@ -1,11 +1,12 @@
 import CoreDomain
 import Foundation
 import PostgREST
+import UserNotifications
 
 /// Сборка источников данных для приложения.
 public enum Services {
     @MainActor public static func make(supabaseURL: URL, supabaseKey: String, defaults: UserDefaults = .standard)
-        -> (matches: MatchesRepository, bookmarks: BookmarksStore) {
+        -> (matches: MatchesRepository, standings: StandingsRepository, bookmarks: BookmarksStore, reminders: RemindersStore) {
         // Только PostgREST: Auth нам не нужен, publishable-ключ идёт заголовком apikey.
         let postgrest = PostgrestClient(
             url: supabaseURL.appendingPathComponent("rest/v1"),
@@ -13,10 +14,13 @@ public enum Services {
             logger: nil,
             decoder: FootballRepository.decoder
         )
-        let matches = CombinedMatchesRepository(
-            football: FootballRepository(client: postgrest),
-            hockey: NHLClient(session: .shared)
+        let football = FootballRepository(client: postgrest)
+        let matches = CombinedMatchesRepository(football: football, hockey: NHLClient(session: .shared))
+        return (
+            matches,
+            football, // таблицы только у футбола; для НХЛ запрос вернёт пусто
+            UserDefaultsBookmarksStore(defaults: defaults),
+            LocalRemindersStore(center: UNUserNotificationCenter.current())
         )
-        return (matches, UserDefaultsBookmarksStore(defaults: defaults))
     }
 }

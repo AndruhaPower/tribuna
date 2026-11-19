@@ -8,13 +8,14 @@ private struct FakeError: Error, Equatable { let name: String }
 private struct FakeRepository: MatchesRepository {
     let result: Result<[Match], FakeError>
     func matches(in interval: DateInterval) async throws -> [Match] { try result.get() }
+    func match(id: MatchID) async throws -> Match? { nil }
 }
 
 private func match(_ sport: Sport, _ id: String) -> Match {
     Match(
         id: MatchID(sport: sport, sourceID: id), sport: sport, competition: Competition(code: "X", name: "X"),
         kickoff: Date(timeIntervalSince1970: 0), status: .scheduled, home: nil, away: nil,
-        homeScore: nil, awayScore: nil, round: nil
+        homeScore: nil, awayScore: nil, round: nil, homeTeamID: nil, awayTeamID: nil
     )
 }
 

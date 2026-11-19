@@ -54,6 +54,9 @@ public struct Match: Sendable, Equatable, Identifiable {
     public let awayScore: Int?
     /// "12 тур" для футбола, nil для НХЛ.
     public let round: String?
+    /// Идентификаторы команд в источнике (football `teams.id`, NHL team `id`) — для подсветки строк таблицы.
+    public let homeTeamID: String?
+    public let awayTeamID: String?
 
     public init(
         id: MatchID,
@@ -65,7 +68,9 @@ public struct Match: Sendable, Equatable, Identifiable {
         away: Team?,
         homeScore: Int?,
         awayScore: Int?,
-        round: String?
+        round: String?,
+        homeTeamID: String?,
+        awayTeamID: String?
     ) {
         self.id = id
         self.sport = sport
@@ -77,5 +82,24 @@ public struct Match: Sendable, Equatable, Identifiable {
         self.homeScore = homeScore
         self.awayScore = awayScore
         self.round = round
+        self.homeTeamID = homeTeamID
+        self.awayTeamID = awayTeamID
+    }
+}
+
+/// Строка турнирной таблицы.
+public struct StandingRow: Sendable, Equatable {
+    public let position: Int
+    public let team: Team
+    public let teamID: String
+    public let played: Int
+    public let points: Int
+
+    public init(position: Int, team: Team, teamID: String, played: Int, points: Int) {
+        self.position = position
+        self.team = team
+        self.teamID = teamID
+        self.played = played
+        self.points = points
     }
 }

@@ -40,12 +40,33 @@ struct FootballRow: Decodable, Sendable {
     let competition: CompetitionRow
     let home: TeamRow?
     let away: TeamRow?
+    let homeTeamID: Int?
+    let awayTeamID: Int?
 
     enum CodingKeys: String, CodingKey {
         case id, status, matchday, competition, home, away
         case utcDate = "utc_date"
         case homeScore = "home_score"
         case awayScore = "away_score"
+        case homeTeamID = "home_team_id"
+        case awayTeamID = "away_team_id"
+    }
+}
+
+/// Строка `standings` с вложенной командой.
+struct StandingDTO: Decodable, Sendable {
+    let stage: String
+    let groupName: String?
+    let position: Int
+    let teamID: Int
+    let played: Int
+    let points: Int
+    let team: FootballRow.TeamRow
+
+    enum CodingKeys: String, CodingKey {
+        case stage, position, played, points, team
+        case groupName = "group_name"
+        case teamID = "team_id"
     }
 }
 
@@ -61,8 +82,19 @@ enum FootballMapping {
             away: row.away.map(team),
             homeScore: row.homeScore,
             awayScore: row.awayScore,
-            round: row.matchday.map { "\($0) тур" }
+            round: row.matchday.map { "\($0) тур" },
+            homeTeamID: row.homeTeamID.map(String.init),
+            awayTeamID: row.awayTeamID.map(String.init)
         )
+    }
+
+    /// Основная таблица — (stage, group_name) с наибольшим числом строк (при равенстве — первая по имени), по position.
+    static func standings(from rows: [StandingDTO]) -> [StandingRow] {
+        let groups = Dictionary(grouping: rows) { "\($0.stage)/\($0.groupName ?? "")" }
+        guard let main = groups.max(by: { ($0.value.count, $1.key) < ($1.value.count, $0.key) })?.value else { return [] }
+        return main.sorted { $0.position < $1.position }.map {
+            StandingRow(position: $0.position, team: team($0.team), teamID: String($0.teamID), played: $0.played, points: $0.points)
+        }
     }
 
     static func status(_ code: String) -> MatchStatus {
@@ -82,9 +114,9 @@ enum FootballMapping {
 }
 
 /// Футбол из таблиц Supabase (D8, D20).
-struct FootballRepository: MatchesRepository {
+struct FootballRepository: MatchesRepository, StandingsRepository {
     static let columns = """
-        id,utc_date,status,matchday,home_score,away_score,\
+        id,utc_date,status,matchday,home_score,away_score,home_team_id,away_team_id,\
         competition:competitions!inner(code,name,name_ru,enabled),\
         home:teams!home_team_id(name,short_name,tla,name_ru,short_name_ru),\
         away:teams!away_team_id(name,short_name,tla,name_ru,short_name_ru)
@@ -117,5 +149,32 @@ struct FootballRepository: MatchesRepository {
             .execute()
             .value
         return rows.map(FootballMapping.match(from:))
+    }
+
+    func match(id: MatchID) async throws -> Match? {
+        guard let sourceID = Int(id.sourceID) else { return nil }
+        let rows: [FootballRow] = try await client
+            .from("matches")
+            .select(Self.columns)
+            .eq("id", value: sourceID)
+            .eq("competition.enabled", value: true)
+            .execute()
+            .value
+        return rows.first.map(FootballMapping.match(from:))
+    }
+
+    func standings(competitionCode: String) async throws -> [StandingRow] {
+        let rows: [StandingDTO] = try await client
+            .from("standings")
+            .select("""
+                stage,group_name,position,team_id,played,points,\
+                team:teams!team_id(name,short_name,tla,name_ru,short_name_ru),\
+                competition:competitions!inner(code)
+                """)
+            .eq("competition.code", value: competitionCode)
+            .order("position")
+            .execute()
+            .value
+        return FootballMapping.standings(from: rows)
     }
 }

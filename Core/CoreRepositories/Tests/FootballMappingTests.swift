@@ -18,7 +18,9 @@ private func row(
         awayScore: 1,
         competition: .init(code: "PL", name: "Premier League", nameRu: competitionNameRu, enabled: true),
         home: home,
-        away: FootballRow.TeamRow(name: "Liverpool FC", shortName: "Liverpool", tla: "LIV", nameRu: nil, shortNameRu: nil)
+        away: FootballRow.TeamRow(name: "Liverpool FC", shortName: "Liverpool", tla: "LIV", nameRu: nil, shortNameRu: nil),
+        homeTeamID: 57,
+        awayTeamID: nil
     )
 }
 
@@ -31,6 +33,7 @@ struct FootballMappingTests {
         #expect(match.kickoff == Date(timeIntervalSince1970: 1_800_000_000))
         #expect(match.homeScore == 2 && match.awayScore == 1)
         #expect(match.round == nil)
+        #expect(match.homeTeamID == "57" && match.awayTeamID == nil)
     }
 
     @Test func russianNameWins() {

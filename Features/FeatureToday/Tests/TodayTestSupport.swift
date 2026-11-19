@@ -43,7 +43,9 @@ func match(
         away: away.map { Team(name: $0, abbreviation: String($0.prefix(3)).uppercased()) },
         homeScore: score?.0,
         awayScore: score?.1,
-        round: round
+        round: round,
+        homeTeamID: nil,
+        awayTeamID: nil
     )
 }
 
@@ -86,6 +88,8 @@ final class FakeMatchesRepository: MatchesRepository, @unchecked Sendable {
         if let byDay { return byDay[interval.start] ?? [] }
         return try result.get()
     }
+
+    func match(id: MatchID) async throws -> Match? { try result.get().first { $0.id == id } }
 
     private func gate(_ start: Date) -> (stream: AsyncStream<Void>, continuation: AsyncStream<Void>.Continuation) {
         lock.withLock {

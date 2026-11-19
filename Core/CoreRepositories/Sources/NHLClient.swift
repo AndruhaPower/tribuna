@@ -10,7 +10,10 @@ struct NHLClient: MatchesRepository {
     private struct Game: Decodable {
         struct TeamDTO: Decodable {
             struct Name: Decodable { let `default`: String }
-            let name: Name
+            let id: Int?
+            /// score/{date} отдаёт `name`, gamecenter/{id}/landing — `commonName`.
+            let name: Name?
+            let commonName: Name?
             let abbrev: String
             let score: Int?
         }
@@ -25,6 +28,9 @@ struct NHLClient: MatchesRepository {
 
     static let competition = Competition(code: "NHL", name: "НХЛ")
 
+    /// 404 от NHL Web API: такой игры нет.
+    struct NotFound: Error {}
+
     private let fetch: @Sendable (URL) async throws -> Data
 
     init(fetch: @escaping @Sendable (URL) async throws -> Data) {
@@ -36,7 +42,9 @@ struct NHLClient: MatchesRepository {
             var request = URLRequest(url: url)
             request.timeoutInterval = 15
             let (data, response) = try await session.data(for: request)
-            guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
+            let status = (response as? HTTPURLResponse)?.statusCode
+            if status == 404 { throw NotFound() }
+            guard status == 200 else { throw URLError(.badServerResponse) }
             return data
         }
     }
@@ -51,6 +59,12 @@ struct NHLClient: MatchesRepository {
                 .filter { $0.kickoff >= interval.start && $0.kickoff < interval.end }
                 .sorted { $0.kickoff < $1.kickoff }
         }
+    }
+
+    func match(id: MatchID) async throws -> Match? {
+        guard let gameID = Int(id.sourceID) else { return nil }
+        let url = URL(string: "https://api-web.nhle.com/v1/gamecenter/\(gameID)/landing")!
+        do { return try Self.parseLanding(await fetch(url)) } catch is NotFound { return nil }
     }
 
     /// Дни НХЛ (по восточному времени США), покрывающие полуоткрытый интервал [start, end).
@@ -74,22 +88,38 @@ struct NHLClient: MatchesRepository {
     }
 
     static func parse(_ data: Data) throws -> [Match] {
+        try decoder.decode(ScoreResponse.self, from: data).games.map(match(from:))
+    }
+
+    /// gamecenter/{id}/landing — одна игра на верхнем уровне.
+    static func parseLanding(_ data: Data) throws -> Match {
+        match(from: try decoder.decode(Game.self, from: data))
+    }
+
+    private static let decoder: JSONDecoder = {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        return try decoder.decode(ScoreResponse.self, from: data).games.map { game in
-            Match(
-                id: MatchID(sport: .hockey, sourceID: String(game.id)),
-                sport: .hockey,
-                competition: competition,
-                kickoff: game.startTimeUTC,
-                status: status(game.gameState, scheduleState: game.gameScheduleState),
-                home: Team(name: game.homeTeam.name.default, abbreviation: game.homeTeam.abbrev),
-                away: Team(name: game.awayTeam.name.default, abbreviation: game.awayTeam.abbrev),
-                homeScore: game.homeTeam.score,
-                awayScore: game.awayTeam.score,
-                round: nil
-            )
+        return decoder
+    }()
+
+    private static func match(from game: Game) -> Match {
+        func team(_ dto: Game.TeamDTO) -> Team {
+            Team(name: (dto.name ?? dto.commonName)?.default ?? dto.abbrev, abbreviation: dto.abbrev)
         }
+        return Match(
+            id: MatchID(sport: .hockey, sourceID: String(game.id)),
+            sport: .hockey,
+            competition: competition,
+            kickoff: game.startTimeUTC,
+            status: status(game.gameState, scheduleState: game.gameScheduleState),
+            home: team(game.homeTeam),
+            away: team(game.awayTeam),
+            homeScore: game.homeTeam.score,
+            awayScore: game.awayTeam.score,
+            round: nil,
+            homeTeamID: game.homeTeam.id.map(String.init),
+            awayTeamID: game.awayTeam.id.map(String.init)
+        )
     }
 
     /// Перенесённые и отменённые игры остаются gameState "FUT", поэтому сначала смотрим gameScheduleState.
