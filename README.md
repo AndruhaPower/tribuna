@@ -47,6 +47,7 @@ open Tribuna.xcworkspace
 Tribuna/                Приложение: AppDelegate, SceneDelegate, таб-бар
 Features/Feature<Имя>/  Модуль на каждую фичу
 Core/Core<Имя>/         Общий код
+supabase/               Бэкенд: миграции и Edge Function sync-football
 Project.swift           Манифест Tuist (все модули)
 Tuist/Package.swift     Внешние зависимости (SnapKit)
 generate                Генерация проекта
@@ -55,6 +56,58 @@ docs/design/            Макеты MVP (PNG, @2x)
 TRIBUNA.pdf             Концепт MVP
 tribuna_api_check.py    Проверка бесплатных API
 tribuna_api_report/     Результат проверки от 18.11.2026
+```
+
+## Бэкенд
+
+Каждую минуту pg_cron (задание `sync-football`) через pg_net вызывает Edge Function `sync-football`. Функция ходит в football-data.org и обновляет таблицы `competitions`, `teams`, `matches`, `standings`; состояние последнего запуска лежит в `sync_state`. Ручные поля (`teams.name_ru`, `competitions.enabled`) синк не перезаписывает.
+
+Тесты функции:
+
+```bash
+deno test supabase/functions/sync-football --allow-read --allow-env
+```
+
+Локальный стек (нужен Docker-совместимый рантайм):
+
+```bash
+supabase start
+supabase db reset   # применяет миграции из supabase/migrations
+```
+
+Локально секретов в Vault нет, поэтому задание запускается, но вызов функции падает. Это нормально.
+
+### Разовая настройка удалённого проекта
+
+Делает владелец проекта, ключи в репозиторий не попадают.
+
+```bash
+supabase login
+supabase link --project-ref wgwsdhyrazjzqwvnhgzk
+supabase secrets set FOOTBALL_DATA_KEY=<ключ football-data.org> SYNC_SECRET=<случайная строка>
+```
+
+В SQL-редакторе проекта создать секреты Vault (`sync_secret` равен `SYNC_SECRET`):
+
+```sql
+select vault.create_secret('https://wgwsdhyrazjzqwvnhgzk.supabase.co', 'project_url');
+select vault.create_secret('<тот же SYNC_SECRET>', 'sync_secret');
+```
+
+Затем:
+
+```bash
+supabase db push
+supabase functions deploy sync-football
+```
+
+### Проверка
+
+Через пару минут после деплоя:
+
+```sql
+select * from sync_state;
+select status_code from net._http_response order by created desc limit 3;  -- 200
 ```
 
 ## Проверка API
