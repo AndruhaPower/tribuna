@@ -17,7 +17,7 @@ public final class PlaceholderViewController: UIViewController {
         let label = UILabel()
         label.text = title
         label.textColor = Palette.textPrimary
-        label.font = .preferredFont(forTextStyle: .title2)
+        label.font = Typography.screenTitle
         view.addSubview(label)
         label.snp.makeConstraints { $0.center.equalToSuperview() }
     }
