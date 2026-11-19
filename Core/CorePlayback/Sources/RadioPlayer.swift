@@ -6,7 +6,7 @@ import Foundation
 /// Пауза закрывает соединение, а продолжение подключается заново — эфир всегда «сейчас», без отставания.
 @MainActor
 public final class RadioPlayer: AudioPlayer {
-    static let connectTimeout: TimeInterval = 15
+    static let connectTimeout: TimeInterval = 30
     static let failureMessage = "Не удалось подключиться"
 
     private let engine: PlaybackEngine
