@@ -106,6 +106,15 @@ xcodebuild test -workspace Tribuna.xcworkspace -scheme CoreRepositories -destina
 - Напоминание показывается и когда приложение на экране: делегат `UNUserNotificationCenter` (`AppDelegate`) в `willPresent` отдаёт баннер и звук. Открытие карточки по нажатию на уведомление — следующий этап.
 - Карточка НХЛ пока без таблицы; блок «Слушать под матч» скрыт до радио и плеера (D15, D16); «Поделиться» — текстом без ссылки; у матча не на сегодня в статусе и тексте дата («Завтра, 18:00», «Сб, 21 нояб · 18:00»).
 
+### D23. Движок эфира (`CorePlayback`) — 2026-11-19
+Контракт `AudioPlayer` и `PlaybackState` — в `CoreDomain`, реализация `RadioPlayer` — в `CorePlayback` (зависит только от `CoreDomain`, наружу публичен только `RadioPlayer()`). AVPlayer, AVAudioSession, Now Playing и часы — за внутренними протоколами, в тестах фейки.
+- Пауза закрывает соединение, продолжение подключается заново: эфир всегда «сейчас», без отставания и без висящего соединения.
+- Нет звука 15 с после запуска или после буферизации, провал элемента, обрыв или «конец» потока → `failed("Не удалось подключиться")`; `togglePlayPause` после ошибки подключается заново.
+- Прерывание (звонок, Siri) → пауза; после него продолжаем, только если играли и система дала `shouldResume`. Пропал аудиовыход (`oldDeviceUnavailable`, наушники) → пауза.
+- Таймер сна переживает смену станции; сработал → пауза, станция остаётся в плеере, таймер снят. `stop()` закрывает плеер и снимает таймер.
+- Экран блокировки: название и подпись станции, `IsLiveStream`, rate 1/0; команды play/pause/toggle, перемотка и треки выключены.
+- Info.plist: `UIBackgroundModes = [audio]`, `NSAllowsArbitraryLoadsForMedia` (часть потоков по http://).
+
 ## Грабли
 
 - **«swap-monorepo» в окружении** — это название сессии в приложении, а не репозиторий. Репозиторий проекта — только `AndruhaPower/tribuna`.
@@ -119,3 +128,4 @@ xcodebuild test -workspace Tribuna.xcworkspace -scheme CoreRepositories -destina
 - **supabase-swift**: `PostgrestClient(url:headers:decoder:)` без `logger:` выбирает устаревший init и даёт warning — передавай `logger: nil`. Подключаем только продукт `PostgREST` (`.external(name: "PostgREST")`), без `Supabase`/`SupabaseClient`: Auth не нужен. Publishable-ключ передаём заголовком `apikey`.
 - **Тесты в симуляторе**: `name=iPhone 17 Pro Max` без `OS=` ищет симулятор последней iOS SDK и может его не найти — указывай `OS=` установленного симулятора (`xcrun simctl list devices available`).
 - **NHL Web API, `gamecenter/{id}/landing`**: у команд `commonName`/`placeName` вместо `name` (как в `score/{date}`) — общий DTO держит оба поля. Несуществующая игра — 404 (`NHLClient.NotFound` → `match(id:) == nil`). `score/now` отвечает редиректом: в curl нужен `-L`.
+- **`AnyCancellable { ... }` в `@MainActor`-коде** — замыкание наследует изоляцию главного актора, а снимается из `deinit` владельца на любом потоке: Swift 6 падает на проверке изоляции. Замыкание снятия помечай `@Sendable`.

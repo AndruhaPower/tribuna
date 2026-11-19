@@ -30,6 +30,19 @@ let coreRepositories = module(
     dependencies: [.target(name: "CoreDomain"), .external(name: "PostgREST")]
 )
 
+let corePlayback = module("CorePlayback", path: "Core/CorePlayback", dependencies: [.target(name: "CoreDomain")])
+
+let corePlaybackTests: Target = .target(
+    name: "CorePlaybackTests",
+    destinations: .iOS,
+    product: .unitTests,
+    bundleId: "\(bundleId).CorePlaybackTests",
+    deploymentTargets: deployment,
+    sources: ["Core/CorePlayback/Tests/**"],
+    dependencies: [.target(name: "CorePlayback"), .target(name: "CoreDomain")],
+    settings: settings
+)
+
 let coreRepositoriesTests: Target = .target(
     name: "CoreRepositoriesTests",
     destinations: .iOS,
@@ -87,6 +100,9 @@ let app: Target = .target(
         "UIUserInterfaceStyle": "Dark",
         "UIAppFonts": ["Unbounded.ttf"],
         "UILaunchScreen": ["UIColorName": ""],
+        "UIBackgroundModes": ["audio"],
+        // Часть радиопотоков только по http://.
+        "NSAppTransportSecurity": ["NSAllowsArbitraryLoadsForMedia": true],
         "UIApplicationSceneManifest": [
             "UIApplicationSupportsMultipleScenes": false,
             "UISceneConfigurations": [
@@ -105,5 +121,5 @@ let app: Target = .target(
 
 let project = Project(
     name: "Tribuna",
-    targets: [app, coreUI, coreDomain, coreRepositories, coreRepositoriesTests, featureTodayTests, featureMatchTests] + featureTargets
+    targets: [app, coreUI, coreDomain, coreRepositories, coreRepositoriesTests, corePlayback, corePlaybackTests, featureTodayTests, featureMatchTests] + featureTargets
 )
