@@ -16,6 +16,8 @@ final class TodayViewModel {
     private let onOpenMatch: (MatchID, String) -> Void
 
     private var selectedDay: Date
+    /// Выбранный день был «сегодня» в момент выбора — при смене суток переезжает на новое «сегодня».
+    private var followsToday = true
     private var matches: [Match] = []
     private var bookmarks: Set<MatchID>
     private var isVisible = false
@@ -26,7 +28,7 @@ final class TodayViewModel {
         matches: MatchesRepository,
         bookmarks: BookmarksStore,
         now: @escaping () -> Date = Date.init,
-        calendar: Calendar = .current,
+        calendar: Calendar = .autoupdatingCurrent,
         onOpenMatch: @escaping (MatchID, String) -> Void
     ) {
         matchesRepository = matches
@@ -66,7 +68,10 @@ final class TodayViewModel {
     }
 
     func didSelectDay(_ id: Date) {
-        selectedDay = calendar.startOfDay(for: id)
+        let day = calendar.startOfDay(for: id)
+        guard day != selectedDay else { return }
+        selectedDay = day
+        followsToday = calendar.isDate(day, inSameDayAs: now())
         matches = []
         state.days = TodayFormatter.days(today: now(), selected: selectedDay, calendar: calendar)
         state.content = .loading
@@ -92,10 +97,22 @@ final class TodayViewModel {
         onOpenMatch(id, TodayFormatter.title(match))
     }
 
+    /// Возврат в приложение: пересчёт полосы дней (могли смениться сутки) и обновление данных.
+    func didEnterForeground() {
+        let dayChanged = followsToday && !calendar.isDate(selectedDay, inSameDayAs: now())
+        if dayChanged {
+            selectedDay = calendar.startOfDay(for: now())
+            matches = []
+            state.content = .loading
+        }
+        state.days = TodayFormatter.days(today: now(), selected: selectedDay, calendar: calendar)
+        guard isVisible else { return }
+        load(cancellingCurrent: dayChanged)
+    }
+
     /// Тик автообновления (раз в 60 с, пока экран виден).
     func tick() {
         guard isVisible, loadTask == nil, calendar.isDate(selectedDay, inSameDayAs: now()) else { return }
-        // shortcut: смена суток при открытом экране не отслеживается — обновить список дней по UIApplication.significantTimeChangeNotification, если понадобится
         let soon = now().addingTimeInterval(15 * 60)
         let needsRefresh = matches.contains {
             $0.status == .live || $0.status == .paused || ($0.status == .scheduled && $0.kickoff <= soon)

@@ -33,7 +33,9 @@ struct NHLClient: MatchesRepository {
 
     init(session: URLSession) {
         self.init { url in
-            let (data, response) = try await session.data(from: url)
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 15
+            let (data, response) = try await session.data(for: request)
             guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
             return data
         }
@@ -99,7 +101,7 @@ struct NHLClient: MatchesRepository {
         }
         return switch code {
         case "LIVE", "CRIT": .live
-        case "FINAL", "OFF": .finished
+        case "FINAL", "OFF", "OVER": .finished
         case "PPD": .postponed
         case "CNCL": .cancelled
         default: .scheduled // FUT, PRE и неизвестные

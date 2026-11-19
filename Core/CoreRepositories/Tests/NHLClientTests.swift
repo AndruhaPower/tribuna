@@ -30,7 +30,7 @@ struct NHLClientTests {
     @Test(arguments: [
         ("FUT", MatchStatus.scheduled), ("PRE", .scheduled),
         ("LIVE", .live), ("CRIT", .live),
-        ("FINAL", .finished), ("OFF", .finished),
+        ("FINAL", .finished), ("OFF", .finished), ("OVER", .finished),
         ("PPD", .postponed), ("CNCL", .cancelled),
     ])
     func status(code: String, expected: MatchStatus) {

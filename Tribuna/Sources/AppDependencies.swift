@@ -29,7 +29,7 @@ private struct MockMatchesRepository: MatchesRepository {
 
 extension AppDependencies {
     private static func todayMockData() -> (MatchesRepository, BookmarksStore) {
-        let day = Calendar.current.startOfDay(for: Date())
+        let day = Calendar.autoupdatingCurrent.startOfDay(for: Date())
         func at(_ hour: Int) -> Date { day.addingTimeInterval(TimeInterval(hour * 3600)) }
         func team(_ name: String, _ abbreviation: String) -> Team { Team(name: name, abbreviation: abbreviation) }
         let pl = Competition(code: "PL", name: "АПЛ")

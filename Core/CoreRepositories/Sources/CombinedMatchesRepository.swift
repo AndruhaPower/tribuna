@@ -1,7 +1,7 @@
 import CoreDomain
 import Foundation
 
-/// Футбол и НХЛ параллельно. Упал один источник — отдаём другой; упали оба — первая ошибка.
+/// Футбол и НХЛ параллельно. Упал один источник — отдаём другой; пусто и есть ошибка — первая ошибка.
 struct CombinedMatchesRepository: MatchesRepository {
     let football: any MatchesRepository
     let hockey: any MatchesRepository
@@ -11,9 +11,10 @@ struct CombinedMatchesRepository: MatchesRepository {
         async let hockeyResult = Self.load(hockey, interval)
         let results = await [footballResult, hockeyResult]
 
-        let loaded = results.compactMap { try? $0.get() }
-        if loaded.isEmpty, case let .failure(error) = results[0] { throw error }
-        return loaded.flatMap { $0 }
+        let combined = results.compactMap { try? $0.get() }.flatMap { $0 }
+        // Пусто при упавшем источнике — не «матчей нет», а ошибка (экран покажет «Повторить»).
+        if combined.isEmpty, let error = results.compactMap({ if case let .failure(e) = $0 { e } else { nil } }).first { throw error }
+        return combined
     }
 
     private static func load(_ source: any MatchesRepository, _ interval: DateInterval) async -> Result<[Match], any Error> {

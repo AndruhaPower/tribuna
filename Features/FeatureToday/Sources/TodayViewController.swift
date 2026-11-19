@@ -55,6 +55,7 @@ final class TodayViewController: UIViewController {
     private lazy var dataSource = makeDataSource()
     private let refreshControl = UIRefreshControl()
     private var subscription: AnyCancellable?
+    private var cancellables = Set<AnyCancellable>()
     private var payload = Payload()
 
     init(viewModel: TodayViewModel) {
@@ -77,6 +78,9 @@ final class TodayViewController: UIViewController {
         view.addSubview(collectionView)
         collectionView.snp.makeConstraints { $0.edges.equalToSuperview() }
         subscription = viewModel.$state.sink { [weak self] in self?.render($0) }
+        NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)
+            .sink { [weak self] _ in self?.viewModel.didEnterForeground() }
+            .store(in: &cancellables)
     }
 
     override func viewWillAppear(_ animated: Bool) {

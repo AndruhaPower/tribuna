@@ -52,4 +52,12 @@ struct CombinedMatchesRepositoryTests {
         )
         await #expect(throws: FakeError(name: "football")) { try await repo.matches(in: day) }
     }
+
+    @Test func emptyWithFailedSourceThrows() async {
+        let repo = CombinedMatchesRepository(
+            football: FakeRepository(result: .failure(FakeError(name: "football"))),
+            hockey: FakeRepository(result: .success([]))
+        )
+        await #expect(throws: FakeError(name: "football")) { try await repo.matches(in: day) }
+    }
 }

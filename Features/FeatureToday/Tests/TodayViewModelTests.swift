@@ -147,12 +147,12 @@ struct TodayViewModelTests {
         // 20:00 Москва = 03:00 19.11 во Владивостоке: сегодня там уже 19-е.
         #expect(viewModel.state.days.filter(\.isSelected).map(\.number) == ["19"])
 
-        viewModel.didSelectDay(date("2026-11-19 00:00", vladivostok))
+        viewModel.didSelectDay(date("2026-11-20 00:00", vladivostok))
         await viewModel.loadTask?.value
 
-        let expected = DateInterval(start: date("2026-11-19 00:00", vladivostok), end: date("2026-11-20 00:00", vladivostok))
+        let expected = DateInterval(start: date("2026-11-20 00:00", vladivostok), end: date("2026-11-21 00:00", vladivostok))
         #expect(repository.intervals == [expected])
-        #expect(expected.start == date("2026-11-18 17:00"))
+        #expect(expected.start == date("2026-11-19 17:00"))
     }
 
     @Test func errorThenRetryLoads() async throws {
@@ -328,5 +328,67 @@ struct TodayViewModelTests {
 
         #expect(opened.map(\.0.rawValue) == ["pl1"])
         #expect(opened.map(\.1) == ["Ливерпуль — Арсенал"])
+    }
+
+    final class Clock { var date: Date; init(_ date: Date) { self.date = date } }
+
+    func makeViewModel(_ repository: FakeMatchesRepository, clock: Clock) -> TodayViewModel {
+        TodayViewModel(
+            matches: repository, bookmarks: FakeBookmarksStore(), now: { clock.date }, calendar: calendar(),
+            onOpenMatch: { _, _ in }
+        )
+    }
+
+    @Test func foregroundAfterMidnightMovesTodaySelection() async {
+        let clock = Clock(now)
+        let repository = FakeMatchesRepository()
+        let viewModel = makeViewModel(repository, clock: clock)
+        await appear(viewModel)
+
+        clock.date = date("2026-11-19 00:30")
+        viewModel.didEnterForeground()
+        await viewModel.loadTask?.value
+
+        #expect(viewModel.state.days[0].id == date("2026-11-18 00:00"))
+        #expect(viewModel.state.days.filter(\.isSelected).map(\.id) == [date("2026-11-19 00:00")])
+        #expect(repository.intervals.last?.start == date("2026-11-19 00:00"))
+        #expect(repository.calls == 2)
+    }
+
+    @Test func foregroundKeepsOtherSelectedDayAndReloads() async {
+        let clock = Clock(now)
+        let repository = FakeMatchesRepository()
+        let viewModel = makeViewModel(repository, clock: clock)
+        await appear(viewModel)
+        viewModel.didSelectDay(date("2026-11-20 00:00"))
+        await viewModel.loadTask?.value
+
+        viewModel.didEnterForeground()
+        await viewModel.loadTask?.value
+
+        #expect(viewModel.state.days.filter(\.isSelected).map(\.id) == [date("2026-11-20 00:00")])
+        #expect(repository.calls == 3)
+        #expect(repository.intervals.last?.start == date("2026-11-20 00:00"))
+    }
+
+    @Test func foregroundWhenNotVisibleDoesNotRequest() async {
+        let repository = FakeMatchesRepository()
+        let viewModel = makeViewModel(repository, clock: Clock(now))
+
+        viewModel.didEnterForeground()
+        await viewModel.loadTask?.value
+
+        #expect(repository.calls == 0)
+    }
+
+    @Test func selectingSameDayIsNoOp() async {
+        let repository = FakeMatchesRepository([match("pl1")])
+        let viewModel = makeViewModel(repository)
+        await appear(viewModel)
+
+        viewModel.didSelectDay(date("2026-11-18 15:00"))
+
+        #expect(loaded(viewModel) != nil)
+        #expect(repository.calls == 1)
     }
 }
