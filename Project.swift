@@ -21,8 +21,12 @@ func module(_ name: String, path: String, dependencies: [TargetDependency]) -> T
 
 let coreUI = module("CoreUI", path: "Core/CoreUI", dependencies: [.external(name: "SnapKit")])
 
+let coreDomain = module("CoreDomain", path: "Core/CoreDomain", dependencies: [])
+
 let featureTargets = features.map {
-    module($0, path: "Features/\($0)", dependencies: [.target(name: "CoreUI"), .external(name: "SnapKit")])
+    var deps: [TargetDependency] = [.target(name: "CoreUI"), .external(name: "SnapKit")]
+    if $0 == "FeatureToday" { deps.append(.target(name: "CoreDomain")) }
+    return module($0, path: "Features/\($0)", dependencies: deps)
 }
 
 let app: Target = .target(
@@ -48,11 +52,11 @@ let app: Target = .target(
     ]),
     sources: ["Tribuna/Sources/**"],
     resources: ["Tribuna/Resources/**"],
-    dependencies: [.target(name: "CoreUI")] + features.map { .target(name: $0) },
+    dependencies: [.target(name: "CoreUI"), .target(name: "CoreDomain")] + features.map { .target(name: $0) },
     settings: settings
 )
 
 let project = Project(
     name: "Tribuna",
-    targets: [app, coreUI] + featureTargets
+    targets: [app, coreUI, coreDomain] + featureTargets
 )
