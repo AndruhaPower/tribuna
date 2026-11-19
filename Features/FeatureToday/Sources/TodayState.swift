@@ -21,8 +21,11 @@ struct TodayState: Equatable {
         let id: MatchID
         let header: String
         let isLive: Bool
+        /// «LIVE», «22:00», «Завершён», «Перенесён», «Отменён».
+        let statusText: String
         let home: TeamItem
         let away: TeamItem
+        /// Пусто, пока матч не начался.
         let homeScore: String
         let awayScore: String
     }
@@ -52,4 +55,6 @@ struct TodayState: Equatable {
 
     var days: [DayItem]
     var content: Content
+    /// Идёт запрос, начатый pull-to-refresh.
+    var isRefreshing = false
 }

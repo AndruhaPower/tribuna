@@ -49,16 +49,20 @@ func match(
 
 struct FakeError: Error {}
 
-/// Фейковый репозиторий: отдаёт заданный результат, запоминает интервалы, по желанию ждёт `release()`.
+/// Фейковый репозиторий: отдаёт заданный результат (или ответ по началу дня из `byDay`), запоминает интервалы,
+/// по желанию ждёт `release(_:)` своего дня и, как настоящая сеть, не реагирует на отмену.
 final class FakeMatchesRepository: MatchesRepository, @unchecked Sendable {
     private let lock = NSLock()
     private var _result: Result<[Match], FakeError>
     private var _intervals: [DateInterval] = []
+    private let byDay: [Date: [Match]]?
     private let held: Bool
-    private let gate = AsyncStream<Void>.makeStream()
+    private var gates: [Date: AsyncStream<Void>.Continuation] = [:]
+    private var streams: [Date: AsyncStream<Void>] = [:]
 
-    init(_ matches: [Match] = [], held: Bool = false) {
+    init(_ matches: [Match] = [], byDay: [Date: [Match]]? = nil, held: Bool = false) {
         _result = .success(matches)
+        self.byDay = byDay
         self.held = held
     }
 
@@ -70,14 +74,27 @@ final class FakeMatchesRepository: MatchesRepository, @unchecked Sendable {
     var intervals: [DateInterval] { lock.withLock { _intervals } }
     var calls: Int { intervals.count }
 
-    func release() { gate.continuation.yield() }
+    /// Отпускает запрос дня `start` (по умолчанию — сегодняшнего); можно звать до самого запроса.
+    func release(_ start: Date = date("2026-11-18 00:00")) { gate(start).continuation.yield() }
 
     func matches(in interval: DateInterval) async throws -> [Match] {
         lock.withLock { _intervals.append(interval) }
         if held {
-            for await _ in gate.stream { break }
+            let stream = gate(interval.start).stream
+            await Task.detached { for await _ in stream { break } }.value
         }
+        if let byDay { return byDay[interval.start] ?? [] }
         return try result.get()
+    }
+
+    private func gate(_ start: Date) -> (stream: AsyncStream<Void>, continuation: AsyncStream<Void>.Continuation) {
+        lock.withLock {
+            if let stream = streams[start], let continuation = gates[start] { return (stream, continuation) }
+            let (stream, continuation) = AsyncStream<Void>.makeStream()
+            streams[start] = stream
+            gates[start] = continuation
+            return (stream, continuation)
+        }
     }
 }
 

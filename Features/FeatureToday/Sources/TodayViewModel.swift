@@ -52,8 +52,8 @@ final class TodayViewModel {
         load(cancellingCurrent: false)
         timerTask?.cancel()
         timerTask = Task { [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 60 * NSEC_PER_SEC)
+            while true {
+                do { try await Task.sleep(nanoseconds: 60 * NSEC_PER_SEC) } catch { break }
                 self?.tick()
             }
         }
@@ -74,6 +74,7 @@ final class TodayViewModel {
     }
 
     func didPullToRefresh() {
+        state.isRefreshing = true
         load(cancellingCurrent: false)
     }
 
@@ -94,6 +95,7 @@ final class TodayViewModel {
     /// Тик автообновления (раз в 60 с, пока экран виден).
     func tick() {
         guard isVisible, loadTask == nil, calendar.isDate(selectedDay, inSameDayAs: now()) else { return }
+        // shortcut: смена суток при открытом экране не отслеживается — обновить список дней по UIApplication.significantTimeChangeNotification, если понадобится
         let soon = now().addingTimeInterval(15 * 60)
         let needsRefresh = matches.contains {
             $0.status == .live || $0.status == .paused || ($0.status == .scheduled && $0.kickoff <= soon)
@@ -124,6 +126,7 @@ final class TodayViewModel {
     }
 
     private func apply(_ result: Result<[Match], Error>) {
+        state.isRefreshing = false
         switch result {
         case let .success(matches):
             self.matches = matches

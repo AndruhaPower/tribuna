@@ -5,7 +5,8 @@ import Foundation
 enum TodayFormatter {
     static let sectionOrder = ["CL", "PL", "PD", "BL1", "SA", "FL1", "NHL"]
     private static let weekdays = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"]
-    private static let unknownTeam = "—"
+    /// Неизвестное значение — везде одно длинное тире.
+    private static let unknown = "—"
 
     /// Полоса дней: от вчера до +6.
     static func days(today: Date, selected: Date, calendar: Calendar) -> [TodayState.DayItem] {
@@ -23,7 +24,7 @@ enum TodayFormatter {
     static func content(matches: [Match], bookmarks: Set<MatchID>, day: Date, calendar: Calendar) -> TodayState.Content {
         guard !matches.isEmpty else { return .empty }
         let sorted = matches.sorted { $0.kickoff < $1.kickoff }
-        let events = sorted.filter { bookmarks.contains($0.id) }.map(eventCard)
+        let events = sorted.filter { bookmarks.contains($0.id) }.map { eventCard($0, calendar: calendar) }
         let groups = Dictionary(grouping: sorted, by: \.competition.code)
         let sections = groups.keys.sorted(by: sectionPrecedes).compactMap { code -> TodayState.Section? in
             guard let group = groups[code], let competition = group.first?.competition else { return nil }
@@ -63,7 +64,7 @@ enum TodayFormatter {
 
     /// «Ливерпуль — Арсенал».
     static func title(_ match: Match) -> String {
-        "\(match.home?.name ?? unknownTeam) — \(match.away?.name ?? unknownTeam)"
+        "\(match.home?.name ?? unknown) — \(match.away?.name ?? unknown)"
     }
 
     private static func sectionPrecedes(_ lhs: String, _ rhs: String) -> Bool {
@@ -81,30 +82,41 @@ enum TodayFormatter {
         TodayState.MatchRow(
             id: match.id,
             leading: leading(match, calendar: calendar),
-            home: match.home?.name ?? unknownTeam,
-            away: match.away?.name ?? unknownTeam,
+            home: match.home?.name ?? unknown,
+            away: match.away?.name ?? unknown,
             isBookmarked: isBookmarked
         )
     }
 
-    private static func eventCard(_ match: Match) -> TodayState.EventCard {
+    private static func eventCard(_ match: Match, calendar: Calendar) -> TodayState.EventCard {
         TodayState.EventCard(
             id: match.id,
             header: [match.competition.name, match.round].compactMap(\.self).joined(separator: " · "),
             isLive: match.status == .live || match.status == .paused,
+            statusText: statusText(match, calendar: calendar),
             home: team(match.home),
             away: team(match.away),
-            homeScore: match.homeScore.map(String.init) ?? unknownTeam,
-            awayScore: match.awayScore.map(String.init) ?? unknownTeam
+            homeScore: match.homeScore.map(String.init) ?? "",
+            awayScore: match.awayScore.map(String.init) ?? ""
         )
     }
 
+    private static func statusText(_ match: Match, calendar: Calendar) -> String {
+        switch match.status {
+        case .scheduled: time(match.kickoff, calendar: calendar)
+        case .live, .paused: "LIVE"
+        case .finished: "Завершён"
+        case .postponed: "Перенесён"
+        case .cancelled: "Отменён"
+        }
+    }
+
     private static func team(_ team: Team?) -> TodayState.TeamItem {
-        TodayState.TeamItem(name: team?.name ?? unknownTeam, abbreviation: team?.abbreviation)
+        TodayState.TeamItem(name: team?.name ?? unknown, abbreviation: team?.abbreviation)
     }
 
     private static func score(_ match: Match) -> String {
-        "\(match.homeScore.map(String.init) ?? "–") : \(match.awayScore.map(String.init) ?? "–")"
+        "\(match.homeScore.map(String.init) ?? unknown) : \(match.awayScore.map(String.init) ?? unknown)"
     }
 
     private static func weekday(_ date: Date, calendar: Calendar) -> String {

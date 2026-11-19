@@ -18,6 +18,7 @@ struct TodayFormatterTests {
         #expect(TodayFormatter.leading(match("a", status: .finished, score: (2, 1)), calendar: cal) == "2 : 1")
         #expect(TodayFormatter.leading(match("a", status: .live, score: (2, 1)), calendar: cal) == "LIVE 2 : 1")
         #expect(TodayFormatter.leading(match("a", status: .paused, score: (0, 0)), calendar: cal) == "LIVE 0 : 0")
+        #expect(TodayFormatter.leading(match("a", status: .live), calendar: cal) == "LIVE — : —")
         #expect(TodayFormatter.leading(match("a", status: .postponed), calendar: cal) == "Перенесён")
         #expect(TodayFormatter.leading(match("a", status: .cancelled), calendar: cal) == "Отменён")
     }

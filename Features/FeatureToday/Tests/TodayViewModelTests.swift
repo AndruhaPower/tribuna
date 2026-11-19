@@ -114,12 +114,17 @@ struct TodayViewModelTests {
         #expect(event.home == TodayState.TeamItem(name: "Ливерпуль", abbreviation: "ЛИВ"))
         #expect(event.homeScore == "1")
         #expect(event.awayScore == "0")
+        #expect(event.statusText == "LIVE")
         #expect(content.sections[0].rows.map(\.isBookmarked) == [true, false])
 
         viewModel.didToggleBookmark(MatchID(rawValue: "pl2"))
 
         let updated = try #require(loaded(viewModel))
         #expect(updated.events.map(\.id.rawValue) == ["pl1", "pl2"])
+        #expect(updated.events[1].statusText == "23:00")
+        #expect(updated.events[1].homeScore.isEmpty)
+        #expect(updated.events[1].awayScore.isEmpty)
+        #expect(!updated.events[1].isLive)
         #expect(updated.sections[0].rows.map(\.isBookmarked) == [true, true])
         #expect(bookmarks.bookmarks.contains(MatchID(rawValue: "pl2")))
         #expect(repository.calls == 1)
@@ -181,6 +186,59 @@ struct TodayViewModelTests {
         await viewModel.loadTask?.value
 
         #expect(repository.calls == 2)
+    }
+
+    @Test func eventStatusTextForFinishedPostponedCancelled() async throws {
+        let repository = FakeMatchesRepository([
+            match("f", at: "2026-11-18 14:00", status: .finished, score: (2, 1)),
+            match("p", at: "2026-11-18 15:00", status: .postponed),
+            match("c", at: "2026-11-18 16:00", status: .cancelled),
+        ])
+        let viewModel = makeViewModel(repository, bookmarks: FakeBookmarksStore(["f", "p", "c"]))
+        await appear(viewModel)
+
+        let events = try #require(loaded(viewModel)).events
+        #expect(events.map(\.statusText) == ["Завершён", "Перенесён", "Отменён"])
+        #expect(events.map(\.homeScore) == ["2", "", ""])
+    }
+
+    @Test func pullToRefreshFailureKeepsContentAndStopsRefreshing() async throws {
+        let repository = FakeMatchesRepository([match("pl1")])
+        let viewModel = makeViewModel(repository)
+        await appear(viewModel)
+        let content = viewModel.state.content
+        #expect(!viewModel.state.isRefreshing)
+
+        repository.result = .failure(FakeError())
+        viewModel.didPullToRefresh()
+        #expect(viewModel.state.isRefreshing)
+        await viewModel.loadTask?.value
+
+        #expect(!viewModel.state.isRefreshing)
+        #expect(viewModel.state.content == content)
+        #expect(repository.calls == 2)
+    }
+
+    @Test func daySwitchIgnoresLateResponseForPreviousDay() async throws {
+        let today = date("2026-11-18 00:00"), tomorrow = date("2026-11-19 00:00")
+        let repository = FakeMatchesRepository(
+            byDay: [today: [match("d18")], tomorrow: [match("d19", at: "2026-11-19 21:00")]],
+            held: true
+        )
+        let viewModel = makeViewModel(repository)
+        viewModel.viewDidAppear()
+        let first = viewModel.loadTask
+        viewModel.didSelectDay(tomorrow)
+        let second = viewModel.loadTask
+
+        repository.release(tomorrow)
+        await second?.value
+        repository.release(today)
+        await first?.value
+
+        #expect(loaded(viewModel)?.sections.first?.rows.map(\.id.rawValue) == ["d19"])
+        #expect(viewModel.state.days.filter(\.isSelected).map(\.id) == [tomorrow])
+        #expect(viewModel.loadTask == nil)
     }
 
     @Test func tickRefreshesWhenLiveAndVisible() async {
