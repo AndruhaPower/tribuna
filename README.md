@@ -48,7 +48,7 @@ Tribuna/                Приложение: AppDelegate, SceneDelegate, таб
 Features/Feature<Имя>/  Модуль на каждую фичу
 Core/CoreDomain/        Модели и протоколы (без зависимостей)
 Core/CoreRepositories/  Реализации: Supabase (PostgREST), закладки; зависит только приложение
-Core/CoreUI/            Общий UI
+Core/CoreUI/            Общий UI (в т.ч. StatusCell — загрузка/пусто/ошибка)
 supabase/               Бэкенд: миграции и Edge Function sync-football
 Project.swift           Манифест Tuist (все модули)
 Tuist/Package.swift     Внешние зависимости (SnapKit)
