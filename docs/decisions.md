@@ -80,6 +80,9 @@ Unbounded — вариативный файл из Google Fonts (`Tribuna/Resour
 Иконки — геометрия Lucide (ISC, `Tribuna/Resources/Lucide-LICENSE.txt`), SVG в `Assets.xcassets/tab-*`, линия 2. В макете иконки разного масштаба, поэтому масштаб каждой подогнан её `viewBox`, а не размером в коде. SF Symbols для таб-бара не используем — не совпадают с макетом.
 Вкладкам добавляется `additionalSafeAreaInsets.bottom = 49`. Мини-плеер (D15) кладётся в тот же контейнер над таб-баром. `UIDesignRequiresCompatibility` не используем — Apple его уберёт.
 
+### D20. Футбол: pg_cron → Edge Function → таблицы — 2026-11-19
+Данные football-data.org попадают в Supabase так: pg_cron вызывает Edge Function `sync-football`, она забирает матчи, команды и таблицы и пишет в таблицы `competitions`, `teams`, `matches`, `standings`, `sync_state`. Клиент только читает их (RLS: `select` для `anon`/`authenticated`, писать может только `service_role`; `sync_state` клиенту закрыта). Таблицу турнира заменяет атомарно `replace_standings` (`security definer`, `execute` только у `service_role`). Схема — `supabase/migrations/20261119120000_football.sql`, дизайн — [спек](superpowers/specs/2026-11-19-football-backend-design.md).
+
 ## Грабли
 
 - **«swap-monorepo» в окружении** — это название сессии в приложении, а не репозиторий. Репозиторий проекта — только `AndruhaPower/tribuna`.
@@ -88,3 +91,4 @@ Unbounded — вариативный файл из Google Fonts (`Tribuna/Resour
 - **RSS подкастов**: нет `ETag` и `Last-Modified`, условные запросы не работают — кешируем по своему расписанию.
 - **Глобальный git** настроен на рабочую почту okko.tv. После клонирования снова задай `git config user.email pazit@yandex.ru`.
 - **Профиль без входа** в макетах не нарисован, хотя приложение работает без входа.
+- **Чужие проекты Supabase**: в том же аккаунте есть `swap-dev` и `trading-bot`. Tribuna принадлежит только `tribuna_db` (ref `wgwsdhyrazjzqwvnhgzk`), остальные не трогаем.
