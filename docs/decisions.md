@@ -85,6 +85,16 @@ Unbounded — вариативный файл из Google Fonts (`Tribuna/Resour
 Данные football-data.org попадают в Supabase так: pg_cron вызывает Edge Function `sync-football`, она забирает матчи, команды и таблицы и пишет в таблицы `competitions`, `teams`, `matches`, `standings`, `sync_state`. Клиент только читает их (RLS: `select` для `anon`/`authenticated`, писать может только `service_role`; `sync_state` клиенту закрыта). Таблицу турнира заменяет атомарно `replace_standings` (`security definer`, `execute` только у `service_role`). Схема — `supabase/migrations/20261119120000_football.sql`, дизайн — [спек](superpowers/specs/2026-11-19-football-backend-design.md).
 Live-окно: TIMED/SCHEDULED считаются live в диапазоне −3 ч…+15 мин от `utc_date` (статус у football-data меняется с задержкой), `EXTRA_TIME`/`PENALTY_SHOOTOUT` — live. Таймаут `net.http_post` в cron — 30 с.
 
+### D21. Паттерн экрана и слой данных — 2026-11-19
+Экран — MVVM: `@MainActor` ViewModel с `@Published private(set) var state`, State уже отформатирован для показа, ViewController только рисует. Публичная поверхность фичи — `Feature<Имя>.make(dependencies:output:)`, наружу фича общается замыканиями `Output`. Координатор заводим, только когда в фиче больше одного экрана. Коллекции: compositional layout + diffable data source со стабильными ID и `reconfigureItems` для обновления ячеек.
+Модули: `CoreDomain` — модели и протоколы, без зависимостей; `CoreRepositories` — реализации (PostgREST, UserDefaults), от него зависит только приложение, фичи видят лишь протоколы из `CoreDomain`.
+Закладки пока локальные, в UserDefaults (ключ `bookmarks.v1`, элементы `<спорт>:<id матча>`); синхронизация с бэкендом — позже. Publishable-ключ Supabase лежит в коде приложения (`AppConfig`): он публичный по замыслу, доступ ограничен RLS (только чтение), поэтому это не секрет из D9.
+Тесты — Swift Testing, схема = имя модуля:
+```
+xcodebuild test -workspace Tribuna.xcworkspace -scheme CoreRepositories -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.0.1'
+```
+Спек — [foundation-today](superpowers/specs/2026-11-19-foundation-today-design.md).
+
 ## Грабли
 
 - **«swap-monorepo» в окружении** — это название сессии в приложении, а не репозиторий. Репозиторий проекта — только `AndruhaPower/tribuna`.

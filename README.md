@@ -46,7 +46,9 @@ open Tribuna.xcworkspace
 ```
 Tribuna/                Приложение: AppDelegate, SceneDelegate, таб-бар
 Features/Feature<Имя>/  Модуль на каждую фичу
-Core/Core<Имя>/         Общий код
+Core/CoreDomain/        Модели и протоколы (без зависимостей)
+Core/CoreRepositories/  Реализации: Supabase (PostgREST), закладки; зависит только приложение
+Core/CoreUI/            Общий UI
 supabase/               Бэкенд: миграции и Edge Function sync-football
 Project.swift           Манифест Tuist (все модули)
 Tuist/Package.swift     Внешние зависимости (SnapKit)
@@ -56,6 +58,15 @@ docs/design/            Макеты MVP (PNG, @2x)
 TRIBUNA.pdf             Концепт MVP
 tribuna_api_check.py    Проверка бесплатных API
 tribuna_api_report/     Результат проверки от 18.11.2026
+```
+
+## Тесты iOS
+
+Схема совпадает с именем модуля (`CoreRepositories`, `FeatureToday`):
+
+```bash
+./generate && xcodebuild test -workspace Tribuna.xcworkspace -scheme FeatureToday \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=26.0.1'
 ```
 
 ## Бэкенд
