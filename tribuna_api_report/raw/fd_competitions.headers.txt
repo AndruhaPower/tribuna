@@ -1,0 +1,15 @@
+HTTP/1.1 200 
+Server: nginx
+Date: Wed, 18 Nov 2026 11:06:08 GMT
+Content-Type: application/json;charset=UTF-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+X-RequestCounter-Reset: 60
+X-API-Version: v4
+X-Authenticated-Client: Andrei
+Access-Control-Allow-Origin: http://localhost
+Access-Control-Allow-Methods: GET
+Content-Language: en-US
+x-requests-available-minute: 9
+X-Cache-Status: BYPASS
+

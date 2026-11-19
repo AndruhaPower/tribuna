@@ -1,0 +1,32 @@
+HTTP/2 200 
+server: daiquiri/5
+content-type: text/javascript; charset=utf-8
+x-apple-jingle-correlation-key: UTUEU6KVH7DTDXCFT7ID22GJK4
+x-apple-request-uuid: a4e84a79-553f-c731-dc45-9fd03d68c957
+x-apple-translated-wo-url: /WebObjects/MZStoreServices.woa/ws/wsLookup?id=1597454737,1492781882,1560426496&urlDesc=
+apple-tk: false
+x-b3-spanid: af0aa9f14273359b
+b3: a4e84a79553fc731dc459fd03d68c957-af0aa9f14273359b
+content-disposition: attachment; filename=1.txt
+x-b3-traceid: a4e84a79553fc731dc459fd03d68c957
+x-content-type-options: nosniff
+x-webobjects-loadaverage: 0
+x-responding-instance: MZStoreServices:6001911:::
+apple-seq: 0.0
+access-control-allow-origin: *
+apple-originating-system: MZStoreServices
+strict-transport-security: max-age=31536000; includeSubDomains
+x-apple-orig-url: https://itunes.apple.com/lookup?id=1597454737,1492781882,1560426496
+x-apple-application-site: ST11
+apple-timing-app: 11 ms
+x-apple-application-instance: 6001911
+x-daiquiri-instance: daiquiri:42282003:st53p00it-qujn11050301:7987:26RELEASE188:daiquiri-amp-store-l7shared-ext-001-st
+x-daiquiri-debug-worker-pid: 39616
+cache-control: max-age=86400
+date: Wed, 18 Nov 2026 11:06:21 GMT
+content-length: 5419
+x-cache: TCP_MISS from a23-36-160-15.deploy.akamaitechnologies.com (AkamaiGHost/22.7.1-a99db5fb656d033f98675045e2711319) (-)
+x-true-cache-key: /L/itunes.apple.com/lookup vcd=2897 ci2=id=1597454737,1492781882,1560426496///
+x-cache-remote: TCP_MISS from a95-101-140-213.deploy.akamaitechnologies.com (AkamaiGHost/22.7.1-a99db5fb656d033f98675045e2711319) (-)
+x-apple-partner: origin.0
+

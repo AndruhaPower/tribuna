@@ -1,0 +1,23 @@
+HTTP/2 307 
+date: Wed, 18 Nov 2026 11:06:12 GMT
+content-length: 0
+location: https://api-web.nhle.com/v1/standings/2026-11-17
+vary: Accept-Encoding
+cache-control: no-transform, max-age=14, s-maxage=14
+etag: W/"6afd86a7"
+age: 11
+cf-cache-status: HIT
+server: cloudflare
+cf-ray: a5c68121db3c920b-HEL
+
+HTTP/2 200 
+date: Wed, 18 Nov 2026 11:06:12 GMT
+content-type: application/json
+vary: Accept-Encoding
+cache-control: no-transform, max-age=14, s-maxage=14
+etag: W/"6afd86a7--gzip"
+age: 11
+cf-cache-status: HIT
+server: cloudflare
+cf-ray: a5c681220b7c920b-HEL
+

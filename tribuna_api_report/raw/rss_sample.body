@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:atom="http://www.w3.org/2005/Atom"
+     xmlns:castbox="http://castbox.fm/dtds/podcast-1.0.dtd" xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     version="2.0">
+    <channel>
+        <atom:link href="http://rss.castbox.fm/everest/9fb65170d9f54fc48d8ca38524b31b6c.xml" type="application/rss+xml" rel="self"/>
+        <copyright>&amp;copy; Детское Радио</copyright>
+        <link>https://castbox.fm/ch/4685532</link>
+        <language>ru</language>
+
+        <title>Футбол для дружбы</title>
+        <description><![CDATA[Футбол – самый популярный вид спорта в мире! И один из самых древних: оказывается, первый матч сыграли в Китае в 476 году до нашей эры! Конечно, с тех пор футбол или соккер, как эту игру называют в США и Канаде, сильно изменился. Разобраться во всех правилах и нюансах нам поможет спортивный комментатор Детского радио - Захар! Заодно вместе с ним узнаем, что такое дриблинг и сэйв, почему итальянский судья Пьерлуиджи Коллина получил прозвище Фантомас и кто играет в болотный футбол?
+ 
+0+
+]]></description>
+        <castbox:uid>1d14581db1b3483da1617c12f8399f51</castbox:uid>
+        <castbox:pid>4685532</castbox:pid>
+        <castbox:type></castbox:type>
+
+        <itunes:summary><![CDATA[Футбол – самый популярный вид спорта в мире! И один из самых древних: оказывается, первый матч сыграли в Китае в 476 году до нашей эры! Конечно, с тех пор футбол или соккер, как эту игру называют в США и Канаде, сильно изменился. Разобраться во всех правилах и нюансах нам поможет спортивный комментатор Детского радио - Захар! Заодно вместе с ним узнаем, что такое дриблинг и сэйв, почему итальянский судья Пьерлуиджи Коллина получил прозвище Фантомас и кто играет в болотный футбол?
+ 
+0+
+]]></itunes:summary>
+        <itunes:subtitle></itunes:subtitle>
+        <itunes:author>Детское Радио</itunes:author>
+
+        <itunes:owner>
+            <itunes:email>gpmrpodcasts@gmail.com</itunes:email>
+        </itunes:owner>
+
+        <itunes:image href="https://s3.castbox.fm/cd/0f/de/a9f0fd407b864a04936704f3d2.jpg"/>
+        <itunes:keywords>Kids &amp; Family,Education for Kids,Parenting</itunes:keywords>
+
+        
+        
+            
+        <itunes:category text="Kids &amp; Family">
+             <itunes:category text="Parenting"/>
+        </itunes:category>
+            
+        
+            
+        <itunes:category text="Kids &amp; Family"/>
+            
+        
+            
+        <itunes:category text="Kids &amp; Family">
+             <itunes:category text="Education for Kids"/>
+        </itunes:category>
+            
+        
+        
+
+        <itunes:explicit>no</itunes:explicit>
+
+        
+        <item>
+            <title>Футбольная форма. Как изменилась экипировка за 200 лет?</title>
+            <description><![CDATA[  <p>Футбольная форма. Как изменилась экипировка за 200 лет?</p>  ]]></description>
+            <content:encoded><![CDATA[  <p>Футбольная форма. Как изменилась экипировка за 200 лет?</p>  ]]></content:encoded>
+            <itunes:summary>Футбольная форма. Как изменилась экипировка за 200 лет?</itunes:summary>
+            <itunes:image href="https://s3.castbox.fm/cd/0f/de/a9f0fd407b864a04936704f3d2.jpg"/>
+            <enclosure url="https://s3.castbox.fm/81/b6/7f/bde36443ad83c6f6ac6e4ed30d.mp3" type="audio/mp3" length="5664661"/>
+            <itunes:duration>00:05:54</itunes:duration>
+            <guid isPermaLink="false">album-9fb65170d9f54fc48d8ca38524b31b6c-29d0148667474149b6b6fd3f25d76b0b</guid>
+            <pubDate>Fri, 17 Feb 2023 08:48:57 +0000</pubDate>
+            <castbox:tid>571955191</castbox:tid>
+            <castbox:episode_premium></castbox:episode_premium>
+            <itunes:explicit>no</itunes:explicit>
+            
+        </item>
+        
+        <item>
+            <title>Трофеи. Почему каждый футболист мечтает получить в качестве приза всего одну бутсу?</title>
+            <description><![CDATA[  <p>Трофеи. Почему каждый футболист мечтает получить в качестве приза всего одну бутсу?&nbsp;</p>  ]]></description>
+            <content:encoded><![CDATA[  <p>Трофеи. Почему каждый футболист мечтает получить в качестве приза всего одну бутсу?&nbsp;</p>  ]]></content:encoded>
+            <itunes:summary>Трофеи. Почему каждый футболист мечтает получить в качестве приза всего одну бутсу? </itunes:summary>
+            <itunes:image href="https://s3.castbox.fm/cd/0f/de/a9f0fd407b864a04936704f3d2.jpg"/>
+            <enclosure url="https://s3.castbox.fm/ec/a4/02/d0a0a346339b97d0c0d585c377.mp3" type="audio/mp3" length="5460697"/>
+            <itunes:duration>00:05:41</itunes:duration>
+            <guid isPermaLink="false">album-9fb65170d9f54fc48d8ca38524b31b6c-26e38f7a54d640a7825fb11fbdb154d7</guid>
+            <pubDate>Fri, 10 Feb 2023 15:48:53 +0000</pubDate>
+            <castbox:tid>570182907</castbox:tid>
+            <castbox:episode_premium></castbox:episode_premium>
+            <itunes:explicit>no</itunes:explicit>
+            
+        </item>
+        
+        <item>
+            <title>Хобби знаменитых спортсменов. Кто из футболистов пишет стихи, а кто замечательно поет?</title>
+            <description><![CDATA[  <p>Хобби знаменитых спортсменов. Кто из футболистов пишет стихи, а кто замечательно поет?&nbsp;</p>  ]]></description>
+            <content:encoded><![CDATA[  <p>Хобби знаменитых спортсменов. Кто из футболистов пишет стихи, а кто замечательно поет?&nbsp;</p>  ]]></content:encoded>
+            <itunes:summary>Хобби знаменитых спортсменов. Кто из футболистов пишет стихи, а кто замечательно поет? </itunes:summary>
+            <itunes:image href="https://s3.castbox.fm/cd/0f/de/a9f0fd407b864a04936704f3d2.jpg"/>
+            <enclosure url="https://s3.castbox.fm/97/c1/b0/6adeea4f7181eaa54e6cbb55b8.mp3" type="audio/mp3" length="5749089"/>
+            <itunes:duration>00:05:59</itunes:duration>
+            <guid isPermaLink="false">album-9fb65170d9f54fc48d8ca38524b31b6c-c43db58a98584e88b9a32e81c04b0000</guid>
+            <pubDate>Tue, 07 Feb 2023 09:54:50 +0000</pubDate>
+            <castbox:tid>569205399</castbox:tid>
+            <castbox:episode_premium></castbox:episode_premium>
+            <itunes:explicit>no</itunes:explicit>
+            
+        </item>
+        
+        <item>
+            <title>Мини-футбол. Какой мячик нужен для этого вида спорта?</title>
+            <description><![CDATA[  <p>Мини-футбол. Какой мячик нужен для этого вида спорта?</p>  ]]></description>
+            <content:encoded><![CDATA[  <p>Мини-футбол. Какой мячик нужен для этого вида спорта?</p>  ]]></content:encoded>
+            <itunes:summary>Мини-футбол. Какой мячик нужен для этого вида спорта?</itunes:summary>
+            <itunes:image href="https://s3.castbox.fm/cd/0f/de/a9f0fd407b864a04936704f3d2.jpg"/>
+            <enclosure url="https://s3.castbox.fm/ac/72/13/2b181c45bf94573132fc290f6f.mp3" type="audio/mp3" length="5709383"/>
+            <itunes:duration>00:05:56</itunes:duration>
+            <guid isPermaLink="false">album-9fb65170d9f54fc48d8ca38524b31b6c-a738c50c591f40baaa00417132be586c</guid>
+            <pubDate>Fri, 27 Jan 2023 06:52:03 +0000</pubDate>
+            <castbox:tid>566128816</castbox:tid>
+            <castbox:episode_premium></castbox:episode_premium>
+            <itunes:explicit>no</itunes:explicit>
+            
+        </item>
+        
+        <item>
+            <title>Лев Яшин. Почему легендарного вратаря называли черной пантерой, осьминогом и пауком?</title>
+            <description><![CDATA[  <p>Лев Яшин. Почему легендарного вратаря называли черной пантерой, осьминогом и пауком?</p>  ]]></description>
+            <content:encoded><![CDATA[  <p>Лев Яшин. Почему легендарного вратаря называли черной пантерой, осьминогом и пауком?</p>  ]]></content:encoded>
+            <itunes:summary>Лев Яшин. Почему легендарного вратаря называли черной пантерой, осьминогом и пауком?</itunes:summary>
+            <itunes:image href="https://s3.castbox.fm/cd/0f/de/a9f0fd407b864a04936704f3d2.jpg"/>
+            <enclosure url="https://s3.castbox.fm/d6/77/86/7a0f60425180e5acc20f0a7c4b.mp3" type="audio/mp3" length="5243359"/>
+            <itunes:duration>00:05:27</itunes:duration>
+            <guid isPermaLink="false">album-9fb65170d9f54fc48d8ca38524b31b6c-7c7b91584a0b4d3199ad8cad5194d638</guid>
+            <pubDate>Mon, 12 Dec 2022 14:36:11 +0000</pubDate>
+            <castbox:tid>555063740</castbox:tid>
+            <castbox:episode_premium></castbox:episode_premium>
+            <itunes:explicit>no</itunes:explicit>
+            
+        </item>
+        
+        <item>
+            <title>Легендарный Оливер Кан. Почему британского вратаря называют бульдогом?</title>
+            <description><![CDATA[  <p>Легендарный Оливер Кан. Почему британского вратаря называют бульдогом?</p>  ]]></description>
+            <content:encoded><![CDATA[  <p>Легендарный Оливер Кан. Почему британского вратаря называют бульдогом?</p>  ]]></content:encoded>
+            <itunes:summary>Легендарный Оливер Кан. Почему британского вратаря называют бульдогом?</itunes:summary>
+            <itunes:image href="https://s3.castbox.fm/cd/0f/de/a9f0fd407b864a04936704f3d2.jpg"/>
+            <enclosure url="https://s3.castbox.fm/d5/7c/c1/263bdd4eb6b77e7988ceb3e7c9.mp3" type="audio/mp3" length="5603639"/>
+            <itunes:duration>00:05:50</itunes:duration>
+            <guid isPermaLink="false">album-9fb65170d9f54fc48d8ca38524b31b6c-683175fe66e1467fb46833ddceca27e6</guid>
+            <pubDate>Fri, 22 Apr 2022 14:23:38 +0000</pubDate>
+            <castbox:tid>488605112</castbox:tid>
+            <castbox:episode_premium></castbox:episode_premium>
+            <itunes:explicit>no</itunes:explicit>
+            
+        </item>
+        
+        <item>
+            <title>Бутсы! Из чего делали обувь для футболистов 500 лет назад и почему на бутсах появились шипы?</title>
+            <description><![CDATA[  <p>Бутсы! Из чего делали обувь для футболистов 500 лет назад и почему на бутсах появились шипы?</p>  ]]></description>
+            <content:encoded><![CDATA[  <p>Бутсы! Из чего делали обувь для футболистов 500 лет назад и почему на бутсах появились шипы?</p>  ]]></content:encoded>
+            <itunes:summary>Бутсы! Из чего делали обувь для футболистов 500 лет назад и почему на бутсах появились шипы?</itunes:summary>
+            <itunes:image href="https://s3.castbox.fm/cd/0f/de/a9f0fd407b864a04936704f3d2.jpg"/>
+            <enclosure url="https://s3.castbox.fm/31/67/a8/f21cf14e6aa483b024c6afb7cd.mp3" type="audio/mp3" length="5801752"/>
+            <itunes:duration>00:06:02</itunes:duration>
+            <guid isPermaLink="false">album-9fb65170d9f54fc48d8ca38524b31b6c-f694f1ee1fe0465fa11dbf3254c1e85c</guid>
+            <pubDate>Fri, 08 Apr 2022 10:51:01 +0000</pubDate>
+            <castbox:tid>484024912</castbox:tid>
+            <castbox:episode_premium></castbox:episode_premium>
+            <itunes:explicit>no</itunes:explicit>
+            
+        </item>
+        
+        <item>
+            <title>Кто лучше играет в футбол – мальчишки или девчонки?</title>
+            <description><![CDATA[  <p>Кто лучше играет в футбол – мальчишки или девчонки?&nbsp;</p>  ]]></description>
+            <content:encoded><![CDATA[  <p>Кто лучше играет в футбол – мальчишки или девчонки?&nbsp;</p>  ]]></content:encoded>
+            <itunes:summary>Кто лучше играет в футбол – мальчишки или девчонки? </itunes:summary>
+            <itunes:image href="https://s3.castbox.fm/cd/0f/de/a9f0fd407b864a04936704f3d2.jpg"/>
+            <enclosure url="https://s3.castbox.fm/46/bb/a3/56ef8145399260317744f6e9f9.mp3" type="audio/mp3" length="5628299"/>
+            <itunes:duration>00:05:51</itunes:duration>
+            <guid isPermaLink="false">album-9fb65170d9f54fc48d8ca38524b31b6c-2dbd667095904326a412c941367c3a36</guid>
+            <pubDate>Wed, 30 Mar 2022 12:18:54 +0000</pubDate>
+            <castbox:tid>481099564</castbox:tid>
+            <castbox:episode_premium></castbox:episode_premium>
+            <itunes:explicit>no</itunes:explicit>
+            
+        </item>
+        
+        <item>
+            <title>Как играли в футбол в древности?</title>
+            <description><![CDATA[  <p>Как играли в футбол в древности?</p>  ]]></description>
+            <content:encoded><![CDATA[  <p>Как играли в футбол в древности?</p>  ]]></content:encoded>
+            <itunes:summary>Как играли в футбол в древности?</itunes:summary>
+            <itunes:image href="https://s3.castbox.fm/cd/0f/de/a9f0fd407b864a04936704f3d2.jpg"/>
+            <enclosure url="https://s3.castbox.fm/29/cf/a8/988e3a4d5a8362bef951816d63.mp3" type="audio/mp3" length="5260077"/>
+            <itunes:duration>00:05:28</itunes:duration>
+            <guid isPermaLink="false">album-9fb65170d9f54fc48d8ca38524b31b6c-5471907585e148b1a6cd5e38acea9ff4</guid>
+            <pubDate>Wed, 12 Jan 2022 09:43:52 +0000</pubDate>
+            <castbox:tid>458261519</castbox:tid>
+            <castbox:episode_premium></castbox:episode_premium>
+            <itunes:explicit>no</itunes:explicit>
+            
+        </item>
+        
+        <item>
+            <title>Знаменитые комментаторы: Вадим Синявский и Николай Озеров</title>
+            <description><![CDATA[  <p>Знаменитые комментаторы: Вадим Синявский и Николай Озеров</p>  ]]></description>
+            <content:encoded><![CDATA[  <p>Знаменитые комментаторы: Вадим Синявский и Николай Озеров</p>  ]]></content:encoded>
+            <itunes:summary>Знаменитые комментаторы: Вадим Синявский и Николай Озеров</itunes:summary>
+            <itunes:image href="https://s3.castbox.fm/cd/0f/de/a9f0fd407b864a04936704f3d2.jpg"/>
+            <enclosure url="https://s3.castbox.fm/c8/dd/1a/7eb2e544ea802f675c600f894c.mp3" type="audio/mp3" length="5797990"/>
+            <itunes:duration>00:06:02</itunes:duration>
+            <guid isPermaLink="false">album-9fb65170d9f54fc48d8ca38524b31b6c-1ef82b482e1c4cafb4b79445c7e09beb</guid>
+            <pubDate>Wed, 12 Jan 2022 09:42:41 +0000</pubDate>
+            <castbox:tid>458261329</castbox:tid>
+            <castbox:episode_premium></castbox:episode_premium>
+            <itunes:explicit>no</itunes:explicit>
+            
+        </item>
+        
+        <item>
+            <title>Шеффилд: первый футбольный клуб</title>
+            <description><![CDATA[  <p>Шеффилд: первый футбольный клуб</p>  ]]></description>
+            <content:encoded><![CDATA[  <p>Шеффилд: первый футбольный клуб</p>  ]]></content:encoded>
+            <itunes:summary>Шеффилд: первый футбольный клуб</itunes:summary>
+            <itunes:image href="https://s3.castbox.fm/cd/0f/de/a9f0fd407b864a04936704f3d2.jpg"/>
+            <enclosure url="https://s3.castbox.fm/5f/f1/ac/c836c3412594543595ac6265fa.mp3" type="audio/mp3" length="5160185"/>
+            <itunes:duration>00:05:22</itunes:duration>
+            <guid isPermaLink="false">album-9fb65170d9f54fc48d8ca38524b31b6c-443f25920b194b7aa9addab6d451e841</guid>
+            <pubDate>Wed, 12 Jan 2022 09:42:17 +0000</pubDate>
+            <castbox:tid>458261212</castbox:tid>
+            <castbox:episode_premium></castbox:episode_premium>
+            <itunes:explicit>no</itunes:explicit>
+            
+        </item>
+        
+        <item>
+            <title>Футбольный мяч: когда появился, из чего делали первые экземпляры и как выбрали идеальную расцветку?</title>
+            <description><![CDATA[  <p>Когда появился, из чего делали первые экземпляры и как выбрали идеальную расцветку?</p>  ]]></description>
+            <content:encoded><![CDATA[  <p>Когда появился, из чего делали первые экземпляры и как выбрали идеальную расцветку?</p>  ]]></content:encoded>
+            <itunes:summary>Когда появился, из чего делали первые экземпляры и как выбрали идеальную расцветку?</itunes:summary>
+            <itunes:image href="https://s3.castbox.fm/cd/0f/de/a9f0fd407b864a04936704f3d2.jpg"/>
+            <enclosure url="https://s3.castbox.fm/27/35/5d/316b20448c8e502ee911c0ef11.mp3" type="audio/mp3" length="5676782"/>
+            <itunes:duration>00:05:54</itunes:duration>
+            <guid isPermaLink="false">album-9fb65170d9f54fc48d8ca38524b31b6c-ed3d591865ad4af18a6a1b8ff4bee3ca</guid>
+            <pubDate>Wed, 12 Jan 2022 09:41:04 +0000</pubDate>
+            <castbox:tid>458260859</castbox:tid>
+            <castbox:episode_premium></castbox:episode_premium>
+            <itunes:explicit>no</itunes:explicit>
+            
+        </item>
+        
+        <item>
+            <title>Как стать футбольным комментатором</title>
+            <description><![CDATA[  <p>Как стать футбольным комментатором</p>  ]]></description>
+            <content:encoded><![CDATA[  <p>Как стать футбольным комментатором</p>  ]]></content:encoded>
+            <itunes:summary>Как стать футбольным комментатором</itunes:summary>
+            <itunes:image href="https://s3.castbox.fm/cd/0f/de/a9f0fd407b864a04936704f3d2.jpg"/>
+            <enclosure url="https://s3.castbox.fm/da/88/94/2765794501867d5d64d089e065.mp3" type="audio/mp3" length="5054859"/>
+            <itunes:duration>00:05:15</itunes:duration>
+            <guid isPermaLink="false">album-9fb65170d9f54fc48d8ca38524b31b6c-17a6b5ad5b1d4234b40842f0d9baf7aa</guid>
+            <pubDate>Fri, 24 Dec 2021 09:31:15 +0000</pubDate>
+            <castbox:tid>453457542</castbox:tid>
+            <castbox:episode_premium></castbox:episode_premium>
+            <itunes:explicit>no</itunes:explicit>
+            
+        </item>
+        
+        <item>
+            <title>Судья Пьерлуиджи Коллина по прозвищу Фантомас!</title>
+            <description><![CDATA[  <p>Судья Пьерлуиджи Коллина по прозвищу Фантомас!</p>  ]]></description>
+            <content:encoded><![CDATA[  <p>Судья Пьерлуиджи Коллина по прозвищу Фантомас!</p>  ]]></content:encoded>
+            <itunes:summary>Судья Пьерлуиджи Коллина по прозвищу Фантомас!</itunes:summary>
+            <itunes:image href="https://s3.castbox.fm/cd/0f/de/a9f0fd407b864a04936704f3d2.jpg"/>
+            <enclosure url="https://s3.castbox.fm/ff/cd/cf/532e154ae68c95473d1dc359af.mp3" type="audio/mp3" length="5351610"/>
+            <itunes:duration>00:05:34</itunes:duration>
+            <guid isPermaLink="false">album-9fb65170d9f54fc48d8ca38524b31b6c-282f1617825d4aff8da4a76f52a0d7af</guid>
+            <pubDate>Fri, 26 Nov 2021 10:39:31 +0000</pubDate>
+            <castbox:tid>445494931</castbox:tid>
+            <castbox:episode_premium></castbox:episode_premium>
+            <itunes:explicit>no</itunes:explicit>
+            
+        </item>
+        
+        <item>
+            <title>Кто такой голеадор и чем он отличается от голкипера?</title>
+            <description><![CDATA[  <p>Кто такой голеадор и чем он отличается от голкипера?</p>  ]]></description>
+            <content:encoded><![CDATA[  <p>Кто такой голеадор и чем он отличается от голкипера?</p>  ]]></content:encoded>
+            <itunes:summary>Кто такой голеадор и чем он отличается от голкипера?</itunes:summary>
+            <itunes:image href="https://s3.castbox.fm/cd/0f/de/a9f0fd407b864a04936704f3d2.jpg"/>
+            <enclosure url="https://s3.castbox.fm/3f/c1/7f/75414d4fd28e2bbb8220de13d4.mp3" type="audio/mp3" length="5764554"/>
+            <itunes:duration>00:06:00</itunes:duration>
+            <guid isPermaLink="false">album-9fb65170d9f54fc48d8ca38524b31b6c-3a07e0a76db34e6aa29c3da9a4254f08</guid>
+            <pubDate>Fri, 26 Nov 2021 10:38:49 +0000</pubDate>
+            <castbox:tid>445494779</castbox:tid>
+            <castbox:episode_premium></castbox:episode_premium>
+            <itunes:explicit>no</itunes:explicit>
+            
+        </item>
+        
+        <item>
+            <title>Что такое оффсайт, дриблинг, аут, угловой и сэйв?</title>
+            <description><![CDATA[  <p>Что такое оффсайт, дриблинг, аут, угловой и сэйв?</p>  ]]></description>
+            <content:encoded><![CDATA[  <p>Что такое оффсайт, дриблинг, аут, угловой и сэйв?</p>  ]]></content:encoded>
+            <itunes:summary>Что такое оффсайт, дриблинг, аут, угловой и сэйв?</itunes:summary>
+            <itunes:image href="https://s3.castbox.fm/cd/0f/de/a9f0fd407b864a04936704f3d2.jpg"/>
+            <enclosure url="https://s3.castbox.fm/4a/04/43/80bcf7487ea78a6f226eb23604.mp3" type="audio/mp3" length="5606565"/>
+            <itunes:duration>00:05:50</itunes:duration>
+            <guid isPermaLink="false">album-9fb65170d9f54fc48d8ca38524b31b6c-80fe3ec9487940488218073bbeda7e2c</guid>
+            <pubDate>Fri, 26 Nov 2021 10:38:33 +0000</pubDate>
+            <castbox:tid>445494759</castbox:tid>
+            <castbox:episode_premium></castbox:episode_premium>
+            <itunes:explicit>no</itunes:explicit>
+            
+        </item>
+        
+        <item>
+            <title>Футбольное поле и разметка</title>
+            <description><![CDATA[  <p>Футбольное поле и разметка</p>  ]]></description>
+            <content:encoded><![CDATA[  <p>Футбольное поле и разметка</p>  ]]></content:encoded>
+            <itunes:summary>Футбольное поле и разметка</itunes:summary>
+            <itunes:image href="https://s3.castbox.fm/cd/0f/de/a9f0fd407b864a04936704f3d2.jpg"/>
+            <enclosure url="https://s3.castbox.fm/c1/dc/b8/c9ae314b19ac78fe8e3277b637.mp3" type="audio/mp3" length="5930901"/>
+            <itunes:duration>00:06:10</itunes:duration>
+            <guid isPermaLink="false">album-9fb65170d9f54fc48d8ca38524b31b6c-23ba8d2b57074dd5be4a72853cd95911</guid>
+            <pubDate>Fri, 26 Nov 2021 10:38:15 +0000</pubDate>
+            <castbox:tid>445494725</castbox:tid>
+            <castbox:episode_premium></castbox:episode_premium>
+            <itunes:explicit>no</itunes:explicit>
+            
+        </item>
+        
+    </channel>
+</rss>

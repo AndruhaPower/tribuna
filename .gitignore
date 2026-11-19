@@ -1,0 +1,41 @@
+# macOS
+.DS_Store
+
+# Xcode
+xcuserdata/
+DerivedData/
+*.xcuserstate
+*.xcscmblueprint
+build/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Tuist (сгенерированные проекты)
+*.xcodeproj
+*.xcworkspace
+Derived/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/test_output/
+
+# Секреты: ключи API, конфиги окружений
+.env
+.env.*
+!.env.example
+Secrets.xcconfig
+*.p8
+*.p12
+*.mobileprovision
+
+# Supabase CLI (локальный стек)
+supabase/.branches/
+supabase/.temp/
+
+# Python
+__pycache__/
+*.pyc

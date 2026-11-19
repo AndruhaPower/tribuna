@@ -1,0 +1,21 @@
+HTTP/1.1 200 OK
+Server: Icecast 2.5.0
+Connection: Close
+Accept-Encoding: identity
+Allow: GET, DELETE, OPTIONS
+Date: Wed, 18 Nov 2026 11:06:12 GMT
+Content-Type: audio/mpeg
+Cache-Control: no-cache, no-store
+Expires: Mon, 26 Jul 1997 05:00:00 GMT
+Pragma: no-cache
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Headers: Content-Type, Authorization, Icecast-Metadata, Range
+Access-Control-Expose-Headers: icy-name, icy-genre, icy-br, icy-metaint, icy-description
+icy-br:192
+icy-description:Радио Верного Болельщика «Спартака»
+icy-genre:Pop, Pop Rock, Cover
+icy-name:Красно-Белая Волна (192k MP3)
+icy-pub:0
+icy-url:https://www.kbvolna.com
+icy-metaint:16000
+
