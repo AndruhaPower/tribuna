@@ -76,6 +76,17 @@ struct RadioPlayerTests {
         #expect(player.state.status == .failed("Не удалось подключиться"))
     }
 
+    @Test func staleConnectTimeoutIgnored() {
+        clock.ignoresCancellation = true
+        player.play(matchTV)
+        clock.advance(by: 10)
+        player.play(sportFM)
+        clock.advance(by: 5)
+        #expect(player.state.status == .loading)
+        clock.advance(by: 10)
+        #expect(player.state.status == .failed("Не удалось подключиться"))
+    }
+
     @Test func toggleRetriesAfterFailure() {
         player.play(matchTV)
         engine.send(.failed)
@@ -168,6 +179,18 @@ struct RadioPlayerTests {
         #expect(player.state.sleepTimerEndsAt == clock.now.addingTimeInterval(1200))
     }
 
+    @Test func expiredSleepTimerClearedOnResume() {
+        playing()
+        player.setSleepTimer(minutes: 10)
+        player.togglePlayPause()
+        clock.skip(by: 700)
+        player.togglePlayPause()
+        #expect(player.state.sleepTimerEndsAt == nil)
+        engine.send(.playing)
+        clock.advance(by: 1)
+        #expect(player.state.status == .playing)
+    }
+
     @Test func sleepTimerSurvivesStationChange() {
         playing()
         player.setSleepTimer(minutes: 15)
@@ -186,6 +209,7 @@ struct RadioPlayerTests {
         player.stop()
         #expect(player.state == PlaybackState(item: nil, status: .idle, sleepTimerEndsAt: nil))
         #expect(nowPlaying.info == nil)
+        #expect(session.deactivateCount == 1)
         clock.advance(by: 900)
         #expect(player.state.status == .idle)
     }

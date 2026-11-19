@@ -51,4 +51,8 @@ final class SystemAudioSession: AudioSessionControlling {
         try session.setCategory(.playback, mode: .default)
         try session.setActive(true)
     }
+
+    func deactivate() {
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
 }

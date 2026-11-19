@@ -27,6 +27,8 @@ final class AVPlayerEngine: PlaybackEngine {
     func play(_ url: URL) {
         let item = AVPlayerItem(url: url)
         observe(item)
+        // Пауза до замены: иначе у уже играющего плеера timeControlStatus может не смениться и .playing не придёт.
+        player.pause()
         player.replaceCurrentItem(with: item)
         player.play()
     }

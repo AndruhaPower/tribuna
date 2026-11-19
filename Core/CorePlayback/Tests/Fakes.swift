@@ -17,7 +17,9 @@ final class FakeEngine: PlaybackEngine {
 final class FakeSession: AudioSessionControlling {
     var onEvent: ((AudioSessionEvent) -> Void)?
     private(set) var activateCount = 0
+    private(set) var deactivateCount = 0
     func activate() throws { activateCount += 1 }
+    func deactivate() { deactivateCount += 1 }
     func send(_ event: AudioSessionEvent) { onEvent?(event) }
 }
 
@@ -41,6 +43,8 @@ final class FakeClock: PlaybackClock {
 
     private(set) var now = Date(timeIntervalSince1970: 1_000_000)
     private var jobs: [Job] = []
+    /// Моделирует гонку: снятая задача всё равно срабатывает.
+    var ignoresCancellation = false
 
     func schedule(after seconds: TimeInterval, _ action: @escaping @MainActor () -> Void) -> AnyCancellable {
         let job = Job(fireAt: now.addingTimeInterval(seconds), action: action)
@@ -50,10 +54,13 @@ final class FakeClock: PlaybackClock {
 
     func advance(by seconds: TimeInterval) {
         now = now.addingTimeInterval(seconds)
-        let due = jobs.filter { !$0.cancelled && $0.fireAt <= now }
+        let due = jobs.filter { (ignoresCancellation || !$0.cancelled) && $0.fireAt <= now }
         jobs.removeAll { $0.cancelled || $0.fireAt <= now }
         due.forEach { $0.action() }
     }
+
+    /// Время идёт, но задачи не срабатывают (приложение спало).
+    func skip(by seconds: TimeInterval) { now = now.addingTimeInterval(seconds) }
 }
 
 let matchTV = Station(

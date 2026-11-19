@@ -15,6 +15,8 @@ public final class RadioPlayer: AudioPlayer {
     private let clock: PlaybackClock
     private let subject = CurrentValueSubject<PlaybackState, Never>(PlaybackState(item: nil, status: .idle, sleepTimerEndsAt: nil))
     private var connectTimeout: AnyCancellable?
+    /// Номер попытки подключения: таймаут прошлой попытки ничего не делает, даже если снятие опоздало.
+    private var connectAttempt = 0
     private var sleepTimer: AnyCancellable?
     /// Играли, когда началось прерывание (звонок, Siri) — после него можно продолжить.
     private var resumeAfterInterruption = false
@@ -57,6 +59,7 @@ public final class RadioPlayer: AudioPlayer {
         connectTimeout = nil
         sleepTimer = nil
         resumeAfterInterruption = false
+        session.deactivate()
         update { $0 = PlaybackState(item: nil, status: .idle, sleepTimerEndsAt: nil) }
     }
 
@@ -88,6 +91,11 @@ public final class RadioPlayer: AudioPlayer {
 
     private func resume() {
         guard let item = state.item else { return }
+        // Таймер сна мог истечь, пока приложение спало, — не даём ему сработать после продолжения.
+        if let endsAt = state.sleepTimerEndsAt, endsAt <= clock.now {
+            sleepTimer = nil
+            update { $0.sleepTimerEndsAt = nil }
+        }
         play(item)
     }
 
@@ -98,8 +106,10 @@ public final class RadioPlayer: AudioPlayer {
     }
 
     private func startConnectTimeout() {
+        connectAttempt += 1
+        let attempt = connectAttempt
         connectTimeout = clock.schedule(after: Self.connectTimeout) { [weak self] in
-            guard self?.state.status == .loading else { return }
+            guard self?.connectAttempt == attempt, self?.state.status == .loading else { return }
             self?.fail()
         }
     }

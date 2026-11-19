@@ -31,6 +31,8 @@ enum AudioSessionEvent: Equatable {
 protocol AudioSessionControlling: AnyObject {
     var onEvent: ((AudioSessionEvent) -> Void)? { get set }
     func activate() throws
+    /// Отпускает звук, чтобы другие приложения могли продолжить.
+    func deactivate()
 }
 
 enum RemoteCommand: Equatable {
