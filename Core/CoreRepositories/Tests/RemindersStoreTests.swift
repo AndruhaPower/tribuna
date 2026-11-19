@@ -13,8 +13,13 @@ final class FakeCenter: UserNotificationCenter {
     /// Задержать ответы до `release…()`: так воспроизводим гонки с настоящим (асинхронным) центром.
     var holdAuthorization = false
     var holdLoads = false
+    var holdAdds = false
     private var authorizationGate: CheckedContinuation<Void, Never>?
     private var loadGate: CheckedContinuation<Void, Never>?
+    private var addGate: CheckedContinuation<Void, Never>?
+    /// Вызов действительно ждёт на «шлагбауме».
+    var isLoadHeld: Bool { loadGate != nil }
+    var isAddHeld: Bool { addGate != nil }
 
     func requestAuthorization(options: UNAuthorizationOptions) async throws -> Bool {
         authorizationRequests += 1
@@ -23,6 +28,7 @@ final class FakeCenter: UserNotificationCenter {
     }
 
     func add(_ request: UNNotificationRequest) async throws {
+        if holdAdds { await withCheckedContinuation { addGate = $0 } }
         pending.removeAll { $0.identifier == request.identifier }
         pending.append(request)
     }
@@ -33,6 +39,8 @@ final class FakeCenter: UserNotificationCenter {
         return snapshot
     }
 
+    // Release ждёт вызова не дольше таймаута, снимает удержание (поздний вызов уже не встанет) и отпускает, если есть кого:
+    // упавший тест не повесит прогон.
     func releaseAuthorization() async {
         await waitUntil { self.authorizationGate != nil }
         holdAuthorization = false
@@ -45,6 +53,13 @@ final class FakeCenter: UserNotificationCenter {
         holdLoads = false
         loadGate?.resume()
         loadGate = nil
+    }
+
+    func releaseAdd() async {
+        await waitUntil { self.addGate != nil }
+        holdAdds = false
+        addGate?.resume()
+        addGate = nil
     }
 
     func removePendingNotificationRequests(withIdentifiers identifiers: [String]) {
@@ -60,8 +75,9 @@ final class FakeCenter: UserNotificationCenter {
 }
 
 @MainActor
-func waitUntil(_ condition: () -> Bool) async {
-    for _ in 0..<10_000 where !condition() { await Task.yield() }
+func waitUntil(timeout: Duration = .seconds(2), _ condition: () -> Bool) async {
+    let deadline = ContinuousClock.now + timeout
+    while !condition(), ContinuousClock.now < deadline { await Task.yield() }
     #expect(condition())
 }
 
@@ -138,7 +154,7 @@ struct RemindersStoreTests {
         _ = try await store.schedule(match())
         center.holdLoads = true
         store.reconcile(with: [])             // загрузка снимает снимок с напоминанием и ждёт
-        await waitUntil { center.holdLoads && center.pending.count == 1 }
+        await waitUntil { center.isLoadHeld }
         store.cancel(MatchID(rawValue: "football:1"))
         #expect(store.scheduled.isEmpty)
         await center.releaseLoad()
@@ -169,6 +185,19 @@ struct RemindersStoreTests {
         store.cancel(MatchID(rawValue: "football:1"))
         await center.releaseAuthorization()
         _ = try await scheduling.value
+        await store.idle()
+        #expect(store.scheduled.isEmpty)
+        #expect(center.pending.isEmpty)
+    }
+
+    @Test func cancelDuringRescheduleWins() async throws {
+        let store = await makeStore()
+        _ = try await store.schedule(match())
+        center.holdAdds = true
+        store.reconcile(with: [match(in: 120)]) // перенос: add нового запроса ждёт
+        await waitUntil { center.isAddHeld }
+        store.cancel(MatchID(rawValue: "football:1"))
+        await center.releaseAdd()
         await store.idle()
         #expect(store.scheduled.isEmpty)
         #expect(center.pending.isEmpty)

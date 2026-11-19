@@ -80,7 +80,8 @@ final class LocalRemindersStore: RemindersStore {
                     // Тот же идентификатор заменяет ожидающий запрос.
                     do {
                         try await self.center.add(Self.request(for: match))
-                        self.kickoffs[match.id] = match.kickoff
+                        // Сняли, пока переносилось: снятие в очереди следом уберёт запрос из центра.
+                        if !self.cancelling.contains(match.id) { self.kickoffs[match.id] = match.kickoff }
                     } catch {
                         self.drop(match.id)
                     }
