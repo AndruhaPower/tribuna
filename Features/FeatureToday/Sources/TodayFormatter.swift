@@ -23,7 +23,7 @@ enum TodayFormatter {
 
     static func content(matches: [Match], bookmarks: Set<MatchID>, day: Date, calendar: Calendar) -> TodayState.Content {
         guard !matches.isEmpty else { return .empty }
-        let sorted = matches.sorted { $0.kickoff < $1.kickoff }
+        let sorted = matches.sorted { ($0.kickoff, $0.id.rawValue) < ($1.kickoff, $1.id.rawValue) }
         let events = sorted.filter { bookmarks.contains($0.id) }.map { eventCard($0, calendar: calendar) }
         let groups = Dictionary(grouping: sorted, by: \.competition.code)
         let sections = groups.keys.sorted(by: sectionPrecedes).compactMap { code -> TodayState.Section? in

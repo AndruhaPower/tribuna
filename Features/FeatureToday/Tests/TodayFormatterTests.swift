@@ -22,4 +22,15 @@ struct TodayFormatterTests {
         #expect(TodayFormatter.leading(match("a", status: .postponed), calendar: cal) == "Перенесён")
         #expect(TodayFormatter.leading(match("a", status: .cancelled), calendar: cal) == "Отменён")
     }
+
+    /// Матчи с одним стартом не должны менять порядок между загрузками.
+    @Test func sameKickoffOrderIsStable() {
+        let a = match("football:1"), b = match("football:2")
+        for input in [[a, b], [b, a]] {
+            guard case let .loaded(_, sections) = TodayFormatter.content(matches: input, bookmarks: [], day: now, calendar: calendar()) else {
+                Issue.record("не loaded"); return
+            }
+            #expect(sections[0].rows.map(\.id.rawValue) == ["football:1", "football:2"])
+        }
+    }
 }

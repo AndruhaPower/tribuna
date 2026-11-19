@@ -148,5 +148,7 @@ final class FakeRemindersStore: RemindersStore {
 
     func cancel(_ id: MatchID) { subject.value.remove(id) }
 
-    func reconcile(with matches: [Match]) {}
+    private(set) var reconciled: [[Match]] = []
+
+    func reconcile(with matches: [Match]) { reconciled.append(matches) }
 }

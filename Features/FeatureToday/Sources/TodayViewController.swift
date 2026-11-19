@@ -85,13 +85,8 @@ final class TodayViewController: UIViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        // Заголовок рисуется в контенте; на экранах, открытых отсюда, панель с «Назад» возвращается.
+        // Заголовок рисуется в контенте; карточка матча тоже без системной панели, поэтому обратно её не показываем.
         navigationController?.setNavigationBarHidden(true, animated: animated)
-    }
-
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        navigationController?.setNavigationBarHidden(false, animated: animated)
     }
 
     override func viewDidAppear(_ animated: Bool) {

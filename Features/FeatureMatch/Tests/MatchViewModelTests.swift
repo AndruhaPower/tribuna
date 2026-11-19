@@ -290,6 +290,30 @@ struct MatchViewModelTests {
         #expect(scheduled.calls == 1)
     }
 
+    @Test func tickReloadsScheduledMatchWhenKickoffPassed() async {
+        var current = now
+        let repository = FakeMatchesRepository(match(at: "2026-11-18 20:30"))
+        let viewModel = makeViewModel(repository, now: { current })
+        await appear(viewModel)
+
+        current = date("2026-11-18 20:31")
+        viewModel.tick()
+        await viewModel.loadTask?.value
+        #expect(repository.calls == 2)
+    }
+
+    @Test func freshMatchReconcilesExistingReminder() async {
+        reminders.subject.value = [footballID]
+        let fresh = match(at: "2026-11-18 22:00", status: .postponed)
+        let viewModel = makeViewModel(FakeMatchesRepository(fresh))
+        await appear(viewModel)
+        #expect(reminders.reconciled == [[fresh]])
+
+        let other = makeViewModel(FakeMatchesRepository(match(hockeyID)), id: hockeyID)
+        await appear(other)
+        #expect(reminders.reconciled.count == 1)
+    }
+
     @Test func tickSkipsAfterDisappear() async {
         let repository = FakeMatchesRepository(match(at: "2026-11-18 19:00", status: .live, score: (0, 0)))
         let viewModel = makeViewModel(repository)

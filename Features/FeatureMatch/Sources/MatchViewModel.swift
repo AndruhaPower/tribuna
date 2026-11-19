@@ -108,7 +108,10 @@ final class MatchViewModel {
     func tick() {
         guard isVisible else { return }
         render()
-        guard loadTask == nil, let match, match.status == .live || match.status == .paused else { return }
+        guard loadTask == nil, let match else { return }
+        // Запланированный матч, у которого время старта прошло, перезагружаем — карточка переходит в LIVE.
+        let started = match.status == .scheduled && match.kickoff <= now()
+        guard match.status == .live || match.status == .paused || started else { return }
         load()
     }
 
@@ -142,6 +145,8 @@ final class MatchViewModel {
         case let .success((match, rows)):
             self.match = match
             standings = rows
+            // Перенос или отмена при открытой карточке снимают напоминание.
+            if let match, reminders.contains(match.id) { remindersStore.reconcile(with: [match]) }
             if match == nil { state.content = .notFound } else { render() }
         case .failure:
             // Тихое обновление не затирает уже показанный матч.

@@ -57,7 +57,7 @@ struct NHLClient: MatchesRepository {
             }
             return try await group.reduce(into: []) { $0 += $1 }
                 .filter { $0.kickoff >= interval.start && $0.kickoff < interval.end }
-                .sorted { $0.kickoff < $1.kickoff }
+                .sorted { ($0.kickoff, $0.id.rawValue) < ($1.kickoff, $1.id.rawValue) }
         }
     }
 
