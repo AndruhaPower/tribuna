@@ -13,9 +13,10 @@ public final class PlaceholderViewController: UIViewController {
 
     override public func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = Palette.background
         let label = UILabel()
         label.text = title
+        label.textColor = Palette.textPrimary
         label.font = .preferredFont(forTextStyle: .title2)
         view.addSubview(label)
         label.snp.makeConstraints { $0.center.equalToSuperview() }

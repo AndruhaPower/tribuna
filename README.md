@@ -51,6 +51,7 @@ Project.swift           Манифест Tuist (все модули)
 Tuist/Package.swift     Внешние зависимости (SnapKit)
 generate                Генерация проекта
 docs/decisions.md       Журнал решений и грабли — читать перед работой
+docs/design/            Макеты MVP (PNG, @2x)
 TRIBUNA.pdf             Концепт MVP
 tribuna_api_check.py    Проверка бесплатных API
 tribuna_api_report/     Результат проверки от 18.11.2026

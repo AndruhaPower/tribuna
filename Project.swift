@@ -33,6 +33,7 @@ let app: Target = .target(
     deploymentTargets: deployment,
     infoPlist: .extendingDefault(with: [
         "CFBundleDisplayName": "Tribuna",
+        "UIUserInterfaceStyle": "Dark",
         "UILaunchScreen": ["UIColorName": ""],
         "UIApplicationSceneManifest": [
             "UIApplicationSupportsMultipleScenes": false,
@@ -45,7 +46,7 @@ let app: Target = .target(
         ],
     ]),
     sources: ["Tribuna/Sources/**"],
-    dependencies: features.map { .target(name: $0) },
+    dependencies: [.target(name: "CoreUI")] + features.map { .target(name: $0) },
     settings: settings
 )
 
