@@ -1,18 +1,17 @@
-import CoreUI
 import SnapKit
 import UIKit
 
-/// Загрузка, «Матчей нет» или ошибка с «Повторить».
-final class TodayStatusCell: UICollectionViewCell {
-    static let height: CGFloat = 200
+/// Загрузка, пустое состояние или ошибка с «Повторить».
+public final class StatusCell: UICollectionViewCell {
+    public static let height: CGFloat = 200
 
-    var onRetry: (() -> Void)?
+    public var onRetry: (() -> Void)?
 
     private let spinner = UIActivityIndicatorView(style: .medium)
     private let messageLabel = UILabel()
     private let retryButton = UIButton(type: .system)
 
-    override init(frame: CGRect) {
+    override public init(frame: CGRect) {
         super.init(frame: frame)
         spinner.color = Palette.textSecondary
         messageLabel.font = Typography.text(15)
@@ -39,7 +38,7 @@ final class TodayStatusCell: UICollectionViewCell {
     required init?(coder: NSCoder) { fatalError("init(coder:) не используется") }
 
     /// `message == nil` — загрузка.
-    func configure(message: String?, showsRetry: Bool) {
+    public func configure(message: String?, showsRetry: Bool) {
         if message == nil { spinner.startAnimating() } else { spinner.stopAnimating() }
         spinner.isHidden = message != nil
         messageLabel.text = message

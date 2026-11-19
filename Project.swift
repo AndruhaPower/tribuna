@@ -70,8 +70,8 @@ let featureTargets = features.map {
     if ["FeatureToday", "FeatureMatch"].contains($0) {
         deps.append(.target(name: "CoreDomain"))
     }
-    if $0 == "FeatureToday" {
-        resources = ["Features/FeatureToday/Resources/**"]
+    if ["FeatureToday", "FeatureMatch"].contains($0) {
+        resources = ["Features/\($0)/Resources/**"]
     }
     return module($0, path: "Features/\($0)", resources: resources, dependencies: deps)
 }

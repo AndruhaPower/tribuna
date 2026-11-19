@@ -62,11 +62,6 @@ enum TodayFormatter {
         }
     }
 
-    /// «Ливерпуль — Арсенал».
-    static func title(_ match: Match) -> String {
-        "\(match.home?.name ?? unknown) — \(match.away?.name ?? unknown)"
-    }
-
     private static func sectionPrecedes(_ lhs: String, _ rhs: String) -> Bool {
         let left = sectionOrder.firstIndex(of: lhs) ?? sectionOrder.count
         let right = sectionOrder.firstIndex(of: rhs) ?? sectionOrder.count

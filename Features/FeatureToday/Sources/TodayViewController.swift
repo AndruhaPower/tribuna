@@ -181,7 +181,7 @@ final class TodayViewController: UIViewController {
             cell.configure(value.row, isFirst: value.isFirst)
             cell.onToggleBookmark = { self?.viewModel.didToggleBookmark(id) }
         }
-        let statusCell = UICollectionView.CellRegistration<TodayStatusCell, Item> { [weak self] cell, _, _ in
+        let statusCell = UICollectionView.CellRegistration<StatusCell, Item> { [weak self] cell, _, _ in
             let status = self?.payload.status
             cell.configure(message: status?.message, showsRetry: status?.showsRetry ?? false)
             cell.onRetry = { self?.viewModel.didTapRetry() }
@@ -266,7 +266,7 @@ final class TodayViewController: UIViewController {
             result.decorationItems = [background]
             return result
         case .status:
-            let result = list(height: TodayStatusCell.height, spacing: 0)
+            let result = list(height: StatusCell.height, spacing: 0)
             result.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: inset, bottom: 0, trailing: inset)
             return result
         }

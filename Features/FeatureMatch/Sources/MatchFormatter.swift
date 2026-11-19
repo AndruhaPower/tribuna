@@ -33,6 +33,7 @@ enum MatchFormatter {
             showsDelayNote: match.sport == .football && isLive,
             isBookmarked: isBookmarked,
             reminder: canRemind ? (isReminderScheduled ? .on : .off) : .hidden,
+            standingsTitle: "ТАБЛИЦА \(match.competition.name.uppercased())",
             standings: standings.map {
                 MatchState.Row(
                     id: $0.teamID,

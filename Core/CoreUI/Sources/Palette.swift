@@ -11,6 +11,8 @@ public enum Palette {
     public static let surfaceRaised = UIColor(hex: 0x1C2540)
     /// Аббревиатуры команд, подложки иконок, выбранный сегмент.
     public static let surfaceHigh = UIColor(hex: 0x2A3557)
+    /// Строки команд матча в турнирной таблице.
+    public static let highlight = UIColor(hex: 0x21283C)
     public static let separator = UIColor(hex: 0x222B47)
     /// Контуры кнопок, дорожки прогресса и слайдера.
     public static let track = UIColor(hex: 0x26304D)

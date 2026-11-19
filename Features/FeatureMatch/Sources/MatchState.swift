@@ -8,7 +8,7 @@ struct MatchState: Equatable {
         let abbreviation: String?
     }
 
-    enum Reminder: Equatable {
+    enum Reminder: Hashable {
         /// Матч начался, завершён, отменён/перенесён или стартует меньше чем через 15 минут.
         case hidden
         case off
@@ -27,7 +27,7 @@ struct MatchState: Equatable {
         let isHighlighted: Bool
     }
 
-    struct Card: Equatable {
+    struct Card: Hashable {
         /// «АПЛ · 12 тур».
         let header: String
         /// «LIVE», «22:00», «Завершён», «Перенесён», «Отменён».
@@ -41,6 +41,8 @@ struct MatchState: Equatable {
         let showsDelayNote: Bool
         let isBookmarked: Bool
         let reminder: Reminder
+        /// «ТАБЛИЦА АПЛ».
+        let standingsTitle: String
         /// Пусто — блок таблицы скрыт.
         let standings: [Row]
         /// «Ливерпуль — Арсенал, 2 : 1 · АПЛ, 12 тур».

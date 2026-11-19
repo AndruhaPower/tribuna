@@ -13,10 +13,9 @@ public enum FeatureToday {
     }
 
     public struct Output {
-        /// id матча и заголовок «Ливерпуль — Арсенал».
-        let openMatch: (MatchID, String) -> Void
+        let openMatch: (MatchID) -> Void
 
-        public init(openMatch: @escaping (MatchID, String) -> Void) {
+        public init(openMatch: @escaping (MatchID) -> Void) {
             self.openMatch = openMatch
         }
     }

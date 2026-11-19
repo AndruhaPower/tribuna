@@ -12,7 +12,8 @@ struct AppDependencies {
 
     init() {
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-TodayMockData") {
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-TodayMockData") || arguments.contains("-MatchMockData") {
             (matches, standings, bookmarks, reminders) = Self.todayMockData()
             return
         }
@@ -22,7 +23,8 @@ struct AppDependencies {
 }
 
 #if DEBUG
-/// Данные как в макете «Сегодня» — для сверки вёрстки (`-TodayMockData` в аргументах запуска). Только в отладке.
+/// Данные как в макетах «Сегодня» и «Карточка матча» — для сверки вёрстки. Только в отладке.
+/// `-TodayMockData` — «Сегодня»; `-MatchMockData` — то же и сразу открытая карточка «Ливерпуль — Арсенал».
 private struct MockMatchesRepository: MatchesRepository {
     let matches: [Match]
 
@@ -31,7 +33,23 @@ private struct MockMatchesRepository: MatchesRepository {
     func match(id: MatchID) async throws -> Match? { matches.first { $0.id == id } }
 }
 
+private struct MockStandingsRepository: StandingsRepository {
+    func standings(competitionCode: String) async throws -> [StandingRow] {
+        guard competitionCode == "PL" else { return [] }
+        return [("64", "Ливерпуль", 27), ("65", "Манчестер Сити", 25), ("57", "Арсенал", 23), ("61", "Челси", 21)]
+            .enumerated()
+            .map { StandingRow(position: $0 + 1, team: Team(name: $1.1, abbreviation: nil), teamID: $1.0, played: 11, points: $1.2) }
+    }
+}
+
 extension AppDependencies {
+    static let mockMatchID = MatchID(rawValue: "football:mock-1")
+
+    /// Матч, который открыть сразу при запуске (`-MatchMockData`).
+    static var mockMatchOnLaunch: MatchID? {
+        ProcessInfo.processInfo.arguments.contains("-MatchMockData") ? mockMatchID : nil
+    }
+
     private static func todayMockData() -> (MatchesRepository, StandingsRepository, BookmarksStore, RemindersStore) {
         let day = Calendar.autoupdatingCurrent.startOfDay(for: Date())
         func at(_ hour: Int) -> Date { day.addingTimeInterval(TimeInterval(hour * 3600)) }
@@ -39,10 +57,10 @@ extension AppDependencies {
         let pl = Competition(code: "PL", name: "АПЛ")
         let cl = Competition(code: "CL", name: "Лига чемпионов")
         let nhl = Competition(code: "NHL", name: "НХЛ")
-        let liverpool = MatchID(rawValue: "football:mock-1")
+        let liverpool = mockMatchID
         let matches = [
             Match(id: liverpool, sport: .football, competition: pl, kickoff: at(20), status: .live,
-                  home: team("Ливерпуль", "LIV"), away: team("Арсенал", "ARS"), homeScore: 2, awayScore: 1, round: "12 тур", homeTeamID: nil, awayTeamID: nil),
+                  home: team("Ливерпуль", "LIV"), away: team("Арсенал", "ARS"), homeScore: 2, awayScore: 1, round: "12 тур", homeTeamID: "64", awayTeamID: "57"),
             Match(id: MatchID(rawValue: "football:mock-2"), sport: .football, competition: cl, kickoff: at(22), status: .scheduled,
                   home: team("Реал Мадрид", "RMA"), away: team("Бавария", "BAY"), homeScore: nil, awayScore: nil, round: nil, homeTeamID: nil, awayTeamID: nil),
             Match(id: MatchID(rawValue: "football:mock-3"), sport: .football, competition: cl, kickoff: at(22), status: .scheduled,
@@ -54,7 +72,7 @@ extension AppDependencies {
         let defaults = UserDefaults(suiteName: "TodayMockData") ?? .standard
         let services = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey, defaults: defaults)
         if !services.bookmarks.bookmarks.contains(liverpool) { services.bookmarks.toggle(liverpool) }
-        return (MockMatchesRepository(matches: matches), services.standings, services.bookmarks, services.reminders)
+        return (MockMatchesRepository(matches: matches), MockStandingsRepository(), services.bookmarks, services.reminders)
     }
 }
 #endif

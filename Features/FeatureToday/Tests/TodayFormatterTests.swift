@@ -22,9 +22,4 @@ struct TodayFormatterTests {
         #expect(TodayFormatter.leading(match("a", status: .postponed), calendar: cal) == "Перенесён")
         #expect(TodayFormatter.leading(match("a", status: .cancelled), calendar: cal) == "Отменён")
     }
-
-    @Test func titleFallsBackToDashForUnknownTeam() {
-        #expect(TodayFormatter.title(match("a")) == "Ливерпуль — Арсенал")
-        #expect(TodayFormatter.title(match("a", home: nil)) == "— — Арсенал")
-    }
 }

@@ -13,7 +13,7 @@ final class TodayViewModel {
     private let bookmarksStore: BookmarksStore
     private let now: () -> Date
     private let calendar: Calendar
-    private let onOpenMatch: (MatchID, String) -> Void
+    private let onOpenMatch: (MatchID) -> Void
 
     private var selectedDay: Date
     /// Выбранный день был «сегодня» в момент выбора — при смене суток переезжает на новое «сегодня».
@@ -29,7 +29,7 @@ final class TodayViewModel {
         bookmarks: BookmarksStore,
         now: @escaping () -> Date = Date.init,
         calendar: Calendar = .autoupdatingCurrent,
-        onOpenMatch: @escaping (MatchID, String) -> Void
+        onOpenMatch: @escaping (MatchID) -> Void
     ) {
         matchesRepository = matches
         bookmarksStore = bookmarks
@@ -93,8 +93,7 @@ final class TodayViewModel {
     }
 
     func didTapMatch(_ id: MatchID) {
-        guard let match = matches.first(where: { $0.id == id }) else { return }
-        onOpenMatch(id, TodayFormatter.title(match))
+        onOpenMatch(id)
     }
 
     /// Возврат в приложение: пересчёт полосы дней (могли смениться сутки) и обновление данных.

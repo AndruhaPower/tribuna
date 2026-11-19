@@ -9,7 +9,7 @@ struct TodayViewModelTests {
         _ repository: FakeMatchesRepository,
         bookmarks: FakeBookmarksStore = FakeBookmarksStore(),
         timeZone: TimeZone = moscow,
-        onOpenMatch: @escaping (MatchID, String) -> Void = { _, _ in }
+        onOpenMatch: @escaping (MatchID) -> Void = { _ in }
     ) -> TodayViewModel {
         TodayViewModel(
             matches: repository, bookmarks: bookmarks, now: { now }, calendar: calendar(timeZone),
@@ -319,15 +319,14 @@ struct TodayViewModelTests {
         #expect(repository.calls == 2)
     }
 
-    @Test func tapMatchOpensWithTitle() async {
-        var opened: [(MatchID, String)] = []
-        let viewModel = makeViewModel(FakeMatchesRepository([match("pl1")])) { opened.append(($0, $1)) }
+    @Test func tapMatchOpensMatch() async {
+        var opened: [MatchID] = []
+        let viewModel = makeViewModel(FakeMatchesRepository([match("pl1")])) { opened.append($0) }
         await appear(viewModel)
 
         viewModel.didTapMatch(MatchID(rawValue: "pl1"))
 
-        #expect(opened.map(\.0.rawValue) == ["pl1"])
-        #expect(opened.map(\.1) == ["Ливерпуль — Арсенал"])
+        #expect(opened.map(\.rawValue) == ["pl1"])
     }
 
     final class Clock { var date: Date; init(_ date: Date) { self.date = date } }
@@ -335,7 +334,7 @@ struct TodayViewModelTests {
     func makeViewModel(_ repository: FakeMatchesRepository, clock: Clock) -> TodayViewModel {
         TodayViewModel(
             matches: repository, bookmarks: FakeBookmarksStore(), now: { clock.date }, calendar: calendar(),
-            onOpenMatch: { _, _ in }
+            onOpenMatch: { _ in }
         )
     }
 

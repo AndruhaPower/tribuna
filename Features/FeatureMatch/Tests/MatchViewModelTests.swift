@@ -37,6 +37,7 @@ struct MatchViewModelTests {
 
         let card = try #require(loaded(viewModel))
         #expect(card.header == "АПЛ · 12 тур")
+        #expect(card.standingsTitle == "ТАБЛИЦА АПЛ")
         #expect(card.statusText == "22:00")
         #expect(!card.isLive)
         #expect(card.home == MatchState.TeamItem(name: "Ливерпуль", abbreviation: "LIV"))
