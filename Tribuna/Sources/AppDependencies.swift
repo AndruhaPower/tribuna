@@ -92,7 +92,7 @@ extension AppDependencies {
 
 #if DEBUG
 /// Каталог и плеер как в макете «Эфир» (`-RadioMockData`): играет «Стадион FM». Только в отладке.
-/// `-RadioRealPlayer` — вместо фейка настоящий `RadioPlayer`, сразу подключается к https-потоку «Коммерсантъ FM» из каталога.
+/// `-RadioRealPlayer` — вместо фейка настоящий `RadioPlayer`, сразу подключается к потоку «Вести FM» из каталога.
 private struct MockStationsRepository: StationsRepository {
     func stations() async throws -> [Station] {
         func station(_ id: String, _ name: String, _ genres: Set<StationGenre>, _ subtitle: String, _ featured: Int?) -> Station {
@@ -136,11 +136,10 @@ extension AppDependencies {
                                   country: "Россия", bitrate: 128, genres: [.sport, .football], subtitle: "Футбол · эфир", featuredOrder: nil)
             return (MockStationsRepository(), MockAudioPlayer(playing: stadion))
         }
-        let kommersant = Station(id: "kommersant-fm", name: "Коммерсантъ FM",
-                                 streamURL: URL(string: "https://kommersant77.hostingradio.ru:8085/kommersant128.mp3")!,
-                                 country: "Россия", bitrate: 128, genres: [.news], subtitle: "Новости · экономика и политика", featuredOrder: nil)
+        let vesti = Station(id: "vesti-fm", name: "Вести FM", streamURL: URL(string: "https://icecast-vgtrk.cdnvideo.ru/vestifm_mp3_192kbps")!,
+                            country: "Россия", bitrate: 192, genres: [.news], subtitle: "Новости · разговорное радио", featuredOrder: nil)
         let player = RadioPlayer()
-        player.play(kommersant)
+        player.play(vesti)
         return (MockStationsRepository(), player)
     }
 }

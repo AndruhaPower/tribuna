@@ -121,8 +121,8 @@ let app: Target = .target(
         "UIAppFonts": ["Unbounded.ttf"],
         "UILaunchScreen": ["UIColorName": ""],
         "UIBackgroundModes": ["audio"],
-        // Часть радиопотоков только по http://.
-        "NSAppTransportSecurity": ["NSAllowsArbitraryLoadsForMedia": true],
+        // Макеты только портретные.
+        "UISupportedInterfaceOrientations": ["UIInterfaceOrientationPortrait"],
         "UIApplicationSceneManifest": [
             "UIApplicationSupportsMultipleScenes": false,
             "UISceneConfigurations": [

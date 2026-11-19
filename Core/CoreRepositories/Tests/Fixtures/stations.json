@@ -1,6 +1,6 @@
 [
-  {"id":"mayak","name":"Радио Маяк","stream_url":"http://icecast.vgtrk.cdnvideo.ru/mayakfm_mp3_192kbps","country":"Россия","bitrate":192,"genres":["news"],"subtitle":"Новости · разговорное радио","featured_order":6,"enabled":true},
-  {"id":"vesti-fm","name":"Вести FM","stream_url":"http://icecast.vgtrk.cdnvideo.ru/vestifm","country":"Россия","bitrate":320,"genres":["news"],"subtitle":"Новости · каждые 30 мин","featured_order":5,"enabled":true},
+  {"id":"mayak","name":"Радио Маяк","stream_url":"https://icecast-vgtrk.cdnvideo.ru/mayakfm_mp3_192kbps","country":"Россия","bitrate":192,"genres":["news"],"subtitle":"Новости · разговорное радио","featured_order":6,"enabled":true},
+  {"id":"vesti-fm","name":"Вести FM","stream_url":"https://icecast-vgtrk.cdnvideo.ru/vestifm_mp3_192kbps","country":"Россия","bitrate":192,"genres":["news"],"subtitle":"Новости · каждые 30 мин","featured_order":5,"enabled":true},
   {"id":"kommersant-fm","name":"Коммерсантъ FM","stream_url":"https://kommersant77.hostingradio.ru:8085/kommersant128.mp3","country":"Россия","bitrate":128,"genres":["news"],"subtitle":"Новости · экономика","featured_order":null,"enabled":true},
   {"id":"old","name":"Выключена","stream_url":"https://example.com/old","country":"Россия","bitrate":64,"genres":["news"],"subtitle":"—","featured_order":1,"enabled":false},
   {"id":"bbc-5live","name":"BBC Radio 5 Live","stream_url":"https://as-hls-ww-live.akamaized.net/x/bbc_radio_five_live.m3u8","country":"Великобритания","bitrate":null,"genres":["sport","football","news"],"subtitle":"Спорт · репортажи и новости","featured_order":1,"enabled":true}

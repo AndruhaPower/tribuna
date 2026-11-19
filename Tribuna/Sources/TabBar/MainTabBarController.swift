@@ -85,5 +85,7 @@ final class MainTabBarController: UIViewController {
         target.didMove(toParent: self)
         selectedIndex = index
         tabBar.selectedIndex = index
+        // VoiceOver: вкладка, мини-плеер, таб-бар — как на экране сверху вниз (скрытый мини-плеер пропускается).
+        view.accessibilityElements = [target.view as Any, miniPlayer, tabBar]
     }
 }

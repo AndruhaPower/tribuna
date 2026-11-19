@@ -4,7 +4,8 @@ import SnapKit
 import UIKit
 
 /// Полноэкранный плеер радио по макету «Плеер» (подкастный, без перемотки, скорости, «Скачан», «Поделиться» и «…»).
-/// Отступы — замер макета от безопасной зоны (47 pt на макете) и от карточки; карточка квадратная во всю ширину без полей 24 pt.
+/// Лист (large) с системным «язычком». Отступы — замер макета от верха и от карточки; карточка квадратная во всю ширину
+/// без полей 24 pt, на низких экранах (iPhone SE) сначала сжимается промежуток до play, затем карточка.
 final class PlayerViewController: UIViewController {
     /// 19 столбиков 8 pt, первые 9 — светлые (рисунок макета).
     private static let waveStyle = WaveView.Style(
@@ -28,7 +29,9 @@ final class PlayerViewController: UIViewController {
     init(viewModel: PlayerViewModel) {
         self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
-        modalPresentationStyle = .fullScreen
+        modalPresentationStyle = .pageSheet
+        sheetPresentationController?.detents = [.large()]
+        sheetPresentationController?.prefersGrabberVisible = true
     }
 
     @available(*, unavailable)
@@ -39,10 +42,6 @@ final class PlayerViewController: UIViewController {
         view.backgroundColor = Palette.background
         let safe = view.safeAreaLayoutGuide
 
-        let grabber = UIView()
-        grabber.backgroundColor = Palette.surfaceHigh
-        grabber.layer.cornerRadius = 2.5
-        grabber.isAccessibilityElement = false
         let closeButton = UIButton(type: .system)
         closeButton.setImage(UIImage(named: "chevron-down", in: .module, compatibleWith: nil), for: .normal)
         closeButton.tintColor = Palette.textPrimary
@@ -87,15 +86,10 @@ final class PlayerViewController: UIViewController {
         sleepButton.addAction(UIAction { [weak self] _ in self?.showSleepTimerOptions() }, for: .touchUpInside)
         sleepLabel.font = Typography.text(14, .medium)
         sleepLabel.textColor = Palette.textSecondary
+        sleepLabel.textAlignment = .center
 
-        [grabber, closeButton, headerLabel, card, nameLabel, subtitleLabel, playButton, sleepButton, sleepLabel].forEach(view.addSubview)
+        [closeButton, headerLabel, card, nameLabel, subtitleLabel, playButton, sleepButton, sleepLabel].forEach(view.addSubview)
         [captionLabel, wave, cardNameLabel].forEach(card.addSubview)
-        grabber.snp.makeConstraints {
-            $0.top.equalTo(safe).offset(1)
-            $0.centerX.equalToSuperview()
-            $0.width.equalTo(40)
-            $0.height.equalTo(5)
-        }
         closeButton.snp.makeConstraints {
             $0.top.equalTo(safe).offset(22)
             $0.leading.equalToSuperview().offset(24)
@@ -109,7 +103,8 @@ final class PlayerViewController: UIViewController {
         card.snp.makeConstraints {
             $0.top.equalTo(safe).offset(94)
             $0.leading.trailing.equalToSuperview().inset(24)
-            $0.height.equalTo(card.snp.width)
+            $0.height.lessThanOrEqualTo(card.snp.width)
+            $0.height.equalTo(card.snp.width).priority(.high)
         }
         captionLabel.snp.makeConstraints {
             $0.leading.trailing.equalToSuperview().inset(24)
@@ -136,7 +131,8 @@ final class PlayerViewController: UIViewController {
         playButton.snp.makeConstraints {
             $0.size.equalTo(76)
             $0.centerX.equalToSuperview()
-            $0.centerY.equalTo(card.snp.bottom).offset(184)
+            $0.centerY.equalTo(card.snp.bottom).offset(184).priority(700)
+            $0.top.greaterThanOrEqualTo(subtitleLabel.snp.lastBaseline).offset(24)
         }
         sleepButton.snp.makeConstraints {
             $0.width.equalTo(56)
@@ -144,15 +140,13 @@ final class PlayerViewController: UIViewController {
             $0.trailing.equalToSuperview().inset(24)
             $0.centerY.equalTo(playButton)
         }
+        // Место под «Сон через N мин» есть всегда — play не прыгает, когда таймер включают.
         sleepLabel.snp.makeConstraints {
-            $0.centerX.equalToSuperview()
+            $0.leading.trailing.equalToSuperview().inset(24)
             $0.top.equalTo(playButton.snp.bottom).offset(20)
+            $0.height.equalTo(18)
+            $0.bottom.lessThanOrEqualTo(safe).offset(-16)
         }
-
-        // Как у листа: смахивание вниз закрывает.
-        let swipe = UISwipeGestureRecognizer(target: self, action: #selector(close))
-        swipe.direction = .down
-        view.addGestureRecognizer(swipe)
 
         subscription = viewModel.$state.sink { [weak self] in self?.render($0) }
     }
@@ -173,18 +167,14 @@ final class PlayerViewController: UIViewController {
     }
 
     override func accessibilityPerformEscape() -> Bool {
-        close()
-        return true
-    }
-
-    @objc private func close() {
         dismiss(animated: true)
+        return true
     }
 
     private func render(_ state: PlayerState?) {
         // Плеер закрыли (`stop()`) — закрываем и экран.
         guard let state else {
-            if presentingViewController != nil, !isBeingDismissed { dismiss(animated: true) }
+            if !isBeingDismissed { presentingViewController?.dismiss(animated: true) }
             return
         }
         headerLabel.text = state.header
