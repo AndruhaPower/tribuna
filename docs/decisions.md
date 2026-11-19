@@ -76,7 +76,9 @@ Supabase-проект `tribuna_db`. Миграции и Edge Functions лежа�
 Unbounded — вариативный файл из Google Fonts (`Tribuna/Resources/Fonts/Unbounded.ttf`, лицензия OFL рядом), регистрируется через `UIAppFonts`. Вес задаётся осью `wght` в `Typography.display(_:_:)`; по имени PostScript (`Unbounded-Regular_Bold`) не обращаемся. Шрифты в фичах — только через `Typography`.
 
 ### D19. Свой таб-бар — 2026-11-19
-Системный таб-бар в iOS 26 плавающий «стеклянный», в макете плоский. Используем свой: `MainTabBarController` (контейнер вкладок) + `TabBarView` в приложении. Размеры из макета: высота 49 pt без безопасной зоны, поля 12 pt, иконки SF Symbols 19 pt, подписи SF 12 pt (semibold — активная, medium — остальные). Вкладкам добавляется `additionalSafeAreaInsets.bottom = 49`. Мини-плеер (D15) кладётся в тот же контейнер над таб-баром. `UIDesignRequiresCompatibility` не используем — Apple его уберёт.
+Системный таб-бар в iOS 26 плавающий «стеклянный», в макете плоский. Используем свой: `MainTabBarController` (контейнер вкладок) + `TabBarView` в приложении. Размеры замерены по пикселям макета: высота 49 pt без безопасной зоны, поля 12 pt, иконка в квадрате 22 pt с верхом на 9.5 pt, базовая линия подписи 47.7 pt, подписи SF 11 pt (semibold — активная, medium — остальные).
+Иконки — геометрия Lucide (ISC, `Tribuna/Resources/Lucide-LICENSE.txt`), SVG в `Assets.xcassets/tab-*`, линия 2. В макете иконки разного масштаба, поэтому масштаб каждой подогнан её `viewBox`, а не размером в коде. SF Symbols для таб-бара не используем — не совпадают с макетом.
+Вкладкам добавляется `additionalSafeAreaInsets.bottom = 49`. Мини-плеер (D15) кладётся в тот же контейнер над таб-баром. `UIDesignRequiresCompatibility` не используем — Apple его уберёт.
 
 ## Грабли
 

@@ -6,7 +6,8 @@ import UIKit
 final class TabBarView: UIView {
     struct Item {
         let title: String
-        let symbol: String
+        /// Имя картинки в Assets.xcassets (иконки Lucide, линия 2 pt).
+        let icon: String
     }
 
     /// Высота без нижней безопасной зоны; столько же добавляем вкладкам в additionalSafeAreaInsets.
@@ -14,14 +15,12 @@ final class TabBarView: UIView {
 
     var onSelect: ((Int) -> Void)?
     var selectedIndex = 0 {
-        didSet { updateButtons() }
+        didSet { updateSelection() }
     }
 
-    private let items: [Item]
-    private var buttons: [UIButton] = []
+    private var itemViews: [TabBarItemView] = []
 
     init(items: [Item]) {
-        self.items = items
         super.init(frame: .zero)
         backgroundColor = Palette.tabBar
 
@@ -33,12 +32,12 @@ final class TabBarView: UIView {
             $0.height.equalTo(1)
         }
 
-        buttons = items.indices.map { index in
-            let button = UIButton(configuration: .plain())
-            button.addAction(UIAction { [weak self] _ in self?.onSelect?(index) }, for: .touchUpInside)
-            return button
+        itemViews = items.enumerated().map { index, item in
+            let view = TabBarItemView(item: item)
+            view.addAction(UIAction { [weak self] _ in self?.onSelect?(index) }, for: .touchUpInside)
+            return view
         }
-        let stack = UIStackView(arrangedSubviews: buttons)
+        let stack = UIStackView(arrangedSubviews: itemViews)
         stack.distribution = .fillEqually
         addSubview(stack)
         stack.snp.makeConstraints {
@@ -47,30 +46,60 @@ final class TabBarView: UIView {
             $0.height.equalTo(Self.contentHeight)
             $0.bottom.equalTo(safeAreaLayoutGuide)
         }
-        updateButtons()
+        updateSelection()
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) не используется") }
 
-    private func updateButtons() {
-        for (index, button) in buttons.enumerated() {
-            let isSelected = index == selectedIndex
-            let color = isSelected ? Palette.textPrimary : Palette.textSecondary
-            var config = UIButton.Configuration.plain()
-            config.image = UIImage(systemName: items[index].symbol)
-            config.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(pointSize: 19, weight: .regular)
-            config.imagePlacement = .top
-            config.imagePadding = 4
-            config.contentInsets = NSDirectionalEdgeInsets(top: 7, leading: 0, bottom: 0, trailing: 0)
-            config.baseForegroundColor = color
-            var title = AttributedString(items[index].title)
-            title.font = Typography.text(12, isSelected ? .semibold : .medium)
-            title.foregroundColor = color
-            config.attributedTitle = title
-            button.configuration = config
-            button.contentVerticalAlignment = .top
-            button.accessibilityTraits = isSelected ? [.button, .selected] : .button
+    private func updateSelection() {
+        for (index, view) in itemViews.enumerated() {
+            view.isSelected = index == selectedIndex
         }
+    }
+}
+
+/// Вкладка: иконка 22 pt с верхом на 9.5 pt ниже края бара (масштаб каждой иконки подогнан viewBox в SVG), базовая линия подписи на 47.7 pt — замерено по макету.
+private final class TabBarItemView: UIControl {
+    private let iconView = UIImageView()
+    private let titleLabel = UILabel()
+
+    override var isSelected: Bool {
+        didSet { update() }
+    }
+
+    init(item: TabBarView.Item) {
+        super.init(frame: .zero)
+        iconView.image = UIImage(named: item.icon)
+        iconView.contentMode = .scaleAspectFit
+        titleLabel.text = item.title
+        titleLabel.textAlignment = .center
+
+        addSubview(iconView)
+        addSubview(titleLabel)
+        iconView.snp.makeConstraints {
+            $0.top.equalToSuperview().offset(9.5)
+            $0.centerX.equalToSuperview()
+            $0.size.equalTo(22)
+        }
+        titleLabel.snp.makeConstraints {
+            $0.leading.trailing.equalToSuperview()
+            $0.firstBaseline.equalTo(snp.top).offset(47.7)
+        }
+
+        isAccessibilityElement = true
+        accessibilityLabel = item.title
+        update()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) не используется") }
+
+    private func update() {
+        let color = isSelected ? Palette.textPrimary : Palette.textSecondary
+        iconView.tintColor = color
+        titleLabel.textColor = color
+        titleLabel.font = Typography.text(11, isSelected ? .semibold : .medium)
+        accessibilityTraits = isSelected ? [.button, .selected] : .button
     }
 }

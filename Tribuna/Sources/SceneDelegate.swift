@@ -17,10 +17,10 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     private func makeTabBar() -> MainTabBarController {
         MainTabBarController(tabs: [
-            .init(item: .init(title: "Сегодня", symbol: "calendar"), root: FeatureToday.makeRoot()),
-            .init(item: .init(title: "Эфир", symbol: "dot.radiowaves.left.and.right"), root: FeatureRadio.makeRoot()),
-            .init(item: .init(title: "Подкасты", symbol: "mic"), root: FeaturePodcasts.makeRoot()),
-            .init(item: .init(title: "Профиль", symbol: "person"), root: FeatureProfile.makeRoot()),
+            .init(item: .init(title: "Сегодня", icon: "tab-today"), root: FeatureToday.makeRoot()),
+            .init(item: .init(title: "Эфир", icon: "tab-radio"), root: FeatureRadio.makeRoot()),
+            .init(item: .init(title: "Подкасты", icon: "tab-podcasts"), root: FeaturePodcasts.makeRoot()),
+            .init(item: .init(title: "Профиль", icon: "tab-profile"), root: FeatureProfile.makeRoot()),
         ])
     }
 }
