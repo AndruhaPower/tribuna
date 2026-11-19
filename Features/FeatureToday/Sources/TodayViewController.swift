@@ -1,23 +1,53 @@
 import Combine
+import CoreDomain
 import CoreUI
 import SnapKit
 import UIKit
 
 /// Экран «Сегодня»: одна коллекция — шапка, полоса дней, «Мои события», турниры, состояние.
 final class TodayViewController: UIViewController {
+    /// Идентификаторы стабильные (код турнира, дата, id матча), содержимое — в `payload`:
+    /// так при смене счёта или закладки ячейка перенастраивается на месте, не теряя фокус VoiceOver и прокрутку дней.
     private enum Section: Hashable {
         case header, days, events, status
-        /// Подписи заголовка входят в идентификатор: изменились — секция перерисуется вместе с заголовком.
-        case competition(id: String, title: String, trailing: String)
+        case competition(String)
     }
 
     private enum Item: Hashable {
-        case header
-        case day(TodayState.DayItem)
-        case event(TodayState.EventCard)
-        case row(TodayState.MatchRow, isFirst: Bool)
-        case loading
-        case message(String, showsRetry: Bool)
+        case header, status
+        case day(Date)
+        case event(MatchID)
+        case row(MatchID)
+    }
+
+    private struct RowPayload: Hashable {
+        let row: TodayState.MatchRow
+        let isFirst: Bool
+    }
+
+    /// `message == nil` — загрузка.
+    private struct StatusPayload: Hashable {
+        let message: String?
+        let showsRetry: Bool
+    }
+
+    private struct Payload {
+        var days: [Date: TodayState.DayItem] = [:]
+        var events: [MatchID: TodayState.EventCard] = [:]
+        var rows: [MatchID: RowPayload] = [:]
+        var sections: [String: TodayState.Section] = [:]
+        var status: StatusPayload?
+
+        /// Содержимое элемента для сравнения со старым; nil — элемента не было.
+        func value(for item: Item) -> AnyHashable? {
+            switch item {
+            case .header: nil
+            case .status: status.map(AnyHashable.init)
+            case let .day(id): days[id].map(AnyHashable.init)
+            case let .event(id): events[id].map(AnyHashable.init)
+            case let .row(id): rows[id].map(AnyHashable.init)
+            }
+        }
     }
 
     private let viewModel: TodayViewModel
@@ -25,6 +55,7 @@ final class TodayViewController: UIViewController {
     private lazy var dataSource = makeDataSource()
     private let refreshControl = UIRefreshControl()
     private var subscription: AnyCancellable?
+    private var payload = Payload()
 
     init(viewModel: TodayViewModel) {
         self.viewModel = viewModel
@@ -74,56 +105,81 @@ final class TodayViewController: UIViewController {
     private func render(_ state: TodayState) {
         if !state.isRefreshing, refreshControl.isRefreshing { refreshControl.endRefreshing() }
 
+        var new = Payload()
         var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
         snapshot.appendSections([.header, .days])
         snapshot.appendItems([.header], toSection: .header)
-        snapshot.appendItems(state.days.map(Item.day), toSection: .days)
+        for day in state.days where new.days[day.id] == nil {
+            new.days[day.id] = day
+            snapshot.appendItems([.day(day.id)], toSection: .days)
+        }
 
         switch state.content {
         case .loading:
-            snapshot.appendSections([.status])
-            snapshot.appendItems([.loading], toSection: .status)
+            new.status = StatusPayload(message: nil, showsRetry: false)
         case .empty:
-            snapshot.appendSections([.status])
-            snapshot.appendItems([.message("Матчей нет", showsRetry: false)], toSection: .status)
+            new.status = StatusPayload(message: "Матчей нет", showsRetry: false)
         case let .error(message):
-            snapshot.appendSections([.status])
-            snapshot.appendItems([.message(message, showsRetry: true)], toSection: .status)
+            new.status = StatusPayload(message: message, showsRetry: true)
         case let .loaded(events, sections):
-            if !events.isEmpty {
-                snapshot.appendSections([.events])
-                snapshot.appendItems(events.map(Item.event), toSection: .events)
+            // Повтор id в снимке роняет diffable; по построению его нет, но дубликаты пропускаем.
+            for event in events where new.events[event.id] == nil {
+                if new.events.isEmpty { snapshot.appendSections([.events]) }
+                new.events[event.id] = event
+                snapshot.appendItems([.event(event.id)], toSection: .events)
             }
-            for section in sections {
-                let id = Section.competition(id: section.id, title: section.title, trailing: section.trailing)
-                snapshot.appendSections([id])
-                snapshot.appendItems(section.rows.enumerated().map { Item.row($1, isFirst: $0 == 0) }, toSection: id)
+            for section in sections where new.sections[section.id] == nil {
+                let rows = section.rows.filter { new.rows[$0.id] == nil }
+                guard !rows.isEmpty else { continue }
+                new.sections[section.id] = section
+                for (index, row) in rows.enumerated() {
+                    new.rows[row.id] = RowPayload(row: row, isFirst: index == 0)
+                }
+                snapshot.appendSections([.competition(section.id)])
+                snapshot.appendItems(rows.map { .row($0.id) }, toSection: .competition(section.id))
             }
         }
+        if new.status != nil {
+            snapshot.appendSections([.status])
+            snapshot.appendItems([.status], toSection: .status)
+        }
+
+        let old = payload
+        payload = new
+        let changed = snapshot.itemIdentifiers.filter { item in
+            guard let before = old.value(for: item) else { return false }
+            return before != new.value(for: item)
+        }
+        snapshot.reconfigureItems(changed)
         dataSource.apply(snapshot, animatingDifferences: false)
+        // Заголовки секций не перенастраиваются снимком — обновляем видимые.
+        for indexPath in collectionView.indexPathsForVisibleSupplementaryElements(ofKind: UICollectionView.elementKindSectionHeader) {
+            if let header = collectionView.supplementaryView(
+                forElementKind: UICollectionView.elementKindSectionHeader, at: indexPath
+            ) as? SectionHeaderView {
+                configure(header, section: indexPath.section)
+            }
+        }
     }
 
     // MARK: - Коллекция
 
     private func makeDataSource() -> UICollectionViewDiffableDataSource<Section, Item> {
         let headerCell = UICollectionView.CellRegistration<TodayHeaderCell, Item> { _, _, _ in }
-        let dayCell = UICollectionView.CellRegistration<DayChipCell, TodayState.DayItem> { cell, _, day in
-            cell.configure(day)
+        let dayCell = UICollectionView.CellRegistration<DayChipCell, Item> { [weak self] cell, _, item in
+            if case let .day(id) = item, let day = self?.payload.days[id] { cell.configure(day) }
         }
-        let eventCell = UICollectionView.CellRegistration<EventCardCell, TodayState.EventCard> { cell, _, event in
-            cell.configure(event)
+        let eventCell = UICollectionView.CellRegistration<EventCardCell, Item> { [weak self] cell, _, item in
+            if case let .event(id) = item, let event = self?.payload.events[id] { cell.configure(event) }
         }
-        let rowCell = UICollectionView.CellRegistration<MatchRowCell, (TodayState.MatchRow, Bool)> { [weak self] cell, _, value in
-            cell.configure(value.0, isFirst: value.1)
-            let id = value.0.id
+        let rowCell = UICollectionView.CellRegistration<MatchRowCell, Item> { [weak self] cell, _, item in
+            guard case let .row(id) = item, let value = self?.payload.rows[id] else { return }
+            cell.configure(value.row, isFirst: value.isFirst)
             cell.onToggleBookmark = { self?.viewModel.didToggleBookmark(id) }
         }
-        let statusCell = UICollectionView.CellRegistration<TodayStatusCell, Item> { [weak self] cell, _, item in
-            if case let .message(text, showsRetry) = item {
-                cell.configure(message: text, showsRetry: showsRetry)
-            } else {
-                cell.configure(message: nil, showsRetry: false)
-            }
+        let statusCell = UICollectionView.CellRegistration<TodayStatusCell, Item> { [weak self] cell, _, _ in
+            let status = self?.payload.status
+            cell.configure(message: status?.message, showsRetry: status?.showsRetry ?? false)
             cell.onRetry = { self?.viewModel.didTapRetry() }
         }
 
@@ -131,32 +187,37 @@ final class TodayViewController: UIViewController {
             switch item {
             case .header:
                 collectionView.dequeueConfiguredReusableCell(using: headerCell, for: indexPath, item: item)
-            case let .day(day):
-                collectionView.dequeueConfiguredReusableCell(using: dayCell, for: indexPath, item: day)
-            case let .event(event):
-                collectionView.dequeueConfiguredReusableCell(using: eventCell, for: indexPath, item: event)
-            case let .row(row, isFirst):
-                collectionView.dequeueConfiguredReusableCell(using: rowCell, for: indexPath, item: (row, isFirst))
-            case .loading, .message:
+            case .day:
+                collectionView.dequeueConfiguredReusableCell(using: dayCell, for: indexPath, item: item)
+            case .event:
+                collectionView.dequeueConfiguredReusableCell(using: eventCell, for: indexPath, item: item)
+            case .row:
+                collectionView.dequeueConfiguredReusableCell(using: rowCell, for: indexPath, item: item)
+            case .status:
                 collectionView.dequeueConfiguredReusableCell(using: statusCell, for: indexPath, item: item)
             }
         }
         let header = UICollectionView.SupplementaryRegistration<SectionHeaderView>(
             elementKind: UICollectionView.elementKindSectionHeader
         ) { [weak self] view, _, indexPath in
-            switch self?.dataSource.sectionIdentifier(for: indexPath.section) {
-            case .events:
-                view.configure(title: "МОИ СОБЫТИЯ", trailing: nil)
-            case let .competition(_, title, trailing):
-                view.configure(title: title, trailing: trailing)
-            default:
-                break
-            }
+            self?.configure(view, section: indexPath.section)
         }
         dataSource.supplementaryViewProvider = { collectionView, _, indexPath in
             collectionView.dequeueConfiguredReusableSupplementary(using: header, for: indexPath)
         }
         return dataSource
+    }
+
+    private func configure(_ header: SectionHeaderView, section index: Int) {
+        switch dataSource.sectionIdentifier(for: index) {
+        case .events:
+            header.configure(title: "МОИ СОБЫТИЯ", trailing: nil)
+        case let .competition(code):
+            let section = payload.sections[code]
+            header.configure(title: section?.title ?? "", trailing: section?.trailing)
+        default:
+            break
+        }
     }
 
     private func makeLayout() -> UICollectionViewCompositionalLayout {
@@ -227,12 +288,10 @@ final class TodayViewController: UIViewController {
 extension TodayViewController: UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         switch dataSource.itemIdentifier(for: indexPath) {
-        case let .day(day):
-            viewModel.didSelectDay(day.id)
-        case let .event(event):
-            viewModel.didTapMatch(event.id)
-        case let .row(row, _):
-            viewModel.didTapMatch(row.id)
+        case let .day(id):
+            viewModel.didSelectDay(id)
+        case let .event(id), let .row(id):
+            viewModel.didTapMatch(id)
         default:
             break
         }

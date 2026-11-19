@@ -59,7 +59,9 @@ final class MatchRowCell: UICollectionViewCell {
             $0.bottom.equalTo(contentView.snp.top)
             $0.height.equalTo(1)
         }
-        isAccessibilityElement = false
+        // VoiceOver: строка — один элемент, закладка — действие «В закладки»/«Убрать из закладок» на нём.
+        isAccessibilityElement = true
+        accessibilityTraits = .button
     }
 
     @available(*, unavailable)
@@ -73,10 +75,14 @@ final class MatchRowCell: UICollectionViewCell {
         let icon = row.isBookmarked ? "bookmark-fill" : "bookmark"
         bookmarkButton.setImage(UIImage(named: icon, in: .module, compatibleWith: nil), for: .normal)
         bookmarkButton.tintColor = row.isBookmarked ? Palette.accent : Palette.textSecondary
-        bookmarkButton.accessibilityLabel = row.isBookmarked ? "Убрать из закладок" : "В закладки"
-        contentView.isAccessibilityElement = true
-        contentView.accessibilityLabel = "\(row.leading), \(row.home) — \(row.away)"
-        contentView.accessibilityTraits = .button
+        let actionName = row.isBookmarked ? "Убрать из закладок" : "В закладки"
+        bookmarkButton.accessibilityLabel = actionName
+        accessibilityLabel = "\(row.leading), \(row.home) — \(row.away)"
+        accessibilityValue = row.isBookmarked ? "в закладках" : nil
+        accessibilityCustomActions = [UIAccessibilityCustomAction(name: actionName) { [weak self] _ in
+            self?.onToggleBookmark?()
+            return true
+        }]
     }
 }
 
