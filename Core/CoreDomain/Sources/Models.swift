@@ -22,7 +22,7 @@ public enum MatchStatus: Sendable, Equatable {
 }
 
 public struct Team: Sendable, Equatable {
-    /// Уже выбрано: name_ru ?? short_name ?? name.
+    /// Уже выбрано: name_ru ?? short_name_ru ?? short_name ?? name.
     public let name: String
     public let abbreviation: String?
 

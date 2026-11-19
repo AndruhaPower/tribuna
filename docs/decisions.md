@@ -93,3 +93,6 @@ Live-окно: TIMED/SCHEDULED считаются live в диапазоне −
 - **Глобальный git** настроен на рабочую почту okko.tv. После клонирования снова задай `git config user.email pazit@yandex.ru`.
 - **Профиль без входа** в макетах не нарисован, хотя приложение работает без входа.
 - **Чужие проекты Supabase**: в том же аккаунте есть `swap-dev` и `trading-bot`. Tribuna принадлежит только `tribuna_db` (ref `wgwsdhyrazjzqwvnhgzk`), остальные не трогаем.
+- **Модуль `CoreServices` совпадает по имени с системным `CoreServices.framework`** из iOS SDK. Пока у таргета есть хоть один Swift-файл, `import CoreServices` находит наш модуль; пустой таргет даёт `'CoreServices/UTCoreTypes.h' file not found`. Не импортируй системный `CoreServices` (или `MobileCoreServices`) в нашем коде — бери `UniformTypeIdentifiers`.
+- **supabase-swift**: `PostgrestClient(url:headers:decoder:)` без `logger:` выбирает устаревший init и даёт warning — передавай `logger: nil`. Клиент берём только PostgREST, без `SupabaseClient` (Auth не нужен), publishable-ключ — заголовком `apikey`.
+- **Тесты в симуляторе**: `name=iPhone 17 Pro Max` без `OS=` ищет симулятор последней iOS SDK и может его не найти — указывай `OS=` установленного симулятора (`xcrun simctl list devices available`).

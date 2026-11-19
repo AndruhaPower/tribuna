@@ -23,6 +23,24 @@ let coreUI = module("CoreUI", path: "Core/CoreUI", dependencies: [.external(name
 
 let coreDomain = module("CoreDomain", path: "Core/CoreDomain", dependencies: [])
 
+let coreServices = module(
+    "CoreServices",
+    path: "Core/CoreServices",
+    dependencies: [.target(name: "CoreDomain"), .external(name: "Supabase")]
+)
+
+let coreServicesTests: Target = .target(
+    name: "CoreServicesTests",
+    destinations: .iOS,
+    product: .unitTests,
+    bundleId: "\(bundleId).CoreServicesTests",
+    deploymentTargets: deployment,
+    sources: ["Core/CoreServices/Tests/**/*.swift"],
+    resources: ["Core/CoreServices/Tests/Fixtures/**"],
+    dependencies: [.target(name: "CoreServices"), .target(name: "CoreDomain")],
+    settings: settings
+)
+
 let featureTargets = features.map {
     var deps: [TargetDependency] = [.target(name: "CoreUI"), .external(name: "SnapKit")]
     if $0 == "FeatureToday" { deps.append(.target(name: "CoreDomain")) }
@@ -52,11 +70,11 @@ let app: Target = .target(
     ]),
     sources: ["Tribuna/Sources/**"],
     resources: ["Tribuna/Resources/**"],
-    dependencies: [.target(name: "CoreUI"), .target(name: "CoreDomain")] + features.map { .target(name: $0) },
+    dependencies: [.target(name: "CoreUI"), .target(name: "CoreDomain"), .target(name: "CoreServices")] + features.map { .target(name: $0) },
     settings: settings
 )
 
 let project = Project(
     name: "Tribuna",
-    targets: [app, coreUI, coreDomain] + featureTargets
+    targets: [app, coreUI, coreDomain, coreServices, coreServicesTests] + featureTargets
 )
