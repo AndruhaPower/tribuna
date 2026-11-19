@@ -95,6 +95,9 @@ xcodebuild test -workspace Tribuna.xcworkspace -scheme CoreRepositories -destina
 ```
 Спек — [foundation-today](superpowers/specs/2026-11-19-foundation-today-design.md).
 
+### D22. Карточка матча — 2026-11-19
+- Подпись «Счёт обновляется с небольшой задержкой» показывается только для футбольного матча в статусе `live`/`paused`.
+
 ## Грабли
 
 - **«swap-monorepo» в окружении** — это название сессии в приложении, а не репозиторий. Репозиторий проекта — только `AndruhaPower/tribuna`.

@@ -133,8 +133,15 @@ final class FakeRemindersStore: RemindersStore {
     var scheduled: Set<MatchID> { subject.value }
     var scheduledPublisher: AnyPublisher<Set<MatchID>, Never> { subject.eraseToAnyPublisher() }
 
+    /// true — `schedule` ждёт `release()`.
+    var held = false
+    private let (stream, continuation) = AsyncStream<Void>.makeStream()
+
+    func release() { continuation.yield() }
+
     func schedule(_ match: Match) async throws -> ReminderResult {
         scheduledMatches.append(match.id)
+        if held { for await _ in stream { break } }
         if scheduleResult == .scheduled { subject.value.insert(match.id) }
         return scheduleResult
     }

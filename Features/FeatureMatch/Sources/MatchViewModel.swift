@@ -22,6 +22,8 @@ final class MatchViewModel {
     private var bookmarks: Set<MatchID>
     private var reminders: Set<MatchID>
     private var isVisible = false
+    /// Идёт `schedule` — повторные нажатия игнорируются.
+    private var isSchedulingReminder = false
     private var timerTask: Task<Void, Never>?
     private var subscriptions: Set<AnyCancellable> = []
 
@@ -95,7 +97,9 @@ final class MatchViewModel {
             remindersStore.cancel(matchID)
             return false
         }
-        guard let match else { return false }
+        guard let match, !isSchedulingReminder else { return false }
+        isSchedulingReminder = true
+        defer { isSchedulingReminder = false }
         return (try? await remindersStore.schedule(match)) == .denied
     }
 

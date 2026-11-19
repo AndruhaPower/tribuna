@@ -62,12 +62,14 @@ struct MatchViewModelTests {
     }
 
     @Test(arguments: [
-        (MatchStatus.paused, "LIVE", true, "1 : 1"),
-        (.finished, "Завершён", false, "1 : 1"),
-        (.postponed, "Перенесён", false, ""),
-        (.cancelled, "Отменён", false, ""),
+        (MatchStatus.paused, "LIVE", true, "1 : 1", true),
+        (.finished, "Завершён", false, "1 : 1", false),
+        (.postponed, "Перенесён", false, "", false),
+        (.cancelled, "Отменён", false, "", false),
     ])
-    func statusesHideReminder(status: MatchStatus, text: String, isLive: Bool, score: String) async throws {
+    func statusesHideReminder(
+        status: MatchStatus, text: String, isLive: Bool, score: String, delayNote: Bool
+    ) async throws {
         let hasScore = status == .paused || status == .finished
         let viewModel = makeViewModel(FakeMatchesRepository(match(status: status, score: hasScore ? (1, 1) : nil)))
         await appear(viewModel)
@@ -77,7 +79,25 @@ struct MatchViewModelTests {
         #expect(card.isLive == isLive)
         #expect(card.score == score)
         #expect(card.reminder == .hidden)
-        #expect(!card.showsDelayNote || status == .paused)
+        #expect(card.showsDelayNote == delayNote)
+    }
+
+    @Test func kickoffOnAnotherDayShowsDate() async throws {
+        let tomorrow = makeViewModel(FakeMatchesRepository(match(at: "2026-11-19 18:00")))
+        await appear(tomorrow)
+        let tomorrowCard = try #require(loaded(tomorrow))
+        #expect(tomorrowCard.statusText == "Завтра, 18:00")
+        #expect(tomorrowCard.shareText == "Ливерпуль — Арсенал, завтра, 18:00 · АПЛ, 12 тур")
+
+        let saturday = makeViewModel(FakeMatchesRepository(match(at: "2026-11-21 18:00")))
+        await appear(saturday)
+        let saturdayCard = try #require(loaded(saturday))
+        #expect(saturdayCard.statusText == "Сб, 21 нояб · 18:00")
+        #expect(saturdayCard.shareText == "Ливерпуль — Арсенал, Сб, 21 нояб · 18:00 · АПЛ, 12 тур")
+
+        let sameDay = makeViewModel(FakeMatchesRepository(match(at: "2026-11-18 23:30")))
+        await appear(sameDay)
+        #expect(try #require(loaded(sameDay)).statusText == "23:30")
     }
 
     @Test func hockeyMatchHasNoTableNoDelayNote() async throws {
@@ -204,6 +224,23 @@ struct MatchViewModelTests {
         #expect(!second)
         #expect(reminders.scheduled.isEmpty)
         #expect(try #require(loaded(viewModel)).reminder == .off)
+    }
+
+    @Test func repeatTapWhileSchedulingIsIgnored() async throws {
+        reminders.held = true
+        let viewModel = makeViewModel(FakeMatchesRepository(match()))
+        await appear(viewModel)
+
+        let first = Task { await viewModel.didTapRemind() }
+        while reminders.scheduledMatches.isEmpty { await Task.yield() }
+        let second = await viewModel.didTapRemind()
+        #expect(!second)
+        #expect(reminders.scheduledMatches == [footballID])
+
+        reminders.release()
+        #expect(await first.value == false)
+        #expect(reminders.scheduledMatches == [footballID])
+        #expect(try #require(loaded(viewModel)).reminder == .on)
     }
 
     @Test func deniedRemindStaysOffAndAsksForAlert() async throws {

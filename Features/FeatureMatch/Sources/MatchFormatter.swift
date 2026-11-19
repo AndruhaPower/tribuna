@@ -5,6 +5,8 @@ import Foundation
 enum MatchFormatter {
     /// Неизвестное значение — везде одно длинное тире.
     private static let unknown = "—"
+    private static let weekdays = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"]
+    private static let months = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "нояб", "дек"]
     /// Напоминание приходит за 15 минут до начала — позже его ставить незачем.
     static let reminderLead: TimeInterval = 15 * 60
 
@@ -18,7 +20,7 @@ enum MatchFormatter {
     ) -> MatchState.Card {
         let isLive = match.status == .live || match.status == .paused
         let score = score(match)
-        let status = statusText(match, calendar: calendar)
+        let status = statusText(match, now: now, calendar: calendar)
         let highlighted = Set([match.homeTeamID, match.awayTeamID].compactMap(\.self))
         let canRemind = match.status == .scheduled && match.kickoff.timeIntervalSince(now) > reminderLead
         return MatchState.Card(
@@ -41,19 +43,35 @@ enum MatchFormatter {
                     isHighlighted: highlighted.contains($0.teamID)
                 )
             },
-            shareText: "\(match.home?.name ?? unknown) — \(match.away?.name ?? unknown), \(score.isEmpty ? status : score) · "
+            shareText: "\(match.home?.name ?? unknown) — \(match.away?.name ?? unknown), \(score.isEmpty ? shareWhen(status) : score) · "
                 + [match.competition.name, match.round].compactMap(\.self).joined(separator: ", ")
         )
     }
 
-    private static func statusText(_ match: Match, calendar: Calendar) -> String {
+    private static func statusText(_ match: Match, now: Date, calendar: Calendar) -> String {
         switch match.status {
-        case .scheduled: time(match.kickoff, calendar: calendar)
+        case .scheduled: kickoff(match.kickoff, now: now, calendar: calendar)
         case .live, .paused: "LIVE"
         case .finished: "Завершён"
         case .postponed: "Перенесён"
         case .cancelled: "Отменён"
         }
+    }
+
+    /// «18:00» сегодня, «Завтра, 18:00», иначе «Сб, 21 нояб · 18:00» — по дню в поясе календаря (D17).
+    private static func kickoff(_ date: Date, now: Date, calendar: Calendar) -> String {
+        let time = time(date, calendar: calendar)
+        if calendar.isDate(date, inSameDayAs: now) { return time }
+        if let tomorrow = calendar.date(byAdding: .day, value: 1, to: now), calendar.isDate(date, inSameDayAs: tomorrow) {
+            return "Завтра, \(time)"
+        }
+        let parts = calendar.dateComponents([.weekday, .day, .month], from: date)
+        return "\(weekdays[(parts.weekday ?? 1) - 1]), \(parts.day ?? 0) \(months[(parts.month ?? 1) - 1]) · \(time)"
+    }
+
+    /// В середине фразы «завтра» со строчной.
+    private static func shareWhen(_ status: String) -> String {
+        status.hasPrefix("Завтра") ? "з" + status.dropFirst() : status
     }
 
     /// «2 : 1»; пусто, пока счёта нет.
