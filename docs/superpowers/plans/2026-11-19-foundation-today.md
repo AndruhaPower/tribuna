@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Модули `CoreDomain`/`CoreServices`, паттерн экрана MVVM и экран «Сегодня» с реальными данными футбола из `tribuna_db` и НХЛ.
+**Goal:** Модули `CoreDomain`/`CoreRepositories`, паттерн экрана MVVM и экран «Сегодня» с реальными данными футбола из `tribuna_db` и НХЛ.
 
-**Architecture:** Фича зависит только от протоколов `CoreDomain`; приложение собирает реализации из `CoreServices` и обрабатывает выходы фич. Экран = `ViewModel` (`@MainActor`, `@Published state`) + `State` (готово к показу) + `ViewController` (SnapKit, diffable collection).
+**Architecture:** Фича зависит только от протоколов `CoreDomain`; приложение собирает реализации из `CoreRepositories` и обрабатывает выходы фич. Экран = `ViewModel` (`@MainActor`, `@Published state`) + `State` (готово к показу) + `ViewController` (SnapKit, diffable collection).
 
 **Tech Stack:** Swift 6, UIKit, iOS 16, Tuist 4.195, SnapKit 5.7.1, supabase-swift 2.x, Combine, Swift Testing.
 
@@ -14,7 +14,7 @@
 
 - iOS 16 минимум, Swift 6 language mode (D3, D6). API новее iOS 16 — только за `if #available`.
 - UIKit + SnapKit, без storyboard/xib (D6). Цвета — только `Palette`, шрифты — только `Typography` (D12, D18); новые цвета добавляются в `Palette`.
-- Фичи не зависят друг от друга и от `CoreServices`; `CoreDomain` не зависит ни от чего (D5).
+- Фичи не зависят друг от друга и от `CoreRepositories`; `CoreDomain` не зависит ни от чего (D5).
 - Фича наружу: `Feature<Имя>.make(dependencies:output:) -> UIViewController`, всё остальное `internal` (D11, уточнение этого этапа).
 - Проект генерируется: после правок `Project.swift`/`Tuist/Package.swift` — `./generate`; `.xcodeproj`/`.xcworkspace` не коммитить (D4).
 - Supabase: URL `https://wgwsdhyrazjzqwvnhgzk.supabase.co`, publishable-ключ `sb_publishable_l-xow6_fopQcOc02UAzpfw_RbeFcQLE` — в конфиге приложения. Только чтение (RLS).
@@ -37,9 +37,9 @@
 
 ```
 Core/CoreDomain/Sources/        Models.swift, MatchesRepository.swift, BookmarksStore.swift
-Core/CoreServices/Sources/      FootballRepository.swift, NHLClient.swift, CombinedMatchesRepository.swift,
+Core/CoreRepositories/Sources/      FootballRepository.swift, NHLClient.swift, CombinedMatchesRepository.swift,
                                 UserDefaultsBookmarksStore.swift, ServicesFactory.swift
-Core/CoreServices/Tests/        NHLClientTests.swift, FootballMappingTests.swift, CombinedMatchesRepositoryTests.swift,
+Core/CoreRepositories/Tests/        NHLClientTests.swift, FootballMappingTests.swift, CombinedMatchesRepositoryTests.swift,
                                 BookmarksStoreTests.swift
 Core/CoreUI/Sources/            + TeamBadgeView.swift, SectionHeaderView.swift
 Features/FeatureToday/Sources/  FeatureToday.swift, TodayViewModel.swift, TodayState.swift, TodayFormatter.swift,
@@ -55,7 +55,7 @@ Project.swift, Tuist/Package.swift, docs/decisions.md (D21)
 
 ### Task 1: CoreDomain — модели и протоколы
 
-**Files:** Create `Core/CoreDomain/Sources/{Models,MatchesRepository,BookmarksStore}.swift`; Modify `Project.swift` (модуль `CoreDomain`, static framework, без зависимостей; `FeatureToday` дополнительно зависит от `CoreDomain`; приложение — от `CoreDomain`). Модуль `CoreServices`, зависимость supabase-swift и тестовые таргеты появляются в Task 2 и Task 3 вместе со своим кодом.
+**Files:** Create `Core/CoreDomain/Sources/{Models,MatchesRepository,BookmarksStore}.swift`; Modify `Project.swift` (модуль `CoreDomain`, static framework, без зависимостей; `FeatureToday` дополнительно зависит от `CoreDomain`; приложение — от `CoreDomain`). Модуль `CoreRepositories`, зависимость supabase-swift и тестовые таргеты появляются в Task 2 и Task 3 вместе со своим кодом.
 
 **Interfaces — Produces:**
 ```swift
@@ -83,9 +83,9 @@ public protocol MatchesRepository: Sendable { func matches(in interval: DateInte
 - [ ] **Step 3:** `./generate` и сборка схемы `Tribuna` для симулятора — Expected: BUILD SUCCEEDED.
 - [ ] **Step 4:** Коммит `Каркас: модуль CoreDomain`.
 
-### Task 2: CoreServices — данные
+### Task 2: CoreRepositories — данные
 
-**Files:** Create `Core/CoreServices/Sources/*`, `Core/CoreServices/Tests/*`, `supabase/migrations/20261119130000_competitions_ru.sql`; Modify `Project.swift` (модуль `CoreServices`: static framework, зависит от `CoreDomain` и `.external(name: "Supabase")`; таргет `CoreServicesTests` типа `.unitTests` с источниками `Core/CoreServices/Tests/**` и фикстурами как ресурсами; приложение зависит от `CoreServices`), `Tuist/Package.swift` (+ `https://github.com/supabase/supabase-swift` from `2.0.0`).
+**Files:** Create `Core/CoreRepositories/Sources/*`, `Core/CoreRepositories/Tests/*`, `supabase/migrations/20261119130000_competitions_ru.sql`; Modify `Project.swift` (модуль `CoreRepositories`: static framework, зависит от `CoreDomain` и `.external(name: "Supabase")`; таргет `CoreRepositoriesTests` типа `.unitTests` с источниками `Core/CoreRepositories/Tests/**` и фикстурами как ресурсами; приложение зависит от `CoreRepositories`), `Tuist/Package.swift` (+ `https://github.com/supabase/supabase-swift` from `2.0.0`).
 
 **Interfaces — Consumes:** Task 1. **Produces:**
 ```swift
@@ -101,14 +101,14 @@ public enum Services {
 - Миграция: `update competitions set name_ru = ...` — PL 'АПЛ', PD 'Ла Лига', BL1 'Бундеслига', SA 'Серия А', FL1 'Лига 1', CL 'Лига чемпионов'.
 
 - [ ] **Step 1: Тесты:**
-  - `NHLClientTests`: разбор фикстуры `tribuna_api_report/raw/nhl_score_now.body` (скопировать в `Core/CoreServices/Tests/Fixtures/`) → непустой список, у первой игры `sport == .hockey`, `competition.code == "NHL"`, `id.rawValue` начинается с `"hockey:"`; таблица статусов (каждый из 7 кодов); `datesToQuery(for: интервал 19.11 00:00–24:00 по Москве)` → `["2026-11-18", "2026-11-19"]` (Review Focus 1); игра со `startTimeUTC` 2026-11-20T00:00:00Z попадает в московский день 20.11 (03:00), не в 19.11.
+  - `NHLClientTests`: разбор фикстуры `tribuna_api_report/raw/nhl_score_now.body` (скопировать в `Core/CoreRepositories/Tests/Fixtures/`) → непустой список, у первой игры `sport == .hockey`, `competition.code == "NHL"`, `id.rawValue` начинается с `"hockey:"`; таблица статусов (каждый из 7 кодов); `datesToQuery(for: интервал 19.11 00:00–24:00 по Москве)` → `["2026-11-18", "2026-11-19"]` (Review Focus 1); игра со `startTimeUTC` 2026-11-20T00:00:00Z попадает в московский день 20.11 (03:00), не в 19.11.
   - `FootballMappingTests`: строка с `name_ru = "Арсенал"` → `Team.name == "Арсенал"`; без `name_ru`, с `short_name` → `short_name`; `home = nil` → `Match.home == nil`; таблица статусов; `matchday 12` → `round == "12 тур"`; `competition.name_ru == nil` → `competition.name` = английское.
   - `CombinedMatchesRepositoryTests` (фейки источников): оба ок → объединение; НХЛ бросает → только футбол, без ошибки; оба бросают → ошибка (Review Focus 3).
   - `BookmarksStoreTests`: toggle добавляет/удаляет; новое хранилище на том же `UserDefaults(suiteName:)` видит сохранённое; паблишер шлёт новое множество.
-- [ ] **Step 2:** Запуск тестов `CoreServicesTests` — Expected: FAIL.
+- [ ] **Step 2:** Запуск тестов `CoreRepositoriesTests` — Expected: FAIL.
 - [ ] **Step 3:** Реализация. Сетевые клиенты принимают `URLSession`/клиент Supabase через `init` (для тестов разбор вызывается без сети).
 - [ ] **Step 4:** Тесты — Expected: PASS. `supabase db reset` локально — миграция применяется.
-- [ ] **Step 5:** Коммит `Каркас: CoreServices — футбол, НХЛ, закладки`.
+- [ ] **Step 5:** Коммит `Каркас: CoreRepositories — футбол, НХЛ, закладки`.
 
 ### Task 3: FeatureToday — модель экрана
 
@@ -182,8 +182,8 @@ public final class SectionHeaderView: UICollectionReusableView  // заголо�
 **Interfaces — Consumes:** `Services.make` (Task 2), `FeatureToday.make` (Task 4). **Produces:** `FeatureMatch.make(title: String) -> UIViewController` (заглушка: `PlaceholderViewController(title:)`).
 
 - [ ] **Step 1:** `AppConfig` (URL и publishable-ключ из Global Constraints), `AppDependencies` (создаёт `Services.make` один раз), вкладка «Сегодня» через `FeatureToday.make`; `openMatch` пушит `FeatureMatch.make(title:)` в навигационный стек вкладки «Сегодня».
-- [ ] **Step 2:** `docs/decisions.md`: D21 — паттерн экрана (MVVM + `@Published state` + Output-замыкания, координатор только при нескольких экранах в фиче), модули `CoreDomain`/`CoreServices`, закладки локальные, publishable-ключ в коде. README — структура модулей.
+- [ ] **Step 2:** `docs/decisions.md`: D21 — паттерн экрана (MVVM + `@Published state` + Output-замыкания, координатор только при нескольких экранах в фиче), модули `CoreDomain`/`CoreRepositories`, закладки локальные, publishable-ключ в коде. README — структура модулей.
 - [ ] **Step 3:** Сборка, запуск в симуляторе на реальном `tribuna_db`: видны секции включённых турниров за сегодня/завтра, НХЛ, переключение дней, закладка → карточка в «Мои события», закладка переживает перезапуск приложения, тап по матчу → заглушка с названием. Скриншоты в отчёт.
-- [ ] **Step 4:** Полный прогон тестов `CoreServicesTests` и `FeatureTodayTests` — PASS.
+- [ ] **Step 4:** Полный прогон тестов `CoreRepositoriesTests` и `FeatureTodayTests` — PASS.
 - [ ] **Step 5:** Коммит `Каркас: сборка приложения и «Сегодня» на реальных данных`.
 - [ ] **Step 6 (пользователь):** `supabase db push` — применить `20261119130000_competitions_ru.sql` на `tribuna_db` (русские названия турниров).

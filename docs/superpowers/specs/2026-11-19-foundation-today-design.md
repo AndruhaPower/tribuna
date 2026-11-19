@@ -39,12 +39,12 @@
 ```
 CoreDomain     модели (Match, Team, Competition, Sport, MatchStatus), протоколы
                MatchesRepository и BookmarksStore. Без зависимостей.
-CoreServices   реализации: SupabaseMatchesRepository (supabase-swift),
+CoreRepositories   реализации: SupabaseMatchesRepository (supabase-swift),
                NHLClient (URLSession), объединение футбола и НХЛ,
                UserDefaultsBookmarksStore. Зависит от CoreDomain.
 CoreUI         Palette, Typography + компоненты из макета по мере надобности.
-FeatureToday   экран «Сегодня». Зависит от CoreDomain и CoreUI, НЕ от CoreServices.
-Tribuna (app)  собирает зависимости (CoreServices → протоколы CoreDomain),
+FeatureToday   экран «Сегодня». Зависит от CoreDomain и CoreUI, НЕ от CoreRepositories.
+Tribuna (app)  собирает зависимости (CoreRepositories → протоколы CoreDomain),
                передаёт их фичам и обрабатывает их выходы (навигация).
 ```
 
@@ -87,7 +87,7 @@ Tribuna (app)  собирает зависимости (CoreServices → про�
 
 ## Что решено мной (поправь, если не так)
 
-1. Модули `CoreDomain` (модели + протоколы) и `CoreServices` (реализации); фичи зависят только от `CoreDomain`.
+1. Модули `CoreDomain` (модели + протоколы) и `CoreRepositories` (реализации); фичи зависят только от `CoreDomain`.
 2. `supabase-swift` для футбола; `URLSession` для НХЛ.
 3. Закладки пока локальные.
 4. Полоса дней — вчера … +6 (совпадает с окном бэкенда).

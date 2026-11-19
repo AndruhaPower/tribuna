@@ -23,13 +23,13 @@ let coreUI = module("CoreUI", path: "Core/CoreUI", dependencies: [.external(name
 
 let coreDomain = module("CoreDomain", path: "Core/CoreDomain", dependencies: [])
 
-let coreServices = module(
+let coreRepositories = module(
     "CoreRepositories",
     path: "Core/CoreRepositories",
     dependencies: [.target(name: "CoreDomain"), .external(name: "PostgREST")]
 )
 
-let coreServicesTests: Target = .target(
+let coreRepositoriesTests: Target = .target(
     name: "CoreRepositoriesTests",
     destinations: .iOS,
     product: .unitTests,
@@ -76,5 +76,5 @@ let app: Target = .target(
 
 let project = Project(
     name: "Tribuna",
-    targets: [app, coreUI, coreDomain, coreServices, coreServicesTests] + featureTargets
+    targets: [app, coreUI, coreDomain, coreRepositories, coreRepositoriesTests] + featureTargets
 )
