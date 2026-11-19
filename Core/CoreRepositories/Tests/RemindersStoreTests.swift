@@ -10,9 +10,15 @@ final class FakeCenter: UserNotificationCenter {
     var granted = true
     var authorizationRequests = 0
     var pending: [UNNotificationRequest] = []
+    /// Задержать ответы до `release…()`: так воспроизводим гонки с настоящим (асинхронным) центром.
+    var holdAuthorization = false
+    var holdLoads = false
+    private var authorizationGate: CheckedContinuation<Void, Never>?
+    private var loadGate: CheckedContinuation<Void, Never>?
 
     func requestAuthorization(options: UNAuthorizationOptions) async throws -> Bool {
         authorizationRequests += 1
+        if holdAuthorization { await withCheckedContinuation { authorizationGate = $0 } }
         return granted
     }
 
@@ -21,16 +27,42 @@ final class FakeCenter: UserNotificationCenter {
         pending.append(request)
     }
 
-    func pendingNotificationRequests() async -> [UNNotificationRequest] { pending }
+    func pendingNotificationRequests() async -> [UNNotificationRequest] {
+        let snapshot = pending // снимок до ожидания, как у настоящего центра
+        if holdLoads { await withCheckedContinuation { loadGate = $0 } }
+        return snapshot
+    }
+
+    func releaseAuthorization() async {
+        await waitUntil { self.authorizationGate != nil }
+        holdAuthorization = false
+        authorizationGate?.resume()
+        authorizationGate = nil
+    }
+
+    func releaseLoad() async {
+        await waitUntil { self.loadGate != nil }
+        holdLoads = false
+        loadGate?.resume()
+        loadGate = nil
+    }
 
     func removePendingNotificationRequests(withIdentifiers identifiers: [String]) {
         pending.removeAll { identifiers.contains($0.identifier) }
     }
 
+    /// Абсолютный момент срабатывания; nil, если триггер «плавающий» (без часового пояса).
     func fireDate(_ id: String) -> Date? {
-        guard let trigger = pending.first(where: { $0.identifier == id })?.trigger as? UNCalendarNotificationTrigger else { return nil }
-        return Calendar.current.date(from: trigger.dateComponents)
+        guard let trigger = pending.first(where: { $0.identifier == id })?.trigger as? UNCalendarNotificationTrigger,
+              trigger.dateComponents.timeZone != nil else { return nil }
+        return trigger.nextTriggerDate()
     }
+}
+
+@MainActor
+func waitUntil(_ condition: () -> Bool) async {
+    for _ in 0..<10_000 where !condition() { await Task.yield() }
+    #expect(condition())
 }
 
 private let now = Date(timeIntervalSince1970: 1_800_000_000)
@@ -87,6 +119,59 @@ struct RemindersStoreTests {
         #expect(try await store.schedule(match(status: .live)) == .tooLate)
         #expect(center.authorizationRequests == 0)
         #expect(store.scheduled.isEmpty)
+    }
+
+    @Test func tooLateExactlyFifteenMinutes() async throws {
+        #expect(try await makeStore().schedule(match(in: 15)) == .tooLate)
+    }
+
+    @Test func triggerIsAbsoluteInstant() async throws {
+        let store = await makeStore()
+        _ = try await store.schedule(match())
+        let trigger = try #require(center.pending.first?.trigger as? UNCalendarNotificationTrigger)
+        #expect(trigger.dateComponents.timeZone != nil)
+        #expect(trigger.nextTriggerDate() == now.addingTimeInterval(45 * 60))
+    }
+
+    @Test func cancelDuringHeldLoadWins() async throws {
+        let store = await makeStore()
+        _ = try await store.schedule(match())
+        center.holdLoads = true
+        store.reconcile(with: [])             // загрузка снимает снимок с напоминанием и ждёт
+        await waitUntil { center.holdLoads && center.pending.count == 1 }
+        store.cancel(MatchID(rawValue: "football:1"))
+        #expect(store.scheduled.isEmpty)
+        await center.releaseLoad()
+        await store.idle()
+        #expect(store.scheduled.isEmpty)
+        #expect(center.pending.isEmpty)
+    }
+
+    @Test func scheduleSurvivesConcurrentReconcile() async throws {
+        let store = await makeStore()
+        center.holdAuthorization = true
+        center.holdLoads = true
+        let scheduling = Task { try await store.schedule(match()) }
+        await waitUntil { center.authorizationRequests == 1 }
+        store.reconcile(with: [])             // загрузка не должна затереть напоминание, которое ещё ставится
+        await center.releaseAuthorization()
+        await center.releaseLoad()
+        #expect(try await scheduling.value == .scheduled)
+        await store.idle()
+        #expect(store.scheduled == [MatchID(rawValue: "football:1")])
+    }
+
+    @Test func cancelWhileSchedulingWins() async throws {
+        let store = await makeStore()
+        center.holdAuthorization = true
+        let scheduling = Task { try await store.schedule(match()) }
+        await waitUntil { center.authorizationRequests == 1 }
+        store.cancel(MatchID(rawValue: "football:1"))
+        await center.releaseAuthorization()
+        _ = try await scheduling.value
+        await store.idle()
+        #expect(store.scheduled.isEmpty)
+        #expect(center.pending.isEmpty)
     }
 
     @Test func cancelRemovesRequest() async throws {

@@ -28,8 +28,10 @@ final class LocalRemindersStore: RemindersStore {
     private var kickoffs: [MatchID: Date] = [:] {
         didSet { if Set(kickoffs.keys) != subject.value { subject.send(Set(kickoffs.keys)) } }
     }
-    /// Последняя операция с центром: следующие ждут её, чтобы загрузка и пересверка не перемешивались.
+    /// Последняя операция с центром: все операции (загрузка, планирование, снятие, пересверка) идут по очереди.
     private var work = Task<Void, Never> {}
+    /// Снятые, но ещё не убранные из центра: загрузка, начатая раньше, не должна их вернуть.
+    private var cancelling: Set<MatchID> = []
 
     init(center: UserNotificationCenter, now: @escaping () -> Date = Date.init) {
         self.center = center
@@ -43,17 +45,27 @@ final class LocalRemindersStore: RemindersStore {
 
     func schedule(_ match: Match) async throws -> ReminderResult {
         guard canRemind(match) else { return .tooLate }
-        await work.value
-        // Системный запрос показывается один раз; дальше сразу возвращает текущее разрешение.
-        guard try await center.requestAuthorization(options: [.alert, .sound]) else { return .denied }
-        try await center.add(Self.request(for: match))
-        kickoffs[match.id] = match.kickoff
-        return .scheduled
+        let previous = work
+        let task = Task { () async throws -> ReminderResult in
+            await previous.value
+            // Системный запрос показывается один раз; дальше сразу возвращает текущее разрешение.
+            guard try await self.center.requestAuthorization(options: [.alert, .sound]) else { return .denied }
+            try await self.center.add(Self.request(for: match))
+            // Сняли, пока ставилось: снятие в очереди следом уберёт запрос из центра.
+            if !self.cancelling.contains(match.id) { self.kickoffs[match.id] = match.kickoff }
+            return .scheduled
+        }
+        work = Task { _ = try? await task.value }
+        return try await task.value
     }
 
     func cancel(_ id: MatchID) {
-        kickoffs[id] = nil
-        enqueue { self.center.removePendingNotificationRequests(withIdentifiers: [id.rawValue]) }
+        kickoffs[id] = nil // кнопка гаснет сразу, центр — в очереди
+        cancelling.insert(id)
+        enqueue {
+            self.cancelling.remove(id)
+            self.center.removePendingNotificationRequests(withIdentifiers: [id.rawValue])
+        }
     }
 
     func reconcile(with matches: [Match]) {
@@ -77,9 +89,13 @@ final class LocalRemindersStore: RemindersStore {
         }
     }
 
-    /// Ждёт завершения поставленных операций (для тестов).
+    /// Ждёт завершения всех поставленных операций, включая добавленные во время ожидания (для тестов).
     func idle() async {
-        await work.value
+        while true {
+            let current = work
+            await current.value
+            if current == work { return }
+        }
     }
 
     private func canRemind(_ match: Match) -> Bool {
@@ -97,7 +113,7 @@ final class LocalRemindersStore: RemindersStore {
             (request.content.userInfo[Self.kickoffKey] as? TimeInterval).map {
                 (MatchID(rawValue: request.identifier), Date(timeIntervalSince1970: $0))
             }
-        }, uniquingKeysWith: { first, _ in first })
+        }, uniquingKeysWith: { first, _ in first }).filter { !cancelling.contains($0.key) }
     }
 
     private func enqueue(_ operation: @escaping @MainActor () async -> Void) {
@@ -112,7 +128,7 @@ final class LocalRemindersStore: RemindersStore {
         content.sound = .default
         content.userInfo = [kickoffKey: match.kickoff.timeIntervalSince1970]
         let components = Calendar.current.dateComponents(
-            [.year, .month, .day, .hour, .minute, .second],
+            [.timeZone, .year, .month, .day, .hour, .minute, .second], // с поясом — абсолютный момент, не «плавающее» время
             from: match.kickoff.addingTimeInterval(-lead)
         )
         let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)

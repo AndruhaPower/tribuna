@@ -59,8 +59,9 @@ struct StandingDTO: Decodable, Sendable {
     let groupName: String?
     let position: Int
     let teamID: Int
-    let played: Int
-    let points: Int
+    /// В схеме nullable; nil показываем как 0.
+    let played: Int?
+    let points: Int?
     let team: FootballRow.TeamRow
 
     enum CodingKeys: String, CodingKey {
@@ -93,7 +94,7 @@ enum FootballMapping {
         let groups = Dictionary(grouping: rows) { "\($0.stage)/\($0.groupName ?? "")" }
         guard let main = groups.max(by: { ($0.value.count, $1.key) < ($1.value.count, $0.key) })?.value else { return [] }
         return main.sorted { $0.position < $1.position }.map {
-            StandingRow(position: $0.position, team: team($0.team), teamID: String($0.teamID), played: $0.played, points: $0.points)
+            StandingRow(position: $0.position, team: team($0.team), teamID: String($0.teamID), played: $0.played ?? 0, points: $0.points ?? 0)
         }
     }
 

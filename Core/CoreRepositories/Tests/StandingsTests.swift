@@ -48,6 +48,13 @@ struct StandingsTests {
         #expect(FootballMapping.standings(from: try rows(json)).map(\.position) == [1, 2])
     }
 
+    @Test func nullPlayedAndPointsAreZero() throws {
+        let json = #"[{"stage":"REGULAR_SEASON","group_name":null,"position":1,"team_id":1,"played":null,"points":null,"#
+            + #""team":{"tla":"T1","name":"Team 1 FC","name_ru":null,"short_name":"Team 1","short_name_ru":null}}]"#
+        let row = try #require(FootballMapping.standings(from: try rows(json)).first)
+        #expect(row.played == 0 && row.points == 0)
+    }
+
     @Test func emptyIsEmpty() {
         #expect(FootballMapping.standings(from: []).isEmpty)
     }
