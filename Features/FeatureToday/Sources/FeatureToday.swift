@@ -1,9 +1,31 @@
-import CoreUI
+import CoreDomain
 import UIKit
 
-@MainActor
 public enum FeatureToday {
-    public static func makeRoot() -> UIViewController {
-        PlaceholderViewController(title: "Сегодня")
+    public struct Dependencies {
+        let matches: MatchesRepository
+        let bookmarks: BookmarksStore
+
+        public init(matches: MatchesRepository, bookmarks: BookmarksStore) {
+            self.matches = matches
+            self.bookmarks = bookmarks
+        }
+    }
+
+    public struct Output {
+        /// id матча и заголовок «Ливерпуль — Арсенал».
+        let openMatch: (MatchID, String) -> Void
+
+        public init(openMatch: @escaping (MatchID, String) -> Void) {
+            self.openMatch = openMatch
+        }
+    }
+
+    @MainActor public static func make(dependencies: Dependencies, output: Output) -> UIViewController {
+        TodayViewController(viewModel: TodayViewModel(
+            matches: dependencies.matches,
+            bookmarks: dependencies.bookmarks,
+            onOpenMatch: output.openMatch
+        ))
     }
 }

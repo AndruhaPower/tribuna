@@ -6,7 +6,7 @@ let settings: Settings = .settings(base: ["SWIFT_VERSION": "6.0"])
 
 let features = ["Today", "Match", "Bookmarks", "Radio", "Podcasts", "Player", "Profile"].map { "Feature\($0)" }
 
-func module(_ name: String, path: String, dependencies: [TargetDependency]) -> Target {
+func module(_ name: String, path: String, resources: ResourceFileElements? = nil, dependencies: [TargetDependency]) -> Target {
     .target(
         name: name,
         destinations: .iOS,
@@ -14,6 +14,7 @@ func module(_ name: String, path: String, dependencies: [TargetDependency]) -> T
         bundleId: "\(bundleId).\(name)",
         deploymentTargets: deployment,
         sources: ["\(path)/Sources/**"],
+        resources: resources,
         dependencies: dependencies,
         settings: settings
     )
@@ -54,8 +55,12 @@ let featureTodayTests: Target = .target(
 
 let featureTargets = features.map {
     var deps: [TargetDependency] = [.target(name: "CoreUI"), .external(name: "SnapKit")]
-    if $0 == "FeatureToday" { deps.append(.target(name: "CoreDomain")) }
-    return module($0, path: "Features/\($0)", dependencies: deps)
+    var resources: ResourceFileElements?
+    if $0 == "FeatureToday" {
+        deps.append(.target(name: "CoreDomain"))
+        resources = ["Features/FeatureToday/Resources/**"]
+    }
+    return module($0, path: "Features/\($0)", resources: resources, dependencies: deps)
 }
 
 let app: Target = .target(

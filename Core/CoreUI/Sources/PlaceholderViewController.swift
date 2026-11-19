@@ -18,7 +18,12 @@ public final class PlaceholderViewController: UIViewController {
         label.text = title
         label.textColor = Palette.textPrimary
         label.font = Typography.screenTitle
+        label.numberOfLines = 0
+        label.textAlignment = .center
         view.addSubview(label)
-        label.snp.makeConstraints { $0.center.equalToSuperview() }
+        label.snp.makeConstraints {
+            $0.center.equalToSuperview()
+            $0.leading.trailing.equalToSuperview().inset(20)
+        }
     }
 }

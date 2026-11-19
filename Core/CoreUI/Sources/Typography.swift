@@ -27,5 +27,6 @@ public enum Typography {
         .systemFont(ofSize: size, weight: weight)
     }
 
-    public static var screenTitle: UIFont { display(32) }
+    /// 30 pt — замер заголовка «Сегодня» по макету.
+    public static var screenTitle: UIFont { display(30) }
 }

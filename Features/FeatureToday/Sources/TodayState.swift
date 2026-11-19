@@ -3,7 +3,7 @@ import Foundation
 
 /// Готовое к показу состояние экрана «Сегодня»: контроллер ничего не форматирует.
 struct TodayState: Equatable {
-    struct DayItem: Equatable, Identifiable {
+    struct DayItem: Hashable, Identifiable {
         /// Начало дня в поясе календаря.
         let id: Date
         let weekday: String
@@ -11,13 +11,13 @@ struct TodayState: Equatable {
         let isSelected: Bool
     }
 
-    struct TeamItem: Equatable {
+    struct TeamItem: Hashable {
         let name: String
         let abbreviation: String?
     }
 
     /// Крупная карточка «Моих событий».
-    struct EventCard: Equatable, Identifiable {
+    struct EventCard: Hashable, Identifiable {
         let id: MatchID
         let header: String
         let isLive: Bool
@@ -30,7 +30,7 @@ struct TodayState: Equatable {
         let awayScore: String
     }
 
-    struct MatchRow: Equatable, Identifiable {
+    struct MatchRow: Hashable, Identifiable {
         let id: MatchID
         let leading: String
         let home: String

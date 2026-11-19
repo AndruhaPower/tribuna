@@ -17,6 +17,8 @@ public enum Palette {
     public static let textPrimary = UIColor(hex: 0xEEF1F8)
     public static let textSecondary = UIColor(hex: 0x9AA4BD)
     public static let accent = UIColor(hex: 0xFFB020)
+    /// Ореол вокруг точки логотипа (акцент 18 % на фоне).
+    public static let accentHalo = UIColor(hex: 0x372D20)
     /// Текст и иконки на акцентной кнопке.
     public static let onAccent = UIColor(hex: 0x1A1300)
     /// Плашка LIVE на карточке матча.

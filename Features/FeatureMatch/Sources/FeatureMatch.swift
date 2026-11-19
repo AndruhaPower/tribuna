@@ -3,7 +3,8 @@ import UIKit
 
 @MainActor
 public enum FeatureMatch {
-    public static func makeRoot() -> UIViewController {
-        PlaceholderViewController(title: "Матч")
+    /// Заглушка карточки матча: заголовок «Ливерпуль — Арсенал».
+    public static func make(title: String) -> UIViewController {
+        PlaceholderViewController(title: title)
     }
 }
