@@ -17,6 +17,22 @@ Deno.test("isLiveOrSoon: скоро начало", () => {
   assertEquals(isLiveOrSoon([m("TIMED", "20:20")], now), false);
 });
 
+Deno.test("isLiveOrSoon: TIMED/SCHEDULED уже начался (окно -3 ч)", () => {
+  assertEquals(isLiveOrSoon([m("TIMED", "19:55")], now), true);
+  assertEquals(isLiveOrSoon([m("SCHEDULED", "17:00")], now), true);
+  assertEquals(isLiveOrSoon([m("TIMED", "16:59")], now), false);
+});
+
+Deno.test("isLiveOrSoon: граница +15 минут включительно", () => {
+  assertEquals(isLiveOrSoon([m("TIMED", "20:15")], now), true);
+  assertEquals(isLiveOrSoon([m("TIMED", "20:16")], now), false);
+});
+
+Deno.test("isLiveOrSoon: доп. время и пенальти", () => {
+  assertEquals(isLiveOrSoon([m("EXTRA_TIME", "18:00")], now), true);
+  assertEquals(isLiveOrSoon([m("PENALTY_SHOOTOUT", "18:00")], now), true);
+});
+
 Deno.test("isLiveOrSoon: прочие статусы", () => {
   for (const s of ["POSTPONED", "CANCELLED", "SUSPENDED"]) {
     assertEquals(isLiveOrSoon([m(s, "20:05")], now), false);
@@ -46,6 +62,12 @@ const codes = (enabledCodes: string[], competitions: CompetitionState[]) =>
 Deno.test("planRun: таблицы после окончания матча идут первыми", () => {
   const res = codes(["PL", "SA"], [c("SA", ago(8 * 60)), c("PL", at("19:00"), at("19:50"))]);
   assertEquals(res, ["PL", "SA"]);
+});
+
+Deno.test("planRun: таблица, снятая сразу после FINISHED, обновляется ещё раз", () => {
+  const f = (upd: Date) => codes(["PL"], [c("PL", upd, at("19:50"))]);
+  assertEquals(f(at("19:55")), ["PL"]);
+  assertEquals(f(at("20:01")), []);
 });
 
 Deno.test("planRun: не больше двух, null первым", () => {

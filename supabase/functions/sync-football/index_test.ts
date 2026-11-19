@@ -191,7 +191,12 @@ Deno.test("успешный запуск: окно дат, заголовок, �
     "name",
     "short_name",
     "tla",
+    "updated_at",
   ]);
+  assertEquals((teamUpserts[0][0] as { updated_at: string }[])[0].updated_at, NOW.toISOString());
+  assertEquals((upserts(calls, "matches")[0][0] as { synced_at: string }[])[0].synced_at, NOW.toISOString());
+  const windowQuery = calls.find((c) => c.table === "matches" && c.ops.some(([op]) => op === "gte"))!;
+  assert(windowQuery.ops.some(([op, a]) => op === "in" && a[0] === "competition_id" && (a[1] as number[])[0] === 2021));
   assertEquals((teamUpserts[1][0] as { id: number }[]).map((t) => t.id), [12]);
   assertEquals(upserts(calls, "matches").length, 1);
 
@@ -216,6 +221,40 @@ Deno.test("пустая таблица → replace_standings не вызывае
   assertEquals(rpcs.length, 0);
   assertEquals(body.standings, []);
   assertStringIncludes(body.error, "PL");
+});
+
+const twoComps = (c: Call): unknown => {
+  if (c.table === "competitions") {
+    return [{ id: 2021, code: "PL", standings_updated_at: null }, { id: 2019, code: "SA", standings_updated_at: null }];
+  }
+  return c.table === "sync_state" ? null : [];
+};
+
+Deno.test("стендинги: 404 у первой не мешает второй", async () => {
+  const { db, rpcs } = fakeDb(twoComps);
+  const f = fakeFetch((url) =>
+    url.includes("/matches")
+      ? json({ matches: [] })
+      : url.includes("/PL/") ? new Response("nf", { status: 404 }) : json(standingsJson([{ position: 1, team: team(12) }]))
+  );
+  const res = await handle(req(SECRET), { env: env(), fetch: f.fetch, db, now: () => NOW });
+  const body = await res.json();
+  assertEquals(f.requests.length, 3);
+  assertEquals(rpcs.length, 1);
+  assertEquals(body.standings, ["SA"]);
+  assertStringIncludes(body.error, "404");
+});
+
+Deno.test("стендинги: 429 у первой прекращает запросы", async () => {
+  const { db, rpcs } = fakeDb(twoComps);
+  const f = fakeFetch((url) =>
+    url.includes("/matches") ? json({ matches: [] }) : new Response("slow", { status: 429 })
+  );
+  const res = await handle(req(SECRET), { env: env(), fetch: f.fetch, db, now: () => NOW });
+  const body = await res.json();
+  assertEquals(f.requests.length, 2, "матчи + одна таблица, вторая не запрошена");
+  assertEquals(rpcs.length, 0);
+  assertStringIncludes(body.error, "429");
 });
 
 Deno.test("plan: lastFinishedAt из FINISHED-матчей, свежие матчи не тянем", async () => {

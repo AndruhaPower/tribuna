@@ -3,6 +3,8 @@
 const MIN = 60_000;
 export const MATCHES_INTERVAL_MS = 15 * MIN; // как часто тянуть матчи вне live
 export const SOON_WINDOW_MS = 15 * MIN; // «скоро» = начало в ближайшие 15 минут
+export const STARTED_WINDOW_MS = 3 * 60 * MIN; // TIMED/SCHEDULED старше 3 ч считаем не live (статус не обновился)
+export const STANDINGS_SETTLE_MS = 10 * MIN; // football-data пересчитывает таблицу не мгновенно
 export const STANDINGS_MAX_AGE_MS = 6 * 60 * MIN; // таблица считается устаревшей
 export const MAX_STANDINGS_PER_RUN = 2;
 
@@ -12,13 +14,16 @@ export type CompetitionState = {
   lastFinishedAt: Date | null;
 };
 
+const LIVE = new Set(["IN_PLAY", "PAUSED", "EXTRA_TIME", "PENALTY_SHOOTOUT"]);
+
+// TIMED/SCHEDULED, но уже начался: football-data меняет статус с задержкой, окно [-3 ч; +15 мин].
 export function isLiveOrSoon(matches: { status: string; utc_date: string }[], now: Date): boolean {
   const t = now.getTime();
   return matches.some((m) => {
-    if (m.status === "IN_PLAY" || m.status === "PAUSED") return true;
+    if (LIVE.has(m.status)) return true;
     if (m.status !== "TIMED" && m.status !== "SCHEDULED") return false;
     const start = new Date(m.utc_date).getTime();
-    return start >= t && start <= t + SOON_WINDOW_MS;
+    return start >= t - STARTED_WINDOW_MS && start <= t + SOON_WINDOW_MS;
   });
 }
 
@@ -43,7 +48,8 @@ export function planRun(
   const comps = s.competitions.filter((c) => s.enabledCodes.includes(c.code));
   const finished = (c: CompetitionState) =>
     c.lastFinishedAt !== null &&
-    (c.standingsUpdatedAt === null || c.lastFinishedAt > c.standingsUpdatedAt);
+    (c.standingsUpdatedAt === null ||
+      c.standingsUpdatedAt.getTime() < c.lastFinishedAt.getTime() + STANDINGS_SETTLE_MS);
   const stale = (c: CompetitionState) =>
     c.standingsUpdatedAt === null ||
     now.getTime() - c.standingsUpdatedAt.getTime() > STANDINGS_MAX_AGE_MS;

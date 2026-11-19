@@ -16,7 +16,8 @@ select cron.schedule(
       'Content-Type', 'application/json',
       'x-sync-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'sync_secret')
     ),
-    body := '{}'::jsonb
+    body := '{}'::jsonb,
+    timeout_milliseconds := 30000
   );
   $$
 );

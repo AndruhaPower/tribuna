@@ -77,6 +77,16 @@ supabase db reset   # применяет миграции из supabase/migratio
 
 Локально секретов в Vault нет, поэтому задание запускается, но вызов функции падает. Это нормально.
 
+Локальная проверка функции (до настройки удалённого проекта). Файл с фиктивными значениями держать вне репозитория:
+
+```bash
+# /path/to/dummy.env: FOOTBALL_DATA_KEY=dummy, SYNC_SECRET=dummy-secret,
+#   SUPABASE_URL=http://127.0.0.1:54321, SUPABASE_SERVICE_ROLE_KEY=<ключ из supabase status>
+supabase functions serve sync-football --no-verify-jwt --env-file /path/to/dummy.env
+curl -i -X POST http://127.0.0.1:54321/functions/v1/sync-football                                  # 401
+curl -i -X POST http://127.0.0.1:54321/functions/v1/sync-football -H 'x-sync-secret: dummy-secret'  # 200
+```
+
 ### Разовая настройка удалённого проекта
 
 Делает владелец проекта, ключи в репозиторий не попадают.
@@ -94,12 +104,14 @@ select vault.create_secret('https://wgwsdhyrazjzqwvnhgzk.supabase.co', 'project_
 select vault.create_secret('<тот же SYNC_SECRET>', 'sync_secret');
 ```
 
-Затем:
+Затем сначала функция (флаг нужен, потому что вызов идёт с `x-sync-secret`, а не с JWT), потом миграции, чтобы cron не бил в ещё не задеплоенную функцию:
 
 ```bash
+supabase functions deploy sync-football --no-verify-jwt
 supabase db push
-supabase functions deploy sync-football
 ```
+
+Ротация секрета: обновить `SYNC_SECRET` через `supabase secrets set` и в Vault `select vault.update_secret((select id from vault.secrets where name = 'sync_secret'), '<новое значение>');`.
 
 ### Проверка
 

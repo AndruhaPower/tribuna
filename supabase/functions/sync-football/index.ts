@@ -14,6 +14,9 @@ export type Deps = {
 };
 
 const ymd = (d: Date) => d.toISOString().slice(0, 10);
+// Ошибка, после которой запросы к football-data в этом запуске прекращаются (429, сеть).
+class Abort extends Error {}
+
 const reply = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
@@ -44,6 +47,9 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   const now = deps.now?.() ?? new Date();
   let fetchedMatches = false;
   const standings: string[] = [];
+  const errors: string[] = [];
+  const nowIso = now.toISOString();
+  const withUpdated = <T extends object>(rows: T[]) => rows.map((r) => ({ ...r, updated_at: nowIso }));
   let error: string | null = null;
 
   // Любая ошибка выходит из try ниже: после 429/сети запросов в этом запуске больше нет.
@@ -52,11 +58,12 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
     try {
       res = await deps.fetch(`${API}${path}`, { headers: { "X-Auth-Token": key } });
     } catch (e) {
-      throw new Error(`football-data: сеть: ${e instanceof Error ? e.message : String(e)}`);
+      throw new Abort(`football-data: сеть: ${e instanceof Error ? e.message : String(e)}`);
     }
     if (!res.ok) {
       await res.body?.cancel();
-      throw new Error(`football-data: HTTP ${res.status} на ${path.split("?")[0]}`);
+      const msg = `football-data: HTTP ${res.status} на ${path.split("?")[0]}`;
+      throw res.status === 429 ? new Abort(msg) : new Error(msg);
     }
     return res.json();
   };
@@ -73,6 +80,7 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
     const dateTo = ymd(new Date(now.getTime() + 7 * DAY));
     const windowMatches = await q(
       db.from("matches").select("status, utc_date")
+        .in("competition_id", comps.map((c) => c.id))
         .gte("utc_date", `${dateFrom}T00:00:00Z`).lte("utc_date", `${dateTo}T23:59:59Z`),
     ) as { status: string; utc_date: string }[];
 
@@ -103,28 +111,36 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
       const m = mapMatches(await get(`/matches?competitions=${codes}&dateFrom=${dateFrom}&dateTo=${dateTo}`));
       // competitions: только синк-колонки, enabled/name_ru/standings_updated_at не трогаем
       if (m.competitions.length) await q(db.from("competitions").upsert(m.competitions, { onConflict: "id" }));
-      if (m.teams.length) await q(db.from("teams").upsert(m.teams, { onConflict: "id" }));
-      if (m.matches.length) await q(db.from("matches").upsert(m.matches, { onConflict: "id" }));
+      if (m.teams.length) await q(db.from("teams").upsert(withUpdated(m.teams), { onConflict: "id" }));
+      if (m.matches.length) {
+        await q(db.from("matches").upsert(m.matches.map((r) => ({ ...r, synced_at: nowIso })), { onConflict: "id" }));
+      }
       await q(db.from("sync_state").upsert({ key: "matches", value: { fetchedAt: now.toISOString() } }));
       fetchedMatches = true;
     }
 
-    const skipped: string[] = [];
+    // ошибка одной таблицы не блокирует остальные; 429 и сеть (Abort) прерывают весь запуск
     for (const code of plan.standingsCodes) {
-      const s = mapStandings(await get(`/competitions/${code}/standings`));
-      // пустой массив стёр бы таблицу турнира
-      if (s.rows.length === 0) {
-        skipped.push(code);
-        continue;
+      try {
+        const s = mapStandings(await get(`/competitions/${code}/standings`));
+        // пустой массив стёр бы таблицу турнира
+        if (s.rows.length === 0) {
+          errors.push(`football-data: пустая таблица у ${code}`);
+          continue;
+        }
+        // команды из таблицы могут отсутствовать в окне матчей: иначе упадёт FK standings.team_id
+        await q(db.from("teams").upsert(withUpdated(s.teams), { onConflict: "id" }));
+        await q(db.rpc("replace_standings", { p_competition_id: s.competitionId, p_rows: s.rows }));
+        standings.push(code);
+      } catch (e) {
+        if (e instanceof Abort) throw e;
+        errors.push(`${code}: ${e instanceof Error ? e.message : String(e)}`);
       }
-      // команды из таблицы могут отсутствовать в окне матчей: иначе упадёт FK standings.team_id
-      await q(db.from("teams").upsert(s.teams, { onConflict: "id" }));
-      await q(db.rpc("replace_standings", { p_competition_id: s.competitionId, p_rows: s.rows }));
-      standings.push(code);
     }
-    if (skipped.length) error = `football-data: пустая таблица у ${skipped.join(", ")}`;
+    if (errors.length) error = errors.join("; ");
   } catch (e) {
-    error = e instanceof Error ? e.message : String(e);
+    errors.push(e instanceof Error ? e.message : String(e));
+    error = errors.join("; ");
   }
 
   try {

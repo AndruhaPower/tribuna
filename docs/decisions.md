@@ -82,6 +82,7 @@ Unbounded — вариативный файл из Google Fonts (`Tribuna/Resour
 
 ### D20. Футбол: pg_cron → Edge Function → таблицы — 2026-11-19
 Данные football-data.org попадают в Supabase так: pg_cron вызывает Edge Function `sync-football`, она забирает матчи, команды и таблицы и пишет в таблицы `competitions`, `teams`, `matches`, `standings`, `sync_state`. Клиент только читает их (RLS: `select` для `anon`/`authenticated`, писать может только `service_role`; `sync_state` клиенту закрыта). Таблицу турнира заменяет атомарно `replace_standings` (`security definer`, `execute` только у `service_role`). Схема — `supabase/migrations/20261119120000_football.sql`, дизайн — [спек](superpowers/specs/2026-11-19-football-backend-design.md).
+Live-окно: TIMED/SCHEDULED считаются live в диапазоне −3 ч…+15 мин от `utc_date` (статус у football-data меняется с задержкой), `EXTRA_TIME`/`PENALTY_SHOOTOUT` — live. Таймаут `net.http_post` в cron — 30 с.
 
 ## Грабли
 
