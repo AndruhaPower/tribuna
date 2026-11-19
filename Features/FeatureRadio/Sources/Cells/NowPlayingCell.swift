@@ -9,6 +9,8 @@ final class NowPlayingCell: UICollectionViewCell {
 
     var onPlayPause: (() -> Void)?
 
+    private let dot = UIView()
+    private let caption = UILabel()
     private let nameLabel = UILabel()
     private let subtitleLabel = UILabel()
     private let button = PlayButton(tint: Palette.onAccent)
@@ -42,16 +44,9 @@ final class NowPlayingCell: UICollectionViewCell {
         // Core Animation снимает анимации при уходе в фон.
         center.addObserver(self, selector: #selector(updateShimmer), name: UIApplication.willEnterForegroundNotification, object: nil)
 
-        let dot = UIView()
-        dot.backgroundColor = Palette.accent
         dot.layer.cornerRadius = 2.75
         let captionFont = Typography.text(13, .bold)
-        let caption = UILabel()
-        caption.attributedText = NSAttributedString(string: "СЕЙЧАС ИГРАЕТ", attributes: [
-            .font: captionFont,
-            .foregroundColor: Palette.accent,
-            .kern: 0.2,
-        ])
+        caption.font = captionFont
         let iconBox = UIView()
         iconBox.backgroundColor = Palette.surfaceHigh
         iconBox.layer.cornerRadius = 16
@@ -166,12 +161,17 @@ final class NowPlayingCell: UICollectionViewCell {
     func configure(_ card: RadioState.NowPlaying) {
         nameLabel.text = card.name
         subtitleLabel.text = card.subtitle
+        let captionColor = card.isCaptionActive ? Palette.accent : Palette.textSecondary
+        dot.backgroundColor = captionColor
+        caption.attributedText = NSAttributedString(string: card.caption, attributes: [
+            .font: caption.font as Any, .foregroundColor: captionColor, .kern: 0.2,
+        ])
         subtitleLabel.textColor = card.isError ? Palette.destructive : Palette.textSecondary
         button.configure(card.button, label: card.actionLabel)
         wave.isAnimating = card.isAnimating
         isPlaying = card.isAnimating
         updateShimmer()
-        summary.accessibilityLabel = "Сейчас играет: \(card.name)"
+        summary.accessibilityLabel = "\(card.caption.prefix(1))\(card.caption.dropFirst().lowercased()): \(card.name)"
         summary.accessibilityValue = card.subtitle
     }
 }

@@ -69,7 +69,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         return tabBar
     }
 
-    /// Полноэкранный плеер поверх вкладок — из «Эфира» и мини-плеера.
+    /// Плеер (лист) поверх вкладок — из «Эфира» и мини-плеера.
     private func openPlayer() {
         guard let root = window?.rootViewController, root.presentedViewController == nil else { return }
         root.present(FeaturePlayer.makePlayer(player: dependencies.player), animated: true)

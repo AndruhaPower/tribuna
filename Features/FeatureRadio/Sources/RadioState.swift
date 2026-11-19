@@ -19,6 +19,10 @@ struct RadioState: Equatable {
         /// «Россия · 128 кбит/с» или текст ошибки.
         let subtitle: String
         let isError: Bool
+        /// «СЕЙЧАС ИГРАЕТ» (играет, подключение), «НА ПАУЗЕ» или «НЕТ СВЯЗИ».
+        let caption: String
+        /// Точка и подпись акцентные при игре/подключении, иначе вторичные.
+        let isCaptionActive: Bool
         let button: Button
         /// VoiceOver: «Пауза, <станция>», «Остановить, <станция>» или «Слушать <станция>».
         let actionLabel: String
@@ -31,7 +35,7 @@ struct RadioState: Equatable {
         let initials: String
         let name: String
         let subtitle: String
-        /// `.pause` у станции, которая играет или подключается.
+        /// `.pause` у играющей станции, `.loading` у подключающейся.
         let button: Button
         /// VoiceOver: «<станция>, <подпись>».
         let accessibilityLabel: String

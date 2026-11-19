@@ -43,7 +43,7 @@ enum RadioFormatter {
             }
             return .init(
                 id: station.id, initials: initials(station.name), name: station.name, subtitle: station.subtitle,
-                button: value == nil ? .play : .pause,
+                button: status == .playing ? .pause : status == .loading ? .loading : .play,
                 accessibilityLabel: "\(station.name), \(station.subtitle)", accessibilityValue: value, actionLabel: action
             )
         })
@@ -54,12 +54,13 @@ enum RadioFormatter {
         var subtitle = [station.country, station.bitrate.map { "\($0) кбит/с" }].compactMap { $0 }.joined(separator: " · ")
         var isError = false
         let button: RadioState.Button
+        let caption: String
         switch playback.status {
-        case .playing: button = .pause
-        case .loading: button = .loading
-        case .idle, .paused: button = .play
+        case .playing: (button, caption) = (.pause, "СЕЙЧАС ИГРАЕТ")
+        case .loading: (button, caption) = (.loading, "СЕЙЧАС ИГРАЕТ")
+        case .idle, .paused: (button, caption) = (.play, "НА ПАУЗЕ")
         case let .failed(message):
-            button = .play
+            (button, caption) = (.play, "НЕТ СВЯЗИ")
             subtitle = message
             isError = true
         }
@@ -69,7 +70,7 @@ enum RadioFormatter {
         case .play: "Слушать \(station.name)"
         }
         return .init(
-            id: station.id, name: station.name, subtitle: subtitle, isError: isError, button: button,
+            id: station.id, name: station.name, subtitle: subtitle, isError: isError, caption: caption, isCaptionActive: button != .play, button: button,
             actionLabel: actionLabel, isAnimating: playback.status == .playing
         )
     }

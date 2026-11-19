@@ -56,7 +56,7 @@ struct RadioPlayerTests {
 
     @Test func noResponseTimesOut() {
         player.play(matchTV)
-        clock.advance(by: 14)
+        clock.advance(by: RadioPlayer.connectTimeout - 1)
         #expect(player.state.status == .loading)
         clock.advance(by: 1)
         #expect(player.state.status == .failed("Не удалось подключиться"))
@@ -72,18 +72,18 @@ struct RadioPlayerTests {
         #expect(player.state.status == .playing)
 
         engine.send(.waiting)
-        clock.advance(by: 15)
+        clock.advance(by: RadioPlayer.connectTimeout)
         #expect(player.state.status == .failed("Не удалось подключиться"))
     }
 
     @Test func staleConnectTimeoutIgnored() {
         clock.ignoresCancellation = true
         player.play(matchTV)
-        clock.advance(by: 10)
+        clock.advance(by: RadioPlayer.connectTimeout * 2 / 3)
         player.play(sportFM)
-        clock.advance(by: 5)
+        clock.advance(by: RadioPlayer.connectTimeout / 3)
         #expect(player.state.status == .loading)
-        clock.advance(by: 10)
+        clock.advance(by: RadioPlayer.connectTimeout * 2 / 3)
         #expect(player.state.status == .failed("Не удалось подключиться"))
     }
 

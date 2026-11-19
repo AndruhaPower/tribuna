@@ -9,7 +9,7 @@ public enum FeaturePlayer {
         MiniPlayerView(viewModel: PlayerViewModel(player: player), onOpen: onOpen)
     }
 
-    /// Полноэкранный модальный плеер.
+    /// Плеер (лист).
     public static func makePlayer(player: AudioPlayer) -> UIViewController {
         PlayerViewController(viewModel: PlayerViewModel(player: player))
     }

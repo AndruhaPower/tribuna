@@ -177,19 +177,30 @@ struct RadioViewModelTests {
         #expect(card?.button == .pause)
         #expect(card?.isAnimating == true)
         #expect(card?.isError == false)
+        #expect(card?.caption == "СЕЙЧАС ИГРАЕТ")
+        #expect(card?.isCaptionActive == true)
 
         player.set(vesti, .loading)
+        #expect(viewModel.state.nowPlaying?.caption == "СЕЙЧАС ИГРАЕТ")
+        #expect(viewModel.state.nowPlaying?.isCaptionActive == true)
         #expect(viewModel.state.nowPlaying?.subtitle == "Россия")
         #expect(viewModel.state.nowPlaying?.button == .loading)
         #expect(viewModel.state.nowPlaying?.isAnimating == false)
 
         player.set(vesti, .paused)
         #expect(viewModel.state.nowPlaying?.button == .play)
+        #expect(viewModel.state.nowPlaying?.caption == "НА ПАУЗЕ")
+        #expect(viewModel.state.nowPlaying?.isCaptionActive == false)
 
         player.set(vesti, .failed("Не удалось подключиться"))
         #expect(viewModel.state.nowPlaying?.subtitle == "Не удалось подключиться")
         #expect(viewModel.state.nowPlaying?.isError == true)
         #expect(viewModel.state.nowPlaying?.button == .play)
+        #expect(viewModel.state.nowPlaying?.caption == "НЕТ СВЯЗИ")
+        #expect(viewModel.state.nowPlaying?.isCaptionActive == false)
+
+        player.set(vesti, .idle)
+        #expect(viewModel.state.nowPlaying?.caption == "НА ПАУЗЕ")
 
         player.set(nil, .idle)
         #expect(viewModel.state.nowPlaying == nil)
@@ -205,7 +216,7 @@ struct RadioViewModelTests {
         player.set(golos, .paused)
         #expect(rows(viewModel)?.map(\.button) == [.play, .play])
         player.set(hockey, .loading)
-        #expect(rows(viewModel)?.map(\.button) == [.play, .pause])
+        #expect(rows(viewModel)?.map(\.button) == [.play, .loading])
     }
 
     @Test func rowAccessibilityFollowsPlayer() async throws {
