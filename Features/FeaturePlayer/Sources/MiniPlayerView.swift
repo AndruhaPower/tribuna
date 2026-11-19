@@ -3,7 +3,7 @@ import CoreUI
 import SnapKit
 import UIKit
 
-/// Мини-плеер над таб-баром (макеты «Сегодня», «Подкасты»): карточка 60 pt, значок, станция, статус, play/pause.
+/// Мини-плеер над таб-баром (макеты «Сегодня», «Подкасты»): карточка 60 pt, значок, станция, статус, play/pause, крестик.
 /// Показ и скрытие (и отступы вкладок) делает контейнер по `onVisibilityChange`; нажатие на карточку — `onOpen`.
 /// Отступы — замер макета от края карточки.
 public final class MiniPlayerView: UIView {
@@ -24,6 +24,7 @@ public final class MiniPlayerView: UIView {
     private let liveDot = UIView()
     private var statusLeading: Constraint?
     private let button = PlayButton(tint: Palette.textPrimary, iconSize: 19)
+    private let closeButton = UIButton()
     private var subscription: AnyCancellable?
 
     init(viewModel: PlayerViewModel, onOpen: @escaping () -> Void) {
@@ -51,8 +52,13 @@ public final class MiniPlayerView: UIView {
         liveDot.isUserInteractionEnabled = false
         openArea.addAction(UIAction { _ in onOpen() }, for: .touchUpInside)
         button.addAction(UIAction { [weak self] _ in self?.viewModel.didTapPlayPause() }, for: .touchUpInside)
+        closeButton.setImage(Icon.image("x"), for: .normal)
+        closeButton.tintColor = Palette.textSecondary
+        closeButton.accessibilityLabel = "Закрыть плеер"
+        closeButton.accessibilityHint = "Остановить радио и скрыть плеер"
+        closeButton.addAction(UIAction { [weak self] _ in self?.viewModel.didTapClose() }, for: .touchUpInside)
 
-        [openArea, iconBox, nameLabel, liveDot, statusLabel, button].forEach(addSubview)
+        [openArea, iconBox, nameLabel, liveDot, statusLabel, button, closeButton].forEach(addSubview)
         iconBox.addSubview(icon)
         snp.makeConstraints { $0.height.equalTo(Self.height) }
         openArea.snp.makeConstraints { $0.edges.equalToSuperview() }
@@ -66,10 +72,15 @@ public final class MiniPlayerView: UIView {
             $0.center.equalToSuperview()
             $0.size.equalTo(17.5)
         }
-        button.snp.makeConstraints {
+        closeButton.snp.makeConstraints {
             $0.size.equalTo(44)
             $0.centerY.equalToSuperview()
             $0.trailing.equalToSuperview().inset(9)
+        }
+        button.snp.makeConstraints {
+            $0.size.equalTo(44)
+            $0.centerY.equalToSuperview()
+            $0.trailing.equalTo(closeButton.snp.leading)
         }
         nameLabel.snp.makeConstraints {
             $0.leading.equalToSuperview().offset(63.5)
@@ -90,7 +101,7 @@ public final class MiniPlayerView: UIView {
         openArea.isAccessibilityElement = true
         openArea.accessibilityTraits = .button
         openArea.accessibilityHint = "Открыть плеер"
-        accessibilityElements = [openArea, button]
+        accessibilityElements = [openArea, button, closeButton]
 
         subscription = viewModel.$state.sink { [weak self] in self?.render($0) }
     }

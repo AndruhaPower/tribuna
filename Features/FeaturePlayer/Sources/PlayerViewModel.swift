@@ -30,6 +30,11 @@ final class PlayerViewModel {
         player.togglePlayPause()
     }
 
+    /// Крестик мини-плеера: остановка очищает станцию, мини-плеер скрывается, лист плеера закрывается.
+    func didTapClose() {
+        player.stop()
+    }
+
     /// nil снимает таймер.
     func didSelectSleepTimer(minutes: Int?) {
         player.setSleepTimer(minutes: minutes)

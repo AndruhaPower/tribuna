@@ -8,6 +8,7 @@ import Testing
 final class FakeAudioPlayer: AudioPlayer {
     let subject = CurrentValueSubject<PlaybackState, Never>(PlaybackState(item: nil, status: .idle, sleepTimerEndsAt: nil))
     private(set) var toggles = 0
+    private(set) var stops = 0
     private(set) var sleepTimers: [Int?] = []
 
     var state: PlaybackState { subject.value }
@@ -19,7 +20,7 @@ final class FakeAudioPlayer: AudioPlayer {
 
     func play(_ station: Station) {}
     func togglePlayPause() { toggles += 1 }
-    func stop() {}
+    func stop() { stops += 1 }
     func setSleepTimer(minutes: Int?) { sleepTimers.append(minutes) }
 }
 
@@ -118,5 +119,7 @@ struct PlayerViewModelTests {
         viewModel.didSelectSleepTimer(minutes: nil)
         #expect(player.toggles == 1)
         #expect(player.sleepTimers == [30, nil])
+        viewModel.didTapClose()
+        #expect(player.stops == 1)
     }
 }
