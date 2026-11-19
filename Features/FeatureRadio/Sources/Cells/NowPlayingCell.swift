@@ -12,7 +12,13 @@ final class NowPlayingCell: UICollectionViewCell {
     private let nameLabel = UILabel()
     private let subtitleLabel = UILabel()
     private let button = PlayButton(tint: Palette.onAccent)
-    private let wave = WaveView()
+    private let wave = WaveView(style: NowPlayingCell.waveStyle)
+
+    /// 31 столбик 4 pt, первые 12 — акцентные (рисунок макета «Эфир»).
+    private static let waveStyle = WaveView.Style(
+        heights: [8, 20, 12, 24, 10, 18, 6, 22, 12, 16, 8, 20, 10, 18, 8, 22, 12, 16, 6, 20, 10, 18, 8, 24, 12, 16, 8, 20, 10, 16, 6],
+        barWidth: 4, accentCount: 12, accent: Palette.accent, rest: Palette.surfaceHigh
+    )
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -34,7 +40,7 @@ final class NowPlayingCell: UICollectionViewCell {
         let iconBox = UIView()
         iconBox.backgroundColor = Palette.surfaceHigh
         iconBox.layer.cornerRadius = 16
-        let icon = UIImageView(image: UIImage(named: "audio-lines", in: .module, compatibleWith: nil))
+        let icon = UIImageView(image: Icon.image("audio-lines"))
         icon.tintColor = Palette.textPrimary
         let nameFont = Typography.display(18)
         nameLabel.font = nameFont
@@ -84,7 +90,7 @@ final class NowPlayingCell: UICollectionViewCell {
             $0.leading.equalToSuperview().offset(21)
             $0.trailing.equalToSuperview().inset(27.5)
             $0.centerY.equalTo(contentView.snp.top).offset(141.25)
-            $0.height.equalTo(WaveView.height)
+            $0.height.equalTo(Self.waveStyle.height)
         }
         // VoiceOver: карточка — кнопка «открыть плеер», play/pause — отдельный элемент.
         isAccessibilityElement = false

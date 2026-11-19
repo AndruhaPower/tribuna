@@ -28,9 +28,4 @@ public enum FeatureRadio {
             onOpenPlayer: output.openPlayer
         ))
     }
-
-    /// Заглушка вкладки, пока приложение не собирает «Эфир» через `make` (задача 4 плана).
-    @MainActor public static func makeRoot() -> UIViewController {
-        PlaceholderViewController(title: "Эфир")
-    }
 }

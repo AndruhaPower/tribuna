@@ -1,29 +1,44 @@
-import CoreUI
 import UIKit
 
-/// Декоративная волна «Сейчас играет»: 31 столбик 4 pt, первые 12 — акцентные (рисунок макета).
+/// Декоративная волна: столбики из рисунка макета, первые `accentCount` — акцентные.
 /// Пульсирует только при воспроизведении; при «Уменьшении движения» стоит на месте.
-final class WaveView: UIView {
-    /// Высоты столбиков из макета, pt.
-    private static let heights: [CGFloat] = [8, 20, 12, 24, 10, 18, 6, 22, 12, 16, 8, 20, 10, 18, 8, 22, 12, 16, 6, 20, 10, 18, 8, 24, 12, 16, 8, 20, 10, 16, 6]
-    private static let accentCount = 12
-    private static let barWidth: CGFloat = 4
-    static let height: CGFloat = 24
+public final class WaveView: UIView {
+    public struct Style {
+        /// Высоты столбиков из макета, pt.
+        let heights: [CGFloat]
+        let barWidth: CGFloat
+        let accentCount: Int
+        let accent: UIColor
+        let rest: UIColor
 
-    var isAnimating = false {
+        public init(heights: [CGFloat], barWidth: CGFloat, accentCount: Int, accent: UIColor, rest: UIColor) {
+            self.heights = heights
+            self.barWidth = barWidth
+            self.accentCount = accentCount
+            self.accent = accent
+            self.rest = rest
+        }
+
+        /// Высота самого высокого столбика.
+        public var height: CGFloat { heights.max() ?? 0 }
+    }
+
+    public var isAnimating = false {
         didSet { if isAnimating != oldValue { updateAnimation() } }
     }
 
+    private let style: Style
     private let bars: [CALayer]
 
-    override init(frame: CGRect) {
-        bars = Self.heights.indices.map { _ in CALayer() }
-        super.init(frame: frame)
+    public init(style: Style) {
+        self.style = style
+        bars = style.heights.indices.map { _ in CALayer() }
+        super.init(frame: .zero)
         isUserInteractionEnabled = false
         isAccessibilityElement = false
         for (index, bar) in bars.enumerated() {
-            bar.backgroundColor = (index < Self.accentCount ? Palette.accent : Palette.surfaceHigh).cgColor
-            bar.cornerRadius = Self.barWidth / 2
+            bar.backgroundColor = (index < style.accentCount ? style.accent : style.rest).cgColor
+            bar.cornerRadius = style.barWidth / 2
             layer.addSublayer(bar)
         }
         NotificationCenter.default.addObserver(
@@ -34,16 +49,16 @@ final class WaveView: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) не используется") }
 
-    override func layoutSubviews() {
+    override public func layoutSubviews() {
         super.layoutSubviews()
-        let step = (bounds.width - Self.barWidth) / CGFloat(bars.count - 1)
+        let step = (bounds.width - style.barWidth) / CGFloat(bars.count - 1)
         for (index, bar) in bars.enumerated() {
-            let height = Self.heights[index]
-            bar.frame = CGRect(x: CGFloat(index) * step, y: (bounds.height - height) / 2, width: Self.barWidth, height: height)
+            let height = style.heights[index]
+            bar.frame = CGRect(x: CGFloat(index) * step, y: (bounds.height - height) / 2, width: style.barWidth, height: height)
         }
     }
 
-    override func didMoveToWindow() {
+    override public func didMoveToWindow() {
         super.didMoveToWindow()
         updateAnimation()
     }

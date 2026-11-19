@@ -20,7 +20,7 @@ func module(_ name: String, path: String, resources: ResourceFileElements? = nil
     )
 }
 
-let coreUI = module("CoreUI", path: "Core/CoreUI", dependencies: [.external(name: "SnapKit")])
+let coreUI = module("CoreUI", path: "Core/CoreUI", resources: ["Core/CoreUI/Resources/**"], dependencies: [.external(name: "SnapKit")])
 
 let coreDomain = module("CoreDomain", path: "Core/CoreDomain", dependencies: [])
 
@@ -88,10 +88,21 @@ let featureRadioTests: Target = .target(
     settings: settings
 )
 
+let featurePlayerTests: Target = .target(
+    name: "FeaturePlayerTests",
+    destinations: .iOS,
+    product: .unitTests,
+    bundleId: "\(bundleId).FeaturePlayerTests",
+    deploymentTargets: deployment,
+    sources: ["Features/FeaturePlayer/Tests/**"],
+    dependencies: [.target(name: "FeaturePlayer"), .target(name: "CoreDomain")],
+    settings: settings
+)
+
 let featureTargets = features.map {
     var deps: [TargetDependency] = [.target(name: "CoreUI"), .external(name: "SnapKit")]
     var resources: ResourceFileElements?
-    if ["FeatureToday", "FeatureMatch", "FeatureRadio"].contains($0) {
+    if ["FeatureToday", "FeatureMatch", "FeatureRadio", "FeaturePlayer"].contains($0) {
         deps.append(.target(name: "CoreDomain"))
         resources = ["Features/\($0)/Resources/**"]
     }
@@ -124,11 +135,11 @@ let app: Target = .target(
     ]),
     sources: ["Tribuna/Sources/**"],
     resources: ["Tribuna/Resources/**"],
-    dependencies: [.target(name: "CoreUI"), .target(name: "CoreDomain"), .target(name: "CoreRepositories")] + features.map { .target(name: $0) },
+    dependencies: [.target(name: "CoreUI"), .target(name: "CoreDomain"), .target(name: "CoreRepositories"), .target(name: "CorePlayback")] + features.map { .target(name: $0) },
     settings: settings
 )
 
 let project = Project(
     name: "Tribuna",
-    targets: [app, coreUI, coreDomain, coreRepositories, coreRepositoriesTests, corePlayback, corePlaybackTests, featureTodayTests, featureMatchTests, featureRadioTests] + featureTargets
+    targets: [app, coreUI, coreDomain, coreRepositories, coreRepositoriesTests, corePlayback, corePlaybackTests, featureTodayTests, featureMatchTests, featureRadioTests, featurePlayerTests] + featureTargets
 )

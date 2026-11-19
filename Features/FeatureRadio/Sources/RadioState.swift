@@ -1,13 +1,10 @@
 import CoreDomain
+import CoreUI
 
 /// Готовое к показу состояние экрана «Эфир»: контроллер ничего не форматирует.
 struct RadioState: Equatable {
-    /// Что рисовать на кнопке воспроизведения.
-    enum Button: Hashable {
-        case play, pause
-        /// Подключение: индикатор вместо значка, нажатие отменяет.
-        case loading
-    }
+    /// Что рисовать на кнопке воспроизведения (общая с плеером, CoreUI).
+    typealias Button = PlayControl
 
     struct Chip: Hashable, Identifiable {
         let id: StationGenre

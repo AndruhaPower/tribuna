@@ -1,9 +1,16 @@
-import CoreUI
+import CoreDomain
 import UIKit
 
+/// Мини-плеер и полноэкранный плеер (D15, D25). Оба отражают единственный `AudioPlayer` приложения.
 @MainActor
 public enum FeaturePlayer {
-    public static func makeRoot() -> UIViewController {
-        PlaceholderViewController(title: "Плеер")
+    /// Мини-плеер для контейнера вкладок: контейнер ставит его над таб-баром и показывает по `onVisibilityChange`.
+    public static func makeMiniPlayer(player: AudioPlayer, onOpen: @escaping () -> Void) -> MiniPlayerView {
+        MiniPlayerView(viewModel: PlayerViewModel(player: player), onOpen: onOpen)
+    }
+
+    /// Полноэкранный модальный плеер.
+    public static func makePlayer(player: AudioPlayer) -> UIViewController {
+        PlayerViewController(viewModel: PlayerViewModel(player: player))
     }
 }

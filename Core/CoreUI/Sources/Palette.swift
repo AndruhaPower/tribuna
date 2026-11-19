@@ -27,6 +27,8 @@ public enum Palette {
     public static let onAccent = UIColor(hex: 0x1A1300)
     /// Плашка LIVE на карточке матча.
     public static let accentMuted = UIColor(hex: 0x35302E)
+    /// Тусклые столбики волны в карточке плеера.
+    public static let waveDim = UIColor(hex: 0x1F2844)
     public static let destructive = UIColor(hex: 0xFF8A7A)
 }
 

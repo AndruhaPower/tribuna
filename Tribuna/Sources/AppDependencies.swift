@@ -1,5 +1,6 @@
 import Combine
 import CoreDomain
+import CorePlayback
 import CoreRepositories
 import Foundation
 
@@ -11,16 +12,26 @@ struct AppDependencies {
     let bookmarks: BookmarksStore
     let reminders: RemindersStore
     let stations: StationsRepository
+    /// Единственный плеер приложения (D15): «Эфир», мини-плеер и плеер подписаны на него.
+    let player: AudioPlayer
 
     init() {
         #if DEBUG
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-TodayMockData") || arguments.contains("-MatchMockData") {
             (matches, standings, bookmarks, reminders, stations) = Self.todayMockData()
+            // С `-RadioMockData` — ещё и мини-плеер со «Стадион FM», как на макете «Сегодня».
+            player = Self.radioMock()?.player ?? RadioPlayer()
+            return
+        }
+        if let radio = Self.radioMock() {
+            (matches, standings, bookmarks, reminders, _) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
+            (stations, player) = radio
             return
         }
         #endif
         (matches, standings, bookmarks, reminders, stations) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
+        player = RadioPlayer()
     }
 }
 
@@ -80,7 +91,8 @@ extension AppDependencies {
 #endif
 
 #if DEBUG
-/// Каталог и плеер как в макете «Эфир» (`-RadioMockData`): играет «Стадион FM». Только в отладке, до сборки плеера в приложении.
+/// Каталог и плеер как в макете «Эфир» (`-RadioMockData`): играет «Стадион FM». Только в отладке.
+/// `-RadioRealPlayer` — вместо фейка настоящий `RadioPlayer`, сразу подключается к https-потоку «Коммерсантъ FM» из каталога.
 private struct MockStationsRepository: StationsRepository {
     func stations() async throws -> [Station] {
         func station(_ id: String, _ name: String, _ genres: Set<StationGenre>, _ subtitle: String, _ featured: Int?) -> Station {
@@ -110,16 +122,26 @@ private final class MockAudioPlayer: AudioPlayer {
     func play(_ station: Station) { subject.value = PlaybackState(item: station, status: .playing, sleepTimerEndsAt: nil) }
     func togglePlayPause() { subject.value.status = subject.value.status == .playing ? .paused : .playing }
     func stop() { subject.value = PlaybackState(item: nil, status: .idle, sleepTimerEndsAt: nil) }
-    func setSleepTimer(minutes: Int?) {}
+    func setSleepTimer(minutes: Int?) { subject.value.sleepTimerEndsAt = minutes.map { Date().addingTimeInterval(TimeInterval($0 * 60)) } }
 }
 
 extension AppDependencies {
-    /// `-RadioMockData`: «Эфир» на данных макета вместо заглушки вкладки.
-    static func radioMock() -> (stations: StationsRepository, player: AudioPlayer)? {
-        guard ProcessInfo.processInfo.arguments.contains("-RadioMockData") else { return nil }
-        let stadion = Station(id: "stadion", name: "Стадион FM", streamURL: URL(string: "https://example.com/stadion")!,
-                              country: "Россия", bitrate: 128, genres: [.sport, .football], subtitle: "Футбол · эфир", featuredOrder: nil)
-        return (MockStationsRepository(), MockAudioPlayer(playing: stadion))
+    /// `-RadioMockData`: «Эфир» на данных макета, мини-плеер со «Стадион FM».
+    static var isRadioMock: Bool { ProcessInfo.processInfo.arguments.contains("-RadioMockData") }
+
+    fileprivate static func radioMock() -> (stations: StationsRepository, player: AudioPlayer)? {
+        guard isRadioMock else { return nil }
+        guard ProcessInfo.processInfo.arguments.contains("-RadioRealPlayer") else {
+            let stadion = Station(id: "stadion", name: "Стадион FM", streamURL: URL(string: "https://example.com/stadion")!,
+                                  country: "Россия", bitrate: 128, genres: [.sport, .football], subtitle: "Футбол · эфир", featuredOrder: nil)
+            return (MockStationsRepository(), MockAudioPlayer(playing: stadion))
+        }
+        let kommersant = Station(id: "kommersant-fm", name: "Коммерсантъ FM",
+                                 streamURL: URL(string: "https://kommersant77.hostingradio.ru:8085/kommersant128.mp3")!,
+                                 country: "Россия", bitrate: 128, genres: [.news], subtitle: "Новости · экономика и политика", featuredOrder: nil)
+        let player = RadioPlayer()
+        player.play(kommersant)
+        return (MockStationsRepository(), player)
     }
 }
 #endif

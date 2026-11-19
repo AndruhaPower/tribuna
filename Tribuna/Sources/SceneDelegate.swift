@@ -1,6 +1,7 @@
 import Combine
 import CoreDomain
 import FeatureMatch
+import FeaturePlayer
 import FeaturePodcasts
 import FeatureProfile
 import FeatureRadio
@@ -46,27 +47,32 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     private func makeTabBar() -> MainTabBarController {
-        #if DEBUG
-        let radioMock = AppDependencies.radioMock()
-        let radio = radioMock.map {
-            FeatureRadio.make(dependencies: .init(stations: $0.stations, player: $0.player), output: .init(openPlayer: {}))
-        } ?? FeatureRadio.makeRoot()
-        #else
-        let radio = FeatureRadio.makeRoot()
-        #endif
+        let radio = FeatureRadio.make(
+            dependencies: .init(stations: dependencies.stations, player: dependencies.player),
+            output: .init(openPlayer: { [weak self] in self?.openPlayer() })
+        )
+        let miniPlayer = FeaturePlayer.makeMiniPlayer(player: dependencies.player, onOpen: { [weak self] in self?.openPlayer() })
         let tabBar = MainTabBarController(tabs: [
             .init(item: .init(title: "Сегодня", icon: "tab-today"), root: makeToday()),
             .init(item: .init(title: "Эфир", icon: "tab-radio"), root: radio),
             .init(item: .init(title: "Подкасты", icon: "tab-podcasts"), root: FeaturePodcasts.makeRoot()),
             .init(item: .init(title: "Профиль", icon: "tab-profile"), root: FeatureProfile.makeRoot()),
-        ])
+        ], miniPlayer: miniPlayer)
         #if DEBUG
-        if radioMock != nil {
+        // `-RadioMockData` открывает «Эфир», если не сверяем «Сегодня» или карточку матча.
+        let arguments = ProcessInfo.processInfo.arguments
+        if AppDependencies.isRadioMock, !arguments.contains("-TodayMockData"), !arguments.contains("-MatchMockData") {
             tabBar.loadViewIfNeeded()
             tabBar.select(1)
         }
         #endif
         return tabBar
+    }
+
+    /// Полноэкранный плеер поверх вкладок — из «Эфира» и мини-плеера.
+    private func openPlayer() {
+        guard let root = window?.rootViewController, root.presentedViewController == nil else { return }
+        root.present(FeaturePlayer.makePlayer(player: dependencies.player), animated: true)
     }
 
     private func makeToday() -> UIViewController {

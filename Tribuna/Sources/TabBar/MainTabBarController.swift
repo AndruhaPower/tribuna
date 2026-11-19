@@ -1,8 +1,10 @@
 import CoreUI
+import FeaturePlayer
 import SnapKit
 import UIKit
 
-/// Контейнер вкладок со своим таб-баром. Сюда же над таб-баром ляжет мини-плеер (D15).
+/// Контейнер вкладок со своим таб-баром и мини-плеером над ним (D15, D19, D25).
+/// Пока мини-плеер показан, вкладки получают отступ снизу и на него — последний элемент списка не перекрыт.
 final class MainTabBarController: UIViewController {
     struct Tab {
         let item: TabBarView.Item
@@ -11,11 +13,20 @@ final class MainTabBarController: UIViewController {
 
     private let navigationControllers: [UINavigationController]
     private let tabBar: TabBarView
+    private let miniPlayer: MiniPlayerView
     private var selectedIndex: Int?
 
-    init(tabs: [Tab]) {
+    /// Мини-плеер — карточка с полями 12 pt по бокам и 12 pt над таб-баром (замер макета «Сегодня»).
+    private static let miniPlayerGap: CGFloat = 12
+
+    private var bottomInset: CGFloat {
+        TabBarView.contentHeight + (miniPlayer.isVisible ? MiniPlayerView.height + Self.miniPlayerGap : 0)
+    }
+
+    init(tabs: [Tab], miniPlayer: MiniPlayerView) {
         navigationControllers = tabs.map { UINavigationController(rootViewController: $0.root) }
         tabBar = TabBarView(items: tabs.map(\.item))
+        self.miniPlayer = miniPlayer
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -28,7 +39,30 @@ final class MainTabBarController: UIViewController {
         view.addSubview(tabBar)
         tabBar.snp.makeConstraints { $0.leading.trailing.bottom.equalToSuperview() }
         tabBar.onSelect = { [weak self] in self?.select($0) }
+        view.addSubview(miniPlayer)
+        miniPlayer.snp.makeConstraints {
+            $0.leading.trailing.equalToSuperview().inset(Self.miniPlayerGap)
+            $0.bottom.equalTo(tabBar.snp.top).offset(-Self.miniPlayerGap)
+        }
         select(0)
+        miniPlayer.onVisibilityChange = { [weak self] visible in
+            self?.miniPlayerVisibilityChanged(visible, animated: self?.view.window != nil)
+        }
+    }
+
+    private func miniPlayerVisibilityChanged(_ visible: Bool, animated: Bool) {
+        miniPlayer.isHidden = false
+        UIView.animate(withDuration: animated ? 0.25 : 0, delay: 0, options: [.beginFromCurrentState]) { [self] in
+            miniPlayer.alpha = visible ? 1 : 0
+            miniPlayer.transform = visible ? .identity : CGAffineTransform(translationX: 0, y: 16)
+            for navigation in navigationControllers {
+                navigation.additionalSafeAreaInsets.bottom = bottomInset
+            }
+            view.layoutIfNeeded()
+        } completion: { [self] _ in
+            // За время анимации мини-плеер могли снова показать.
+            if !miniPlayer.isVisible { miniPlayer.isHidden = true }
+        }
     }
 
     func select(_ index: Int) {
@@ -47,7 +81,7 @@ final class MainTabBarController: UIViewController {
         addChild(target)
         view.insertSubview(target.view, belowSubview: tabBar)
         target.view.snp.makeConstraints { $0.edges.equalToSuperview() }
-        target.additionalSafeAreaInsets.bottom = TabBarView.contentHeight
+        target.additionalSafeAreaInsets.bottom = bottomInset
         target.didMove(toParent: self)
         selectedIndex = index
         tabBar.selectedIndex = index
