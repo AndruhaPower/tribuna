@@ -21,7 +21,8 @@ final class PlayButton: UIButton {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) не используется") }
 
-    func configure(_ button: RadioState.Button) {
+    /// `label` — уже готовый текст VoiceOver из состояния.
+    func configure(_ button: RadioState.Button, label: String) {
         let icon: String? = switch button {
         case .play: "play"
         case .pause: "pause"
@@ -29,6 +30,6 @@ final class PlayButton: UIButton {
         }
         setImage(icon.flatMap { UIImage(named: $0, in: .module, compatibleWith: nil) }, for: .normal)
         if button == .loading { spinner.startAnimating() } else { spinner.stopAnimating() }
-        accessibilityLabel = button == .play ? "Слушать" : "Пауза"
+        accessibilityLabel = label
     }
 }

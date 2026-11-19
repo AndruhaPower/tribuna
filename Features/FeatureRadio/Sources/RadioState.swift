@@ -23,6 +23,8 @@ struct RadioState: Equatable {
         let subtitle: String
         let isError: Bool
         let button: Button
+        /// VoiceOver: «Пауза, <станция>», «Остановить, <станция>» или «Слушать <станция>».
+        let actionLabel: String
         /// Волна анимируется только при воспроизведении.
         let isAnimating: Bool
     }
@@ -34,6 +36,12 @@ struct RadioState: Equatable {
         let subtitle: String
         /// `.pause` у станции, которая играет или подключается.
         let button: Button
+        /// VoiceOver: «<станция>, <подпись>».
+        let accessibilityLabel: String
+        /// VoiceOver: «играет», «подключение» или nil.
+        let accessibilityValue: String?
+        /// VoiceOver, действие кнопки: «Пауза», «Остановить» или «Слушать <станция>».
+        let actionLabel: String
     }
 
     enum Content: Equatable {

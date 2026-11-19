@@ -208,6 +208,39 @@ struct RadioViewModelTests {
         #expect(rows(viewModel)?.map(\.button) == [.play, .pause])
     }
 
+    @Test func rowAccessibilityFollowsPlayer() async throws {
+        let player = FakeAudioPlayer()
+        let viewModel = makeViewModel(FakeStationsRepository([golos, hockey]), player: player)
+        await appear(viewModel)
+        let idle = try #require(rows(viewModel))
+        #expect(idle[0].accessibilityLabel == "Голос матча, Футбол · репортажи")
+        #expect(idle.map(\.accessibilityValue) == [nil, nil])
+        #expect(idle.map(\.actionLabel) == ["Слушать Голос матча", "Слушать Хоккей Радио"])
+
+        player.set(golos, .loading)
+        #expect(rows(viewModel)?.map(\.accessibilityValue) == ["подключение", nil])
+        #expect(rows(viewModel)?.map(\.actionLabel) == ["Остановить", "Слушать Хоккей Радио"])
+
+        player.set(golos, .playing)
+        #expect(rows(viewModel)?.map(\.accessibilityValue) == ["играет", nil])
+        #expect(rows(viewModel)?.map(\.actionLabel) == ["Пауза", "Слушать Хоккей Радио"])
+
+        player.set(golos, .failed("Не удалось подключиться"))
+        #expect(rows(viewModel)?.map(\.accessibilityValue) == [nil, nil])
+        #expect(rows(viewModel)?.first?.actionLabel == "Слушать Голос матча")
+    }
+
+    @Test func nowPlayingButtonAccessibility() {
+        let player = FakeAudioPlayer()
+        let viewModel = makeViewModel(FakeStationsRepository(), player: player)
+        player.set(stadion, .playing)
+        #expect(viewModel.state.nowPlaying?.actionLabel == "Пауза, Стадион FM")
+        player.set(stadion, .loading)
+        #expect(viewModel.state.nowPlaying?.actionLabel == "Остановить, Стадион FM")
+        player.set(stadion, .paused)
+        #expect(viewModel.state.nowPlaying?.actionLabel == "Слушать Стадион FM")
+    }
+
     @Test func tapStationPlaysOrToggles() async {
         let player = FakeAudioPlayer()
         let viewModel = makeViewModel(FakeStationsRepository([golos, hockey]), player: player)

@@ -35,8 +35,17 @@ enum RadioFormatter {
         }
         guard !found.isEmpty else { return .empty(message: "Ничего не нашлось") }
         return .loaded(title: title, rows: found.map { station in
-            let isCurrent = playback.item?.id == station.id && [.playing, .loading].contains(playback.status)
-            return .init(id: station.id, initials: initials(station.name), name: station.name, subtitle: station.subtitle, button: isCurrent ? .pause : .play)
+            let status = playback.item?.id == station.id ? playback.status : .idle
+            let (value, action): (String?, String) = switch status {
+            case .playing: ("играет", "Пауза")
+            case .loading: ("подключение", "Остановить")
+            default: (nil, "Слушать \(station.name)")
+            }
+            return .init(
+                id: station.id, initials: initials(station.name), name: station.name, subtitle: station.subtitle,
+                button: value == nil ? .play : .pause,
+                accessibilityLabel: "\(station.name), \(station.subtitle)", accessibilityValue: value, actionLabel: action
+            )
         })
     }
 
@@ -54,7 +63,15 @@ enum RadioFormatter {
             subtitle = message
             isError = true
         }
-        return .init(id: station.id, name: station.name, subtitle: subtitle, isError: isError, button: button, isAnimating: playback.status == .playing)
+        let actionLabel = switch button {
+        case .pause: "Пауза, \(station.name)"
+        case .loading: "Остановить, \(station.name)"
+        case .play: "Слушать \(station.name)"
+        }
+        return .init(
+            id: station.id, name: station.name, subtitle: subtitle, isError: isError, button: button,
+            actionLabel: actionLabel, isAnimating: playback.status == .playing
+        )
     }
 
     /// Две буквы для значка станции: первые буквы двух первых слов («Голос матча» → «ГМ»), у одного слова — его первые две буквы.

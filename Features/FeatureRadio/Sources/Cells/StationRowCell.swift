@@ -75,10 +75,10 @@ final class StationRowCell: UICollectionViewCell {
         initialsLabel.text = row.initials
         nameLabel.text = row.name
         subtitleLabel.text = row.subtitle
-        playButton.configure(row.button)
+        playButton.configure(row.button, label: row.actionLabel)
         separator.isHidden = isLast
-        accessibilityLabel = "\(row.name), \(row.subtitle)"
-        accessibilityValue = row.button == .play ? nil : "играет"
-        accessibilityHint = row.button == .play ? "Слушать" : "Пауза"
+        accessibilityLabel = row.accessibilityLabel
+        accessibilityValue = row.accessibilityValue
+        accessibilityHint = row.actionLabel
     }
 }

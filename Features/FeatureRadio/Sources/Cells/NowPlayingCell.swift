@@ -91,6 +91,7 @@ final class NowPlayingCell: UICollectionViewCell {
         nameLabel.isAccessibilityElement = false
         subtitleLabel.isAccessibilityElement = false
         caption.isAccessibilityElement = false
+        contentView.accessibilityElements = [summary, button]
     }
 
     @available(*, unavailable)
@@ -106,14 +107,13 @@ final class NowPlayingCell: UICollectionViewCell {
     override func layoutSubviews() {
         super.layoutSubviews()
         summary.accessibilityFrameInContainerSpace = contentView.bounds
-        contentView.accessibilityElements = [summary, button]
     }
 
     func configure(_ card: RadioState.NowPlaying) {
         nameLabel.text = card.name
         subtitleLabel.text = card.subtitle
         subtitleLabel.textColor = card.isError ? Palette.destructive : Palette.textSecondary
-        button.configure(card.button)
+        button.configure(card.button, label: card.actionLabel)
         wave.isAnimating = card.isAnimating
         summary.accessibilityLabel = "Сейчас играет: \(card.name)"
         summary.accessibilityValue = card.subtitle
