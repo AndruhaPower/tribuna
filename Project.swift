@@ -41,6 +41,17 @@ let coreRepositoriesTests: Target = .target(
     settings: settings
 )
 
+let featureTodayTests: Target = .target(
+    name: "FeatureTodayTests",
+    destinations: .iOS,
+    product: .unitTests,
+    bundleId: "\(bundleId).FeatureTodayTests",
+    deploymentTargets: deployment,
+    sources: ["Features/FeatureToday/Tests/**"],
+    dependencies: [.target(name: "FeatureToday"), .target(name: "CoreDomain")],
+    settings: settings
+)
+
 let featureTargets = features.map {
     var deps: [TargetDependency] = [.target(name: "CoreUI"), .external(name: "SnapKit")]
     if $0 == "FeatureToday" { deps.append(.target(name: "CoreDomain")) }
@@ -76,5 +87,5 @@ let app: Target = .target(
 
 let project = Project(
     name: "Tribuna",
-    targets: [app, coreUI, coreDomain, coreRepositories, coreRepositoriesTests] + featureTargets
+    targets: [app, coreUI, coreDomain, coreRepositories, coreRepositoriesTests, featureTodayTests] + featureTargets
 )
