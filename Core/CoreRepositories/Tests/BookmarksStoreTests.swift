@@ -2,7 +2,7 @@ import Combine
 import CoreDomain
 import Foundation
 import Testing
-@testable import CoreServices
+@testable import CoreRepositories
 
 @MainActor
 struct BookmarksStoreTests {

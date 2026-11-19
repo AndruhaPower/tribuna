@@ -24,20 +24,20 @@ let coreUI = module("CoreUI", path: "Core/CoreUI", dependencies: [.external(name
 let coreDomain = module("CoreDomain", path: "Core/CoreDomain", dependencies: [])
 
 let coreServices = module(
-    "CoreServices",
-    path: "Core/CoreServices",
-    dependencies: [.target(name: "CoreDomain"), .external(name: "Supabase")]
+    "CoreRepositories",
+    path: "Core/CoreRepositories",
+    dependencies: [.target(name: "CoreDomain"), .external(name: "PostgREST")]
 )
 
 let coreServicesTests: Target = .target(
-    name: "CoreServicesTests",
+    name: "CoreRepositoriesTests",
     destinations: .iOS,
     product: .unitTests,
-    bundleId: "\(bundleId).CoreServicesTests",
+    bundleId: "\(bundleId).CoreRepositoriesTests",
     deploymentTargets: deployment,
-    sources: ["Core/CoreServices/Tests/**/*.swift"],
-    resources: ["Core/CoreServices/Tests/Fixtures/**"],
-    dependencies: [.target(name: "CoreServices"), .target(name: "CoreDomain")],
+    sources: ["Core/CoreRepositories/Tests/**/*.swift"],
+    resources: ["Core/CoreRepositories/Tests/Fixtures/**"],
+    dependencies: [.target(name: "CoreRepositories"), .target(name: "CoreDomain")],
     settings: settings
 )
 
@@ -70,7 +70,7 @@ let app: Target = .target(
     ]),
     sources: ["Tribuna/Sources/**"],
     resources: ["Tribuna/Resources/**"],
-    dependencies: [.target(name: "CoreUI"), .target(name: "CoreDomain"), .target(name: "CoreServices")] + features.map { .target(name: $0) },
+    dependencies: [.target(name: "CoreUI"), .target(name: "CoreDomain"), .target(name: "CoreRepositories")] + features.map { .target(name: $0) },
     settings: settings
 )
 

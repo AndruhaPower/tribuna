@@ -1,7 +1,7 @@
 import CoreDomain
 import Foundation
 import Testing
-@testable import CoreServices
+@testable import CoreRepositories
 
 private final class BundleToken {}
 
@@ -35,6 +35,16 @@ struct NHLClientTests {
     ])
     func status(code: String, expected: MatchStatus) {
         #expect(NHLClient.status(code) == expected)
+    }
+
+    @Test(arguments: [("PPD", MatchStatus.postponed), ("SUSP", .postponed), ("CNCL", .cancelled), ("OK", .scheduled)])
+    func scheduleStateWins(scheduleState: String, expected: MatchStatus) throws {
+        // Перенесённые и отменённые игры остаются gameState "FUT", статус — в gameScheduleState.
+        let body = Data("""
+        {"games":[{"id":1,"startTimeUTC":"2026-11-20T00:00:00Z","gameState":"FUT","gameScheduleState":"\(scheduleState)",
+        "homeTeam":{"name":{"default":"Bruins"},"abbrev":"BOS"},"awayTeam":{"name":{"default":"Kings"},"abbrev":"LAK"}}]}
+        """.utf8)
+        #expect(try NHLClient.parse(body).first?.status == expected)
     }
 
     @Test func datesCoverMoscowDay() {

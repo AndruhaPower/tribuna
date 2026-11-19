@@ -1,7 +1,7 @@
 import CoreDomain
 import Foundation
 import Testing
-@testable import CoreServices
+@testable import CoreRepositories
 
 private func row(
     status: String = "TIMED",

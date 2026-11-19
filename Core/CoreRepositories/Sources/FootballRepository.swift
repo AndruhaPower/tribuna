@@ -85,7 +85,7 @@ enum FootballMapping {
 struct FootballRepository: MatchesRepository {
     static let columns = """
         id,utc_date,status,matchday,home_score,away_score,\
-        competition:competitions(code,name,name_ru,enabled),\
+        competition:competitions!inner(code,name,name_ru,enabled),\
         home:teams!home_team_id(name,short_name,tla,name_ru,short_name_ru),\
         away:teams!away_team_id(name,short_name,tla,name_ru,short_name_ru)
         """
@@ -113,8 +113,9 @@ struct FootballRepository: MatchesRepository {
             .select(Self.columns)
             .gte("utc_date", value: interval.start)
             .lt("utc_date", value: interval.end)
+            .eq("competition.enabled", value: true) // !inner: строки выключенных турниров сервер не отдаёт
             .execute()
             .value
-        return rows.filter(\.competition.enabled).map(FootballMapping.match(from:))
+        return rows.map(FootballMapping.match(from:))
     }
 }

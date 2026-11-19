@@ -18,6 +18,7 @@ struct NHLClient: MatchesRepository {
         let id: Int
         let startTimeUTC: Date
         let gameState: String
+        let gameScheduleState: String?
         let homeTeam: TeamDTO
         let awayTeam: TeamDTO
     }
@@ -79,7 +80,7 @@ struct NHLClient: MatchesRepository {
                 sport: .hockey,
                 competition: competition,
                 kickoff: game.startTimeUTC,
-                status: status(game.gameState),
+                status: status(game.gameState, scheduleState: game.gameScheduleState),
                 home: Team(name: game.homeTeam.name.default, abbreviation: game.homeTeam.abbrev),
                 away: Team(name: game.awayTeam.name.default, abbreviation: game.awayTeam.abbrev),
                 homeScore: game.homeTeam.score,
@@ -89,8 +90,14 @@ struct NHLClient: MatchesRepository {
         }
     }
 
-    static func status(_ code: String) -> MatchStatus {
-        switch code {
+    /// Перенесённые и отменённые игры остаются gameState "FUT", поэтому сначала смотрим gameScheduleState.
+    static func status(_ code: String, scheduleState: String? = nil) -> MatchStatus {
+        switch scheduleState {
+        case "PPD", "SUSP": return .postponed
+        case "CNCL": return .cancelled
+        default: break
+        }
+        return switch code {
         case "LIVE", "CRIT": .live
         case "FINAL", "OFF": .finished
         case "PPD": .postponed
