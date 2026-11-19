@@ -53,11 +53,24 @@ let featureTodayTests: Target = .target(
     settings: settings
 )
 
+let featureMatchTests: Target = .target(
+    name: "FeatureMatchTests",
+    destinations: .iOS,
+    product: .unitTests,
+    bundleId: "\(bundleId).FeatureMatchTests",
+    deploymentTargets: deployment,
+    sources: ["Features/FeatureMatch/Tests/**"],
+    dependencies: [.target(name: "FeatureMatch"), .target(name: "CoreDomain")],
+    settings: settings
+)
+
 let featureTargets = features.map {
     var deps: [TargetDependency] = [.target(name: "CoreUI"), .external(name: "SnapKit")]
     var resources: ResourceFileElements?
-    if $0 == "FeatureToday" {
+    if ["FeatureToday", "FeatureMatch"].contains($0) {
         deps.append(.target(name: "CoreDomain"))
+    }
+    if $0 == "FeatureToday" {
         resources = ["Features/FeatureToday/Resources/**"]
     }
     return module($0, path: "Features/\($0)", resources: resources, dependencies: deps)
@@ -92,5 +105,5 @@ let app: Target = .target(
 
 let project = Project(
     name: "Tribuna",
-    targets: [app, coreUI, coreDomain, coreRepositories, coreRepositoriesTests, featureTodayTests] + featureTargets
+    targets: [app, coreUI, coreDomain, coreRepositories, coreRepositoriesTests, featureTodayTests, featureMatchTests] + featureTargets
 )
