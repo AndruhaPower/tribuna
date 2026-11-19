@@ -13,6 +13,8 @@ final class NowPlayingCell: UICollectionViewCell {
     private let subtitleLabel = UILabel()
     private let button = PlayButton(tint: Palette.onAccent)
     private let wave = WaveView(style: NowPlayingCell.waveStyle)
+    private let shimmer = CAGradientLayer()
+    private var isPlaying = false
 
     /// 31 столбик 4 pt, первые 12 — акцентные (рисунок макета «Эфир»).
     private static let waveStyle = WaveView.Style(
@@ -26,6 +28,19 @@ final class NowPlayingCell: UICollectionViewCell {
         contentView.layer.cornerRadius = 24
         contentView.layer.borderWidth = 1
         contentView.layer.borderColor = Palette.track.cgColor
+
+        // Переливающийся фон при воспроизведении; скругление обрезает сам слой.
+        shimmer.colors = [
+            Palette.surfaceRaised, Palette.surfaceHigh, Palette.accent.withAlphaComponent(0.15), Palette.surfaceHigh, Palette.surfaceRaised,
+        ].map(\.cgColor)
+        shimmer.cornerRadius = 24
+        shimmer.masksToBounds = true
+        shimmer.isHidden = true
+        contentView.layer.insertSublayer(shimmer, at: 0)
+        let center = NotificationCenter.default
+        center.addObserver(self, selector: #selector(updateShimmer), name: UIAccessibility.reduceMotionStatusDidChangeNotification, object: nil)
+        // Core Animation снимает анимации при уходе в фон.
+        center.addObserver(self, selector: #selector(updateShimmer), name: UIApplication.willEnterForegroundNotification, object: nil)
 
         let dot = UIView()
         dot.backgroundColor = Palette.accent
@@ -113,6 +128,39 @@ final class NowPlayingCell: UICollectionViewCell {
     override func layoutSubviews() {
         super.layoutSubviews()
         summary.accessibilityFrameInContainerSpace = contentView.bounds
+        shimmer.frame = contentView.bounds
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        updateShimmer()
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        isPlaying = false
+        updateShimmer()
+    }
+
+    @objc private func updateShimmer() {
+        let animates = isPlaying && window != nil && !UIAccessibility.isReduceMotionEnabled
+        shimmer.isHidden = !animates
+        shimmer.removeAnimation(forKey: "shimmer")
+        guard animates else { return }
+        // Градиент вдвое шире карточки, сдвигается слева направо и обратно.
+        shimmer.startPoint = CGPoint(x: -1, y: 0)
+        shimmer.endPoint = CGPoint(x: 0, y: 0.4)
+        let group = CAAnimationGroup()
+        let start = CABasicAnimation(keyPath: "startPoint")
+        start.toValue = CGPoint(x: 0, y: 0)
+        let end = CABasicAnimation(keyPath: "endPoint")
+        end.toValue = CGPoint(x: 1, y: 0.4)
+        group.animations = [start, end]
+        group.duration = 5
+        group.autoreverses = true
+        group.repeatCount = .infinity
+        group.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        shimmer.add(group, forKey: "shimmer")
     }
 
     func configure(_ card: RadioState.NowPlaying) {
@@ -121,6 +169,8 @@ final class NowPlayingCell: UICollectionViewCell {
         subtitleLabel.textColor = card.isError ? Palette.destructive : Palette.textSecondary
         button.configure(card.button, label: card.actionLabel)
         wave.isAnimating = card.isAnimating
+        isPlaying = card.isAnimating
+        updateShimmer()
         summary.accessibilityLabel = "Сейчас играет: \(card.name)"
         summary.accessibilityValue = card.subtitle
     }
