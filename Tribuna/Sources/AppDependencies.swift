@@ -9,16 +9,17 @@ struct AppDependencies {
     let standings: StandingsRepository
     let bookmarks: BookmarksStore
     let reminders: RemindersStore
+    let stations: StationsRepository
 
     init() {
         #if DEBUG
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-TodayMockData") || arguments.contains("-MatchMockData") {
-            (matches, standings, bookmarks, reminders) = Self.todayMockData()
+            (matches, standings, bookmarks, reminders, stations) = Self.todayMockData()
             return
         }
         #endif
-        (matches, standings, bookmarks, reminders) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
+        (matches, standings, bookmarks, reminders, stations) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
     }
 }
 
@@ -50,7 +51,7 @@ extension AppDependencies {
         ProcessInfo.processInfo.arguments.contains("-MatchMockData") ? mockMatchID : nil
     }
 
-    private static func todayMockData() -> (MatchesRepository, StandingsRepository, BookmarksStore, RemindersStore) {
+    private static func todayMockData() -> (MatchesRepository, StandingsRepository, BookmarksStore, RemindersStore, StationsRepository) {
         let day = Calendar.autoupdatingCurrent.startOfDay(for: Date())
         func at(_ hour: Int) -> Date { day.addingTimeInterval(TimeInterval(hour * 3600)) }
         func team(_ name: String, _ abbreviation: String) -> Team { Team(name: name, abbreviation: abbreviation) }
@@ -72,7 +73,7 @@ extension AppDependencies {
         let defaults = UserDefaults(suiteName: "TodayMockData") ?? .standard
         let services = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey, defaults: defaults)
         if !services.bookmarks.bookmarks.contains(liverpool) { services.bookmarks.toggle(liverpool) }
-        return (MockMatchesRepository(matches: matches), MockStandingsRepository(), services.bookmarks, services.reminders)
+        return (MockMatchesRepository(matches: matches), MockStandingsRepository(), services.bookmarks, services.reminders, services.stations)
     }
 }
 #endif
