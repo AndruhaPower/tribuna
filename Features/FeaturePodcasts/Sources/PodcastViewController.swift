@@ -184,6 +184,6 @@ extension PodcastViewController: UICollectionViewDelegate {
     ) -> UIContextMenuConfiguration? {
         guard indexPaths.count == 1, case let .episode(id) = dataSource.itemIdentifier(for: indexPaths[0]),
               let action = payload.episodes[id]?.downloadAction else { return nil }
-        return action.contextMenu { [weak self] in self?.viewModel.didTapDownloadAction(id) }
+        return action.contextMenu { [weak self] in self?.viewModel.didTapDownloadAction(id, shown: action) }
     }
 }

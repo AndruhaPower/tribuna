@@ -136,8 +136,9 @@ final class PodcastsViewModel {
     }
 
     /// Пилюля «Скачать» и меню долгого нажатия: «Скачать» (нет записи или `.failed`), иначе отменить или удалить.
-    func didTapDownloadAction(_ id: EpisodeID) {
-        downloads.perform(id, entry: entry(id))
+    /// `shown` — действие, которое видел пользователь (меню долгого нажатия); состояние уже другое — нажатие не в счёт.
+    func didTapDownloadAction(_ id: EpisodeID, shown: EpisodeRow.DownloadAction? = nil) {
+        downloads.perform(id, entry: entry(id), shown: shown)
     }
 
     /// «Удалить» свайпом в «Загрузках».
@@ -301,8 +302,16 @@ extension AudioPlayer {
 
 extension EpisodeDownloads {
     /// «Скачать», если записи нет или она `.failed`; иначе отменить или удалить (`remove` делает и то, и другое).
-    func perform(_ id: EpisodeID, entry: (Episode, Podcast)?) {
-        switch item(id)?.state {
+    /// `shown` не nil и не совпадает с текущим состоянием — ничего не делаем: иначе «Отменить» после конца загрузки удалила бы файл.
+    func perform(_ id: EpisodeID, entry: (Episode, Podcast)?, shown: EpisodeRow.DownloadAction? = nil) {
+        let state = item(id)?.state
+        let current: EpisodeRow.DownloadAction = switch state {
+        case nil, .failed: .download
+        case .waiting, .downloading: .cancel
+        case .downloaded: .remove
+        }
+        if let shown, shown != current { return }
+        switch state {
         case nil, .failed:
             if let (episode, podcast) = entry { download(episode, podcast: podcast) }
         default:

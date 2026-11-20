@@ -87,13 +87,13 @@ enum PlayerFormatter {
 
     /// nil — плеер закрыт, мини-плеер скрыт. `scrubPosition` — куда тянут ползунок: пока его держат, время и бегунок
     /// показывают его, а не позицию плеера.
-    /// `download` — запись загрузки выпуска в плеере; nil — записи нет.
-    static func state(_ playback: PlaybackState, now: Date, scrubPosition: TimeInterval? = nil, download: DownloadState? = nil,
+    /// `download` — запись загрузки выпуска в плеере; nil — записи нет. `localArtwork` — обложка скачанного выпуска: работает без сети.
+    static func state(_ playback: PlaybackState, now: Date, scrubPosition: TimeInterval? = nil, download: DownloadState? = nil, localArtwork: URL? = nil,
                       calendar: Calendar = .autoupdatingCurrent) -> PlayerState? {
         guard let item = playback.item else { return nil }
         if case let .episode(episode, podcast) = item {
             return episodeState(playback, episode: episode, podcast: podcast, now: now, scrubPosition: scrubPosition,
-                                download: download, calendar: calendar)
+                                download: download, localArtwork: localArtwork, calendar: calendar)
         }
         let name = item.title
         var subtitle = item.station.map { [$0.country, $0.bitrate.map { "\($0) кбит/с" }].compactMap { $0 }.joined(separator: " · ") } ?? item.subtitle
@@ -120,7 +120,7 @@ enum PlayerFormatter {
 
     /// Выпуск: в мини-плеере вместо «В эфире» — «<подкаст> · 18:42 из 34:10» (и на паузе — где остановились).
     private static func episodeState(_ playback: PlaybackState, episode: Episode, podcast: Podcast, now: Date,
-                                     scrubPosition: TimeInterval?, download: DownloadState?, calendar: Calendar) -> PlayerState {
+                                     scrubPosition: TimeInterval?, download: DownloadState?, localArtwork: URL?, calendar: Calendar) -> PlayerState {
         let name = episode.title
         let duration = playback.duration.flatMap { $0.isFinite && $0 > 0 ? $0 : nil }
         let position = max(0, min(scrubPosition ?? playback.position ?? 0, duration ?? .infinity))
@@ -153,7 +153,7 @@ enum PlayerFormatter {
             status: status, statusTone: tone, subtitle: subtitle, isError: tone == .error, button: button,
             actionLabel: actionLabel(button, name: name), summaryLabel: summary,
             isAnimating: playback.status == .playing, sleepTimer: sleepTimer(endsAt: playback.sleepTimerEndsAt, now: now),
-            artworkURL: episode.artworkURL ?? podcast.artworkURL, progress: progress
+            artworkURL: localArtwork ?? episode.artworkURL ?? podcast.artworkURL, progress: progress
         )
     }
 

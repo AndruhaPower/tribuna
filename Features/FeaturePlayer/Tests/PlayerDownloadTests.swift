@@ -89,4 +89,20 @@ struct PlayerDownloadTests {
         #expect(player.state == before)
         #expect((player.stops, player.toggles, player.seeks) == (0, 0, []))
     }
+
+    /// Скачанный выпуск показывает локальную обложку, остальные — сетевую.
+    @Test func downloadedEpisodeUsesLocalArtwork() {
+        let player = FakeAudioPlayer()
+        let downloads = FakeDownloads()
+        let viewModel = PlayerViewModel(player: player, downloads: downloads)
+        playing(player)
+        let local = URL(fileURLWithPath: "/tmp/a.artwork")
+        #expect(viewModel.state?.artworkURL == podcast.artworkURL)
+
+        downloads.subject.value = [DownloadedEpisode(episode: episode, podcast: podcast, addedAt: Date(), state: .downloading(progress: 0.5), artworkFile: local)]
+        #expect(viewModel.state?.artworkURL == podcast.artworkURL)
+
+        downloads.subject.value = [DownloadedEpisode(episode: episode, podcast: podcast, addedAt: Date(), state: .downloaded(bytes: 1), artworkFile: local)]
+        #expect(viewModel.state?.artworkURL == local)
+    }
 }

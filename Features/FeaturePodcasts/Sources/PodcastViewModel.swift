@@ -121,8 +121,8 @@ final class PodcastViewModel {
         if playback.item?.episode?.id == id { onOpenPlayer() } else { player.play(.episode(episode, podcast: podcast)) }
     }
 
-    func didTapDownloadAction(_ id: EpisodeID) {
-        downloads.perform(id, entry: episodes?.first { $0.id == id }.map { ($0, podcast) })
+    func didTapDownloadAction(_ id: EpisodeID, shown: EpisodeRow.DownloadAction? = nil) {
+        downloads.perform(id, entry: episodes?.first { $0.id == id }.map { ($0, podcast) }, shown: shown)
     }
 
     private func load(force: Bool) {

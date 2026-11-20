@@ -117,6 +117,43 @@ struct DownloadsTests {
         #expect(make(FakeSession(), defaults: defaults).items.isEmpty)
     }
 
+    private func writeIndex(_ json: String) throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try Data(json.utf8).write(to: directory.appendingPathComponent("index.json"))
+    }
+
+    @Test func loadRepairsStoredArtworkPath() throws {
+        let item = DownloadedEpisode(episode: episode("a"), podcast: podcast, addedAt: Date(timeIntervalSince1970: 0), state: .failed,
+                                     artworkFile: URL(string: "file:///old/container/x.artwork"))
+        let index = DownloadsIndex(directory: directory)
+        index.save([.init(item: item, fileName: nil)])
+        #expect(index.load().first?.item.artworkFile == nil)
+
+        let real = index.artworkFile(item.id)
+        try Data(count: 1).write(to: real)
+        #expect(index.load().first?.item.artworkFile?.standardizedFileURL == real.standardizedFileURL)
+    }
+
+    @Test func loadSkipsBadEntryAndRemovesOrphans() throws {
+        let index = DownloadsIndex(directory: directory)
+        let good = DownloadedEpisode(episode: episode("good"), podcast: podcast, addedAt: Date(timeIntervalSince1970: 0), state: .failed, artworkFile: nil)
+        index.save([.init(item: good, fileName: nil)])
+        let goodJSON = try String(decoding: Data(contentsOf: directory.appendingPathComponent("index.json")), as: UTF8.self)
+        // Добавляем битую запись перед хорошей: `[bad, good]`.
+        try writeIndex("[{\"item\":42}," + goodJSON.dropFirst())
+        let orphan = directory.appendingPathComponent("orphan.mp3")
+        try Data(count: 5).write(to: orphan)
+        let artwork = index.artworkFile(good.id)
+        try Data(count: 1).write(to: artwork)
+
+        let entries = index.load()
+
+        #expect(entries.map(\.item.id) == [good.id])
+        #expect(!FileManager.default.fileExists(atPath: orphan.path))
+        #expect(FileManager.default.fileExists(atPath: artwork.path))
+        #expect(FileManager.default.fileExists(atPath: directory.appendingPathComponent("index.json").path))
+    }
+
     @Test func downloadIsIdempotent() throws {
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { cleanUp(defaults) }

@@ -35,8 +35,10 @@ final class PlayerViewModel {
 
     /// Пересчёт по текущему времени: плеер зовёт по таймеру, чтобы «Сон через N мин» не застывал.
     func refresh() {
-        let download = currentEpisode.flatMap { downloads?.item($0.episode.id)?.state }
-        let state = PlayerFormatter.state(player.state, now: now(), scrubPosition: scrubPosition, download: download)
+        let item = currentEpisode.flatMap { downloads?.item($0.episode.id) }
+        var artwork: URL?
+        if case .downloaded = item?.state { artwork = item?.artworkFile }
+        let state = PlayerFormatter.state(player.state, now: now(), scrubPosition: scrubPosition, download: item?.state, localArtwork: artwork)
         if state != self.state { self.state = state }
     }
 

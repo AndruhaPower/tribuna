@@ -97,6 +97,20 @@ extension PodcastsViewModelTests {
         #expect(rows[0].artworkURL == puck.artworkURL)
     }
 
+    /// Меню показало «Отменить загрузку», пока оно было открыто, загрузка кончилась — нажатие не удаляет файл.
+    @Test func staleCancelDoesNotRemoveFinishedDownload() async {
+        let setup = make(downloads: [download(results, outOfPlay, .downloading(progress: 0.5))])
+        await appear(setup.viewModel)
+        setup.downloads.set(results.id, .downloaded(bytes: 10))
+
+        setup.viewModel.didTapDownloadAction(results.id, shown: .cancel)
+        #expect(setup.downloads.removed.isEmpty)
+        #expect(setup.downloads.item(results.id)?.state == .downloaded(bytes: 10))
+
+        setup.viewModel.didTapDownloadAction(results.id, shown: .remove)
+        #expect(setup.downloads.removed == [results.id])
+    }
+
     @Test func downloadsSegmentNeedsNoCatalog() async {
         let setup = make(downloads: [download(results, outOfPlay, .downloaded(bytes: 48_000_000))])
         setup.podcasts.result = .failure(FakeError())
