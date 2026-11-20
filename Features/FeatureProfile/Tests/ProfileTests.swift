@@ -67,9 +67,60 @@ struct ProfileTests {
     let bookmarks = FakeBookmarksStore()
     let subscriptions = FakeSubscriptionsStore()
     let downloads = FakeDownloads()
+    let account = FakeAccount(.signedIn(UserProfile(id: "u", name: "Алексей", email: "a@b.ru")))
+    let log = Box<[String]>([])
 
     func makeViewModel() -> ProfileViewModel {
-        ProfileViewModel(dependencies: .init(bookmarks: bookmarks, subscriptions: subscriptions, downloads: downloads))
+        account.log = { [log] in log.value.append($0) }
+        return ProfileViewModel(
+            dependencies: .init(account: account, bookmarks: bookmarks, subscriptions: subscriptions, downloads: downloads),
+            output: .init(flushUserData: { [log] in log.value.append("flush") })
+        )
+    }
+
+    @Test func signedOutShowsMotivationOnly() {
+        account.subject.send(.unknown)
+        let viewModel = makeViewModel()
+        #expect(viewModel.state.account == nil)
+        account.subject.send(.signedOut)
+        #expect(viewModel.state.account == nil)
+    }
+
+    @Test func signedInShowsAccountCard() {
+        let viewModel = makeViewModel()
+        #expect(viewModel.state.account == AccountCard(name: "Алексей", email: "a@b.ru", initial: "А"))
+        account.subject.send(.signedIn(UserProfile(id: "u", name: "  ", email: "x@y.ru")))
+        #expect(viewModel.state.account == AccountCard(name: "Болельщик", email: "x@y.ru", initial: "Б"))
+        account.subject.send(.signedIn(UserProfile(id: "u", name: nil, email: "x@y.ru")))
+        #expect(viewModel.state.account?.name == "Болельщик")
+        account.subject.send(.signedIn(UserProfile(id: "u", name: "ёжик", email: "x@y.ru")))
+        #expect(viewModel.state.account?.initial == "Ё")
+    }
+
+    @Test func signOutFlushesThenSignsOut() async {
+        #expect(ProfileTexts.signOutConfirm == "Выйти из профиля? Загрузки будут удалены с телефона")
+        let viewModel = makeViewModel()
+        await viewModel.didConfirmSignOut()
+        #expect(log.value == ["flush", "signOut"])
+        #expect(viewModel.state.account == nil)
+    }
+
+    @Test func deleteAccountSucceeds() async {
+        #expect(ProfileTexts.deleteConfirm == "Удалить аккаунт? Закладки, подписки и история прослушивания удалятся навсегда")
+        let viewModel = makeViewModel()
+        let error = await viewModel.didConfirmDelete()
+        #expect(error == nil)
+        #expect(account.calls == ["deleteAccount"])
+        #expect(viewModel.state.account == nil)
+    }
+
+    @Test func deleteAccountFailureKeepsSignedIn() async {
+        account.errors["deleteAccount"] = .network
+        let viewModel = makeViewModel()
+        let error = await viewModel.didConfirmDelete()
+        #expect(error == "Нет соединения")
+        #expect(viewModel.state.account != nil)
+        #expect(!viewModel.state.isBusy)
     }
 
     @Test func countersFollowStores() {

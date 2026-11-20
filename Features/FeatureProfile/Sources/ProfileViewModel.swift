@@ -2,8 +2,37 @@ import Combine
 import CoreDomain
 import Foundation
 
+/// Карточка аккаунта: «Алексей», почта, буква в кружке. Без имени — «Болельщик», «Б».
+struct AccountCard: Equatable {
+    let name: String
+    let email: String
+    let initial: String
+
+    init(name: String, email: String, initial: String) {
+        self.name = name
+        self.email = email
+        self.initial = initial
+    }
+
+    init(_ user: UserProfile) {
+        let trimmed = user.name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        name = trimmed.isEmpty ? "Болельщик" : trimmed
+        email = user.email
+        initial = name.prefix(1).uppercased()
+    }
+}
+
+enum ProfileTexts {
+    static let signOutConfirm = "Выйти из профиля? Загрузки будут удалены с телефона"
+    static let deleteConfirm = "Удалить аккаунт? Закладки, подписки и история прослушивания удалятся навсегда"
+}
+
 /// Готовое к показу состояние Профиля.
 struct ProfileState: Equatable {
+    /// nil — без входа (и пока сессия читается): только карточка мотивации.
+    var account: AccountCard?
+    /// Идёт выход или удаление — кнопки аккаунта неактивны.
+    var isBusy = false
     /// Плитки-счётчики: «4», «3».
     let bookmarks: String
     let subscriptions: String
@@ -27,7 +56,7 @@ enum ProfileFormatter {
             fraction = available.map { Double(bytes) / Double(max(1, bytes + $0)) } ?? 0
         }
         return ProfileState(
-            bookmarks: String(bookmarks), subscriptions: String(subscriptions), wifiOnly: downloads.wifiOnly,
+            account: nil, bookmarks: String(bookmarks), subscriptions: String(subscriptions), wifiOnly: downloads.wifiOnly,
             usage: usage, usageFraction: fraction, canClear: !downloads.items.isEmpty
         )
     }
@@ -52,20 +81,25 @@ final class ProfileViewModel {
     @Published private(set) var state: ProfileState
 
     private let dependencies: FeatureProfile.Dependencies
+    private let output: FeatureProfile.Output
+    private var isBusy = false
     private var subscriptions: Set<AnyCancellable> = []
     /// Свободное место спрашиваем у системы не на каждый тик прогресса: при запуске, возврате из фона,
     /// смене занятого места и после «Очистить».
     private var available: Int64?
     private var availableForBytes: Int64
 
-    init(dependencies: FeatureProfile.Dependencies) {
+    init(dependencies: FeatureProfile.Dependencies, output: FeatureProfile.Output) {
         self.dependencies = dependencies
+        self.output = output
         available = dependencies.downloads.availableCapacity()
         availableForBytes = dependencies.downloads.usage().bytes
         state = ProfileFormatter.state(bookmarks: dependencies.bookmarks.bookmarks.count,
                                        subscriptions: dependencies.subscriptions.subscriptions.count,
                                        downloads: dependencies.downloads, available: available)
-        Publishers.Merge3(
+        if case let .signedIn(user) = dependencies.account.state { state.account = AccountCard(user) }
+        Publishers.Merge4(
+            dependencies.account.statePublisher.map { _ in () },
             dependencies.bookmarks.bookmarksPublisher.map { _ in () },
             dependencies.subscriptions.subscriptionsPublisher.map { _ in () },
             dependencies.downloads.itemsPublisher.map { _ in () }
@@ -85,9 +119,40 @@ final class ProfileViewModel {
         refresh(reloadCapacity: true)
     }
 
+    /// «Выйти» подтверждено: сначала отправить неотправленное (не дольше 3 с — выход важнее, D31), затем выйти.
+    func didConfirmSignOut() async {
+        setBusy(true)
+        let flush = Task { await output.flushUserData() }
+        let timeout = Task {
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            flush.cancel()
+        }
+        await flush.value
+        timeout.cancel()
+        await dependencies.account.signOut()
+        setBusy(false)
+    }
+
+    /// «Удалить аккаунт» подтверждено. Ошибка — текст для показа, остаёмся во входе.
+    func didConfirmDelete() async -> String? {
+        setBusy(true)
+        defer { setBusy(false) }
+        do {
+            try await dependencies.account.deleteAccount()
+            return nil
+        } catch {
+            return SignInTexts.message(error as? AccountError ?? .unknown)
+        }
+    }
+
     /// Свободное место меняется и без наших загрузок.
     func didEnterForeground() {
         refresh(reloadCapacity: true)
+    }
+
+    private func setBusy(_ busy: Bool) {
+        isBusy = busy
+        refresh()
     }
 
     private func refresh(reloadCapacity: Bool = false) {
@@ -96,9 +161,11 @@ final class ProfileViewModel {
             available = dependencies.downloads.availableCapacity()
             availableForBytes = bytes
         }
-        let state = ProfileFormatter.state(bookmarks: dependencies.bookmarks.bookmarks.count,
+        var state = ProfileFormatter.state(bookmarks: dependencies.bookmarks.bookmarks.count,
                                            subscriptions: dependencies.subscriptions.subscriptions.count,
                                            downloads: dependencies.downloads, available: available)
+        if case let .signedIn(user) = dependencies.account.state { state.account = AccountCard(user) }
+        state.isBusy = isBusy
         if state != self.state { self.state = state }
     }
 }

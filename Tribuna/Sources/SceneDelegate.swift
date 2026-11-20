@@ -1,5 +1,6 @@
 import Combine
 import CoreDomain
+import CoreRepositories
 import FeatureMatch
 import FeaturePlayer
 import FeaturePodcasts
@@ -12,9 +13,17 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
     private let dependencies = AppDependencies()
     private var launchReconcile: AnyCancellable?
+    private var cleanup: AccountCleanup?
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = scene as? UIWindowScene else { return }
+        // Выход или смена пользователя — снять напоминания и удалить загрузки (D31).
+        var cleanupDefaults = UserDefaults.standard
+        #if DEBUG
+        if AppDependencies.isProfileMock { cleanupDefaults = AppDependencies.profileMockDefaults }
+        #endif
+        cleanup = AccountCleanup(account: dependencies.account, reminders: dependencies.reminders,
+                                 downloads: dependencies.downloads, defaults: cleanupDefaults)
         let window = UIWindow(windowScene: windowScene)
         window.rootViewController = makeTabBar()
         window.makeKeyAndVisible()
@@ -67,9 +76,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             .init(item: .init(title: "Сегодня", icon: "tab-today"), root: makeToday()),
             .init(item: .init(title: "Эфир", icon: "tab-radio"), root: radio),
             .init(item: .init(title: "Подкасты", icon: "tab-podcasts"), root: podcasts),
-            .init(item: .init(title: "Профиль", icon: "tab-profile"), root: FeatureProfile.make(
-                dependencies: .init(bookmarks: dependencies.bookmarks, subscriptions: dependencies.subscriptions, downloads: dependencies.downloads)
-            )),
+            .init(item: .init(title: "Профиль", icon: "tab-profile"), root: makeProfile()),
         ], miniPlayer: miniPlayer)
         #if DEBUG
         // `-RadioMockData` открывает «Эфир», если не сверяем «Сегодня» или карточку матча.
@@ -82,11 +89,38 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             tabBar.loadViewIfNeeded()
             tabBar.select(2)
         }
+        if AppDependencies.isProfileMock {
+            tabBar.loadViewIfNeeded()
+            tabBar.select(3)
+        }
+        // `-SignInSheet` — лист входа с мотивацией (повод «закладка»), как его откроют ворота.
+        if arguments.contains("-SignInSheet") {
+            DispatchQueue.main.async { [weak self] in self?.requireSignIn(.bookmark) {} }
+        }
         if arguments.contains("-OpenPlayer") {
             DispatchQueue.main.async { [weak self] in self?.openPlayer() }
         }
         #endif
         return tabBar
+    }
+
+    private func makeProfile() -> UIViewController {
+        let (bookmarks, subscriptions, progress) = (dependencies.bookmarks, dependencies.subscriptions, dependencies.progress)
+        return FeatureProfile.make(
+            dependencies: .init(account: dependencies.account, bookmarks: bookmarks, subscriptions: subscriptions, downloads: dependencies.downloads),
+            output: .init(flushUserData: { await Services.flushUserData(bookmarks: bookmarks, subscriptions: subscriptions, progress: progress) })
+        )
+    }
+
+    /// Ворота (D31): вошёл — сразу `action`; иначе лист входа поверх верхнего экрана, `action` — только после входа.
+    func requireSignIn(_ reason: SignInReason, then action: @escaping @MainActor () -> Void) {
+        if case .signedIn = dependencies.account.state { return action() }
+        guard var top = window?.rootViewController else { return }
+        while let presented = top.presentedViewController { top = presented }
+        let sheet = FeatureProfile.makeSignIn(account: dependencies.account, reason: reason, startAt: .motivation) { signedIn in
+            if signedIn { action() }
+        }
+        top.present(sheet, animated: true)
     }
 
     /// Плеер (лист) поверх вкладок — из «Эфира», «Подкастов» и мини-плеера.

@@ -37,6 +37,13 @@ public enum Services {
         )
     }
 
+    /// Отправить очереди закладок, подписок и позиции — перед выходом (D31). Сбой оставляет очередь, выход её сотрёт.
+    @MainActor public static func flushUserData(bookmarks: BookmarksStore, subscriptions: SubscriptionsStore, progress: ListeningProgressStore) async {
+        await (bookmarks as? SyncedBookmarksStore)?.flush()
+        await (subscriptions as? SyncedSubscriptionsStore)?.flush()
+        await (progress as? SyncedListeningProgressStore)?.flush()
+    }
+
     /// Аккаунт и PostgREST для таблиц пользователя (запросы с его токеном, D31). Звать один раз:
     /// второй `AuthClient` делил бы с первым сессию в Keychain и обновлял её наперегонки.
     @MainActor public static func makeAccount(supabaseURL: URL, supabaseKey: String) -> (account: Account, userClient: PostgrestClient) {
