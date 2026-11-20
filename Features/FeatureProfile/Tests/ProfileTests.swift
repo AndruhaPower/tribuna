@@ -30,6 +30,7 @@ final class FakeDownloads: EpisodeDownloads {
     let subject = CurrentValueSubject<[DownloadedEpisode], Never>([])
     var wifiOnly = true
     var available: Int64? = 0
+    private(set) var capacityCalls = 0
 
     var items: [DownloadedEpisode] { subject.value }
     var itemsPublisher: AnyPublisher<[DownloadedEpisode], Never> { subject.eraseToAnyPublisher() }
@@ -51,7 +52,14 @@ final class FakeDownloads: EpisodeDownloads {
             if case let .downloaded(bytes) = item.state { (total.0 + bytes, total.1 + 1) } else { total }
         }
     }
-    func availableCapacity() -> Int64? { available }
+    func availableCapacity() -> Int64? {
+        capacityCalls += 1
+        return available
+    }
+
+    func set(_ guid: String, _ state: DownloadState) {
+        if let index = subject.value.firstIndex(where: { $0.id == EpisodeID(podcastID: "p", guid: guid) }) { subject.value[index].state = state }
+    }
 }
 
 @MainActor
@@ -106,6 +114,22 @@ struct ProfileTests {
         downloads.available = 100
         viewModel.didEnterForeground()
         #expect(viewModel.state.usageFraction == 0.5)
+    }
+
+    /// Тик прогресса не меняет занятое место — система про свободное место не спрашивается.
+    @Test func capacityNotQueriedOnProgressTicks() {
+        downloads.add("a", .downloaded(bytes: 100))
+        let viewModel = makeViewModel()
+        let calls = downloads.capacityCalls
+        downloads.add("w", .downloading(progress: 0.1))
+        downloads.set("w", .downloading(progress: 0.5))
+        #expect(downloads.capacityCalls == calls)
+        downloads.set("w", .downloaded(bytes: 50))
+        #expect(downloads.capacityCalls == calls + 1)
+        viewModel.didEnterForeground()
+        #expect(downloads.capacityCalls == calls + 2)
+        viewModel.didConfirmClear()
+        #expect(downloads.capacityCalls >= calls + 3)
     }
 
     @Test func clearDisabledWhenEmpty() {

@@ -17,13 +17,14 @@ struct ProfileState: Equatable {
 }
 
 enum ProfileFormatter {
-    @MainActor static func state(bookmarks: Int, subscriptions: Int, downloads: EpisodeDownloads) -> ProfileState {
+    /// `available` — свободное место (кеш модели); nil — не узнать.
+    @MainActor static func state(bookmarks: Int, subscriptions: Int, downloads: EpisodeDownloads, available: Int64?) -> ProfileState {
         let (bytes, count) = downloads.usage()
         let usage = count == 0 ? "Нет загрузок" : "\(size(bytes)) · \(episodes(count))"
         var fraction: Double?
         if count > 0 {
             // Свободное место не узнать — полоска пустая.
-            fraction = downloads.availableCapacity().map { Double(bytes) / Double(max(1, bytes + $0)) } ?? 0
+            fraction = available.map { Double(bytes) / Double(max(1, bytes + $0)) } ?? 0
         }
         return ProfileState(
             bookmarks: String(bookmarks), subscriptions: String(subscriptions), wifiOnly: downloads.wifiOnly,
@@ -52,11 +53,18 @@ final class ProfileViewModel {
 
     private let dependencies: FeatureProfile.Dependencies
     private var subscriptions: Set<AnyCancellable> = []
+    /// Свободное место спрашиваем у системы не на каждый тик прогресса: при запуске, возврате из фона,
+    /// смене занятого места и после «Очистить».
+    private var available: Int64?
+    private var availableForBytes: Int64
 
     init(dependencies: FeatureProfile.Dependencies) {
         self.dependencies = dependencies
+        available = dependencies.downloads.availableCapacity()
+        availableForBytes = dependencies.downloads.usage().bytes
         state = ProfileFormatter.state(bookmarks: dependencies.bookmarks.bookmarks.count,
-                                       subscriptions: dependencies.subscriptions.subscriptions.count, downloads: dependencies.downloads)
+                                       subscriptions: dependencies.subscriptions.subscriptions.count,
+                                       downloads: dependencies.downloads, available: available)
         Publishers.Merge3(
             dependencies.bookmarks.bookmarksPublisher.map { _ in () },
             dependencies.subscriptions.subscriptionsPublisher.map { _ in () },
@@ -74,17 +82,23 @@ final class ProfileViewModel {
     /// «Удалить все загрузки?» → «Удалить».
     func didConfirmClear() {
         dependencies.downloads.removeAll()
-        refresh()
+        refresh(reloadCapacity: true)
     }
 
     /// Свободное место меняется и без наших загрузок.
     func didEnterForeground() {
-        refresh()
+        refresh(reloadCapacity: true)
     }
 
-    private func refresh() {
+    private func refresh(reloadCapacity: Bool = false) {
+        let bytes = dependencies.downloads.usage().bytes
+        if reloadCapacity || bytes != availableForBytes {
+            available = dependencies.downloads.availableCapacity()
+            availableForBytes = bytes
+        }
         let state = ProfileFormatter.state(bookmarks: dependencies.bookmarks.bookmarks.count,
-                                           subscriptions: dependencies.subscriptions.subscriptions.count, downloads: dependencies.downloads)
+                                           subscriptions: dependencies.subscriptions.subscriptions.count,
+                                           downloads: dependencies.downloads, available: available)
         if state != self.state { self.state = state }
     }
 }

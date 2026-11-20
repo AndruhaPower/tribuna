@@ -14,6 +14,7 @@ final class ProfileViewController: UIViewController {
     private let usageTrack = UIView()
     private let usageFill = UIView()
     private var usageFillWidth: Constraint?
+    private var shownFraction: Double?
     private let usageRow = UIView()
     private let clearButton = UIButton(type: .system)
     private var cancellables: Set<AnyCancellable> = []
@@ -194,9 +195,13 @@ final class ProfileViewController: UIViewController {
         if wifiSwitch.isOn != state.wifiOnly { wifiSwitch.setOn(state.wifiOnly, animated: false) }
         usageLabel.text = state.usage
         usageTrack.isHidden = state.usageFraction == nil
-        usageFillWidth?.deactivate()
-        usageFill.snp.makeConstraints {
-            usageFillWidth = $0.width.equalToSuperview().multipliedBy(state.usageFraction ?? 0).constraint
+        // Множитель у ограничения не меняется — пересобираем, только когда доля другая.
+        if state.usageFraction != shownFraction {
+            shownFraction = state.usageFraction
+            usageFillWidth?.deactivate()
+            usageFill.snp.makeConstraints {
+                usageFillWidth = $0.width.equalToSuperview().multipliedBy(state.usageFraction ?? 0).constraint
+            }
         }
         usageRow.accessibilityLabel = "Занято"
         usageRow.accessibilityValue = state.usage
