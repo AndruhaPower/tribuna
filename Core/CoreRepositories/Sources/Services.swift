@@ -21,6 +21,8 @@ public enum Services {
         )
         let football = FootballRepository(client: postgrest)
         let matches = CombinedMatchesRepository(football: football, hockey: NHLClient(session: .shared))
+        // Локальные хранилища до профиля (D31): без входа данных нет, не переносим.
+        for key in ["bookmarks.v1", "podcasts.subscriptions.v1", "podcasts.progress.v1"] { defaults.removeObject(forKey: key) }
         let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
         return (
             matches,

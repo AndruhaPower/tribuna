@@ -71,8 +71,10 @@ final class SyncedCollection<Item: SyncItem> {
     private var isSignedIn = false
     private var pending: [String: Pending] = [:]
     private var lastRefresh: Date?
-    private var isFlushing = false
+    /// Идёт загрузка или отправка: одновременно — только одна, вторая отмечается и выполняется после.
+    private var isBusy = false
     private var flushAgain = false
+    private var refreshAgain = false
     private var running: [UUID: Task<Void, Never>] = [:]
     private var subscriptions: Set<AnyCancellable> = []
 
@@ -135,29 +137,43 @@ final class SyncedCollection<Item: SyncItem> {
     func refresh(force: Bool = false) async {
         guard isSignedIn, let owner, let remote else { return }
         if !force, let lastRefresh, now().timeIntervalSince(lastRefresh) < Self.refreshInterval { return await flush() }
+        // Идёт отправка — загрузим после неё, иначе устаревший ответ затрёт только что отправленное.
+        guard !isBusy else { refreshAgain = true; return }
+        isBusy = true
         lastRefresh = now()
-        guard let server = try? await remote.fetch(userID: owner) else { return await flush() }
-        // Пока ждали, могли выйти или сменить пользователя.
-        guard isSignedIn, self.owner == owner else { return }
-        var merged = server
-        for (key, change) in pending {
-            if let item = change.item, let current = server[key], !item.supersedes(current) {
-                pending[key] = nil
-            } else {
-                merged[key] = change.item
+        let server = try? await remote.fetch(userID: owner)
+        isBusy = false
+        // Пока ждали, могли выйти или сменить пользователя. Отправки за это время не было — изменения ещё в очереди.
+        if let server, isSignedIn, self.owner == owner {
+            var merged = server
+            for (key, change) in pending {
+                if let item = change.item, let current = server[key], !item.supersedes(current) {
+                    pending[key] = nil
+                } else {
+                    merged[key] = change.item
+                }
             }
+            save(merged, owner: owner)
+            subject.send(merged)
         }
-        save(merged, owner: owner)
-        subject.send(merged)
         await flush()
     }
 
-    /// Отправить очередь; сбой — остаётся до следующего раза.
+    /// Отправить очередь; сбой — остаётся до следующего раза. Во время загрузки или другой отправки — только отмечает «ещё раз».
     func flush() async {
-        guard isSignedIn, let owner, let remote, !pending.isEmpty else { return }
-        guard !isFlushing else { flushAgain = true; return }
-        isFlushing = true
-        defer { isFlushing = false }
+        guard isSignedIn, let owner, let remote else { return }
+        guard !isBusy else { flushAgain = true; return }
+        isBusy = true
+        await push(owner: owner, remote: remote)
+        isBusy = false
+        if refreshAgain {
+            refreshAgain = false
+            await refresh(force: true)
+        }
+    }
+
+    private func push(owner: String, remote: any UserDataRemote<Item>) async {
+        guard !pending.isEmpty else { return }
         repeat {
             flushAgain = false
             let batch = pending

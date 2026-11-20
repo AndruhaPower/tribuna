@@ -36,11 +36,18 @@ actor FakeRemote<Item: SyncItem>: UserDataRemote {
     func set(_ rows: [String: Item], for user: String) { self.rows[user] = rows }
     func setFailing(_ failing: Bool) { self.failing = failing }
     func setFailingWrites(_ failing: Bool) { failingWrites = failing }
+    /// Загрузка берёт снимок строк и ждёт `releaseFetch()` — ответ приходит устаревшим.
+    var holdFetch = false
+    var heldFetch: CheckedContinuation<Void, Never>?
+    func setHoldFetch(_ hold: Bool) { holdFetch = hold }
+    func releaseFetch() { heldFetch?.resume(); heldFetch = nil; holdFetch = false }
 
     func fetch(userID: String) async throws -> [String: Item] {
         fetches += 1
         if failing { throw Down() }
-        return rows[userID] ?? [:]
+        let snapshot = rows[userID] ?? [:]
+        if holdFetch { await withCheckedContinuation { heldFetch = $0 } }
+        return snapshot
     }
 
     func upsert(_ items: [String: Item], userID: String) async throws {
@@ -218,6 +225,22 @@ struct SyncedStoresTests {
         await remote.setFailingWrites(false)
         await store.refreshFromServer(force: true)
         #expect(await remote.rows["u1"] == [b.rawValue: clock.now])
+        #expect(store.collection.pendingCount == 0)
+    }
+
+    @Test func pushDuringFetchSurvivesStaleResponse() async {
+        defer { cleanup() }
+        let remote = FakeRemote<Date>()
+        await remote.setHoldFetch(true)
+        let store = bookmarks(FakeAccount(user("u1")), remote)
+        while await remote.heldFetch == nil { await Task.yield() }
+        store.toggle(a)
+        for _ in 0..<20 { await Task.yield() }
+        await remote.releaseFetch()
+        await store.collection.settle()
+        #expect(store.bookmarks == [a])
+        #expect(await remote.rows["u1"] == [a.rawValue: clock.now])
+        #expect(await remote.upserts == 1)
         #expect(store.collection.pendingCount == 0)
     }
 

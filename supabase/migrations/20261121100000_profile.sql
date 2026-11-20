@@ -26,6 +26,20 @@ create table listening_progress (
   primary key (user_id, episode_id)
 );
 
+-- Устаревшая позиция (офлайн-очередь другого телефона) не перезаписывает более позднюю: строка остаётся прежней.
+create function listening_progress_keep_latest() returns trigger
+language plpgsql security invoker set search_path = '' as $$
+begin
+  if new.updated_at < old.updated_at then
+    return old;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger listening_progress_keep_latest before update on public.listening_progress
+  for each row execute function public.listening_progress_keep_latest();
+
 alter table bookmarks enable row level security;
 alter table podcast_subscriptions enable row level security;
 alter table listening_progress enable row level security;
