@@ -54,21 +54,27 @@ public final class ImageLoader {
         return nil
     }
 
-    private struct RejectedError: Error {}
+    struct RejectedError: Error {}
+
+    /// 4xx — герба нет, повторять бессмысленно (кроме 408/429); остальное — временный сбой (URLError).
+    nonisolated static func validate(statusCode code: Int) throws {
+        if code == 200 { return }
+        if (400..<500).contains(code), code != 408, code != 429 { throw RejectedError() }
+        throw URLError(.badServerResponse)
+    }
 
     private static let session: URLSession = {
         let config = URLSessionConfiguration.default
-        config.urlCache = URLCache(memoryCapacity: 20_000_000, diskCapacity: 100_000_000)
+        // Память держит NSCache; диск — отдельный каталог, чтобы не мешать остальному кэшу приложения.
+        let directory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("images")
+        config.urlCache = URLCache(memoryCapacity: 0, diskCapacity: 100_000_000, directory: directory)
         config.requestCachePolicy = .returnCacheDataElseLoad
         return URLSession(configuration: config)
     }()
 
     private static let networkFetch: @Sendable (URL) async throws -> Data = { url in
         let (data, response) = try await session.data(from: url)
-        let code = (response as? HTTPURLResponse)?.statusCode ?? 0
-        // 4xx — герба нет, повторять бессмысленно; остальное считаем временным сбоем.
-        if (400..<500).contains(code) { throw RejectedError() }
-        guard code == 200 else { throw URLError(.badServerResponse) }
+        try validate(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 0)
         return data
     }
 }

@@ -40,6 +40,14 @@ struct ImageLoaderTests {
 
     private struct Rejected: Error {}
 
+    @Test func httpStatusClassification() {
+        #expect(throws: URLError.self) { try ImageLoader.validate(statusCode: 408) }
+        #expect(throws: URLError.self) { try ImageLoader.validate(statusCode: 429) }
+        #expect(throws: URLError.self) { try ImageLoader.validate(statusCode: 503) }
+        #expect(throws: ImageLoader.RejectedError.self) { try ImageLoader.validate(statusCode: 404) }
+        #expect(throws: Never.self) { try ImageLoader.validate(statusCode: 200) }
+    }
+
     @Test func networkErrorIsRetriedLater() async {
         let counter = Counter()
         let loader = ImageLoader { _ in await counter.hit(); throw URLError(.notConnectedToInternet) }

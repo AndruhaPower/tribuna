@@ -51,6 +51,7 @@ final class MatchViewController: UIViewController {
     private let output: FeatureMatch.Output
     private let titleLabel = UILabel()
     private let emblemView = EmblemView()
+    private var emblemURL: URL?
     private let shareButton = MatchViewController.roundButton(icon: "share", label: "Поделиться")
     private lazy var collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
     private lazy var dataSource = makeDataSource()
@@ -205,7 +206,10 @@ final class MatchViewController: UIViewController {
             snapshot.appendItems([.status], toSection: .status)
         }
         titleLabel.text = new.card?.header
-        emblemView.setImage(url: new.card?.emblemURL)
+        if emblemURL != new.card?.emblemURL {
+            emblemURL = new.card?.emblemURL
+            emblemView.setImage(url: emblemURL)
+        }
         shareButton.isEnabled = new.card != nil
 
         let old = payload

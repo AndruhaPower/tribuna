@@ -6,7 +6,7 @@ public final class EmblemView: UIView {
     public static let size: CGFloat = 20
     private let imageView = RemoteImageView()
 
-    public init() {
+    public init(size: CGFloat = EmblemView.size) {
         super.init(frame: .zero)
         backgroundColor = UIColor(white: 1, alpha: 0.92)
         layer.cornerRadius = 5
@@ -14,7 +14,7 @@ public final class EmblemView: UIView {
         imageView.contentMode = .scaleAspectFit
         addSubview(imageView)
         imageView.snp.makeConstraints { $0.edges.equalToSuperview().inset(2) }
-        snp.makeConstraints { $0.size.equalTo(Self.size) }
+        snp.makeConstraints { $0.size.equalTo(size) }
     }
 
     @available(*, unavailable)

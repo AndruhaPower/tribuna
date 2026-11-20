@@ -12,8 +12,7 @@ final class StandingsRowCell: UICollectionViewCell {
 
     private let positionLabel = UILabel()
     private let nameLabel = UILabel()
-    private let logoView = RemoteImageView()
-    private var nameLeading: Constraint?
+    private let logoView = EmblemView()
     private let playedLabel = UILabel()
     private let pointsLabel = UILabel()
     private var height: Constraint?
@@ -34,14 +33,12 @@ final class StandingsRowCell: UICollectionViewCell {
             $0.leading.equalToSuperview().offset(14)
             $0.centerY.equalToSuperview()
         }
-        logoView.contentMode = .scaleAspectFit
         logoView.snp.makeConstraints {
-            $0.size.equalTo(20)
             $0.leading.equalToSuperview().offset(50.5)
             $0.centerY.equalToSuperview()
         }
         nameLabel.snp.makeConstraints {
-            nameLeading = $0.leading.equalToSuperview().offset(50.5).constraint
+            $0.leading.equalToSuperview().offset(50.5 + EmblemView.size + 8)
             $0.trailing.lessThanOrEqualTo(playedLabel.snp.leading).offset(-12)
             $0.centerY.equalToSuperview()
         }
@@ -63,7 +60,6 @@ final class StandingsRowCell: UICollectionViewCell {
 
     func configureHeader() {
         logoView.setImage(url: nil)
-        nameLeading?.update(offset: 50.5 + 20 + 8)
         apply(["#", "Команда", "И", "О"], font: Typography.text(13), color: Palette.textSecondary)
         contentView.backgroundColor = Palette.surface
         contentView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
@@ -74,7 +70,6 @@ final class StandingsRowCell: UICollectionViewCell {
 
     func configure(_ row: MatchState.Row, isLast: Bool) {
         logoView.setImage(url: row.logoURL)
-        nameLeading?.update(offset: 50.5 + 20 + 8)
         apply([row.position, row.name, row.played, row.points], font: Typography.text(15, .semibold), color: Palette.textPrimary)
         contentView.backgroundColor = row.isHighlighted ? Palette.highlight : Palette.surface
         contentView.layer.maskedCorners = isLast ? [.layerMinXMaxYCorner, .layerMaxXMaxYCorner] : []
