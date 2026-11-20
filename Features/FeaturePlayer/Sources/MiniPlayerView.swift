@@ -3,7 +3,8 @@ import CoreUI
 import SnapKit
 import UIKit
 
-/// Мини-плеер над таб-баром (макеты «Сегодня», «Подкасты»): карточка 60 pt, значок, станция, статус, play/pause, крестик.
+/// Мини-плеер над таб-баром (макеты «Сегодня», «Подкасты»): карточка 60 pt, значок (у выпуска — обложка), название,
+/// статус («● В эфире» или «<подкаст> · 18:42 из 34:10»), play/pause, крестик.
 /// Показ и скрытие (и отступы вкладок) делает контейнер по `onVisibilityChange`; нажатие на карточку — `onOpen`.
 /// Отступы — замер макета от края карточки.
 public final class MiniPlayerView: UIView {
@@ -19,6 +20,8 @@ public final class MiniPlayerView: UIView {
     private let viewModel: PlayerViewModel
     private let openArea = UIControl()
     private let nameLabel = UILabel()
+    private let icon = UIImageView(image: Icon.image("audio-lines"))
+    private let artwork = RemoteImageView()
     private let statusLabel = UILabel()
     /// Точка 4.5 pt перед «В эфире».
     private let liveDot = UIView()
@@ -39,13 +42,14 @@ public final class MiniPlayerView: UIView {
         iconBox.backgroundColor = Palette.surfaceHigh
         iconBox.layer.cornerRadius = 10
         iconBox.isUserInteractionEnabled = false
-        let icon = UIImageView(image: Icon.image("audio-lines"))
+        iconBox.clipsToBounds = true
+        artwork.contentMode = .scaleAspectFill
         icon.tintColor = Palette.textPrimary
         icon.contentMode = .scaleAspectFit
         let nameFont = Typography.text(15, .semibold)
         nameLabel.font = nameFont
         nameLabel.textColor = Palette.textPrimary
-        let statusFont = Typography.text(13, .medium)
+        let statusFont = Typography.digits(13, .medium)
         statusLabel.font = statusFont
         liveDot.backgroundColor = Palette.accent
         liveDot.layer.cornerRadius = 2.25
@@ -55,11 +59,12 @@ public final class MiniPlayerView: UIView {
         closeButton.setImage(Icon.image("x"), for: .normal)
         closeButton.tintColor = Palette.textSecondary
         closeButton.accessibilityLabel = "Закрыть плеер"
-        closeButton.accessibilityHint = "Остановить радио и скрыть плеер"
+        closeButton.accessibilityHint = "Остановить воспроизведение и скрыть плеер"
         closeButton.addAction(UIAction { [weak self] _ in self?.viewModel.didTapClose() }, for: .touchUpInside)
 
         [openArea, iconBox, nameLabel, liveDot, statusLabel, button, closeButton].forEach(addSubview)
-        iconBox.addSubview(icon)
+        [artwork, icon].forEach(iconBox.addSubview)
+        artwork.snp.makeConstraints { $0.edges.equalToSuperview() }
         snp.makeConstraints { $0.height.equalTo(Self.height) }
         openArea.snp.makeConstraints { $0.edges.equalToSuperview() }
         iconBox.snp.makeConstraints {
@@ -121,6 +126,9 @@ public final class MiniPlayerView: UIView {
             liveDot.isHidden = state.statusTone != .live
             statusLeading?.update(offset: liveDot.isHidden ? 64 : 74.5)
             button.configure(state.button, label: state.actionLabel)
+            icon.isHidden = state.artworkURL != nil
+            // Обложка 40 pt: ×3 под экран @3x, 600×600 из каталога не держим в памяти целиком.
+            if artwork.url != state.artworkURL { artwork.setImage(url: state.artworkURL, maxPixelSize: 120) }
             openArea.accessibilityLabel = state.summaryLabel
         }
         // Пока скрывается, остаётся последнее содержимое — анимации не на что мигать.

@@ -79,6 +79,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             tabBar.loadViewIfNeeded()
             tabBar.select(2)
         }
+        if arguments.contains("-OpenPlayer") {
+            DispatchQueue.main.async { [weak self] in self?.openPlayer() }
+        }
         #endif
         return tabBar
     }

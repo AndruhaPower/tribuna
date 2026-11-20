@@ -27,6 +27,11 @@ public enum Typography {
         .systemFont(ofSize: size, weight: weight)
     }
 
+    /// SF с цифрами одной ширины: время в плеере не дрожит при смене цифр.
+    public static func digits(_ size: CGFloat, _ weight: UIFont.Weight = .regular) -> UIFont {
+        .monospacedDigitSystemFont(ofSize: size, weight: weight)
+    }
+
     /// 30 pt — замер заголовка «Сегодня» по макету.
     public static var screenTitle: UIFont { display(30) }
 }

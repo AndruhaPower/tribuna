@@ -10,6 +10,9 @@ final class FakeAudioPlayer: AudioPlayer {
     private(set) var toggles = 0
     private(set) var stops = 0
     private(set) var sleepTimers: [Int?] = []
+    private(set) var seeks: [TimeInterval] = []
+    private(set) var skips: [TimeInterval] = []
+    private(set) var rates: [Float] = []
 
     var state: PlaybackState { subject.value }
     var statePublisher: AnyPublisher<PlaybackState, Never> { subject.eraseToAnyPublisher() }
@@ -22,9 +25,9 @@ final class FakeAudioPlayer: AudioPlayer {
     func togglePlayPause() { toggles += 1 }
     func stop() { stops += 1 }
     func setSleepTimer(minutes: Int?) { sleepTimers.append(minutes) }
-    func seek(to position: TimeInterval) {}
-    func skip(by seconds: TimeInterval) {}
-    func setRate(_ rate: Float) {}
+    func seek(to position: TimeInterval) { seeks.append(position) }
+    func skip(by seconds: TimeInterval) { skips.append(seconds) }
+    func setRate(_ rate: Float) { rates.append(rate) }
 }
 
 @MainActor
@@ -43,6 +46,9 @@ struct PlayerViewModelTests {
         player.set(stadion, .playing)
         let state = try #require(viewModel.state)
         #expect(state.name == "Стадион FM")
+        // У эфира нет позиции, скорости и обложки — плеер радио как прежде.
+        #expect(state.progress == nil)
+        #expect(state.artworkURL == nil)
         #expect(state.header == "Радио · Стадион FM")
         #expect(state.caption == "ФУТБОЛ · ЭФИР")
 
@@ -89,17 +95,6 @@ struct PlayerViewModelTests {
                           bitrate: nil, genres: [.sport], subtitle: "Спорт", featuredOrder: nil)
         player.set(hls, .playing)
         #expect(viewModel.state?.subtitle == "Великобритания")
-    }
-
-    @Test func episodeShownLikeStation() throws {
-        let podcast = Podcast(id: "derby", title: "Дерби", author: "Редакция", feedURL: stadion.streamURL, artworkURL: stadion.streamURL, featuredOrder: nil)
-        let episode = Episode(id: EpisodeID(podcastID: "derby", guid: "1"), podcastID: "derby", title: "Выпуск 1",
-                              publishedAt: start, duration: 600, audioURL: stadion.streamURL, artworkURL: nil, link: nil)
-        let player = FakeAudioPlayer()
-        let viewModel = PlayerViewModel(player: player)
-        player.subject.value = PlaybackState(item: .episode(episode, podcast: podcast), status: .paused, sleepTimerEndsAt: nil, position: 30, duration: 600)
-        let state = try #require(viewModel.state)
-        #expect((state.name, state.header, state.caption, state.subtitle) == ("Выпуск 1", "Подкаст · Дерби", "ДЕРБИ", "Дерби"))
     }
 
     @Test func sleepTimerTextRoundsUpAndRefreshesWithTime() {

@@ -130,15 +130,22 @@ private final class MockAudioPlayer: AudioPlayer {
         subject = CurrentValueSubject(PlaybackState(item: station.map(PlaybackItem.station), status: station == nil ? .idle : .playing, sleepTimerEndsAt: nil))
     }
 
+    init(state: PlaybackState) {
+        subject = CurrentValueSubject(state)
+    }
+
     var state: PlaybackState { subject.value }
     var statePublisher: AnyPublisher<PlaybackState, Never> { subject.eraseToAnyPublisher() }
     func play(_ item: PlaybackItem) { subject.value = PlaybackState(item: item, status: .playing, sleepTimerEndsAt: nil) }
     func togglePlayPause() { subject.value.status = subject.value.status == .playing ? .paused : .playing }
     func stop() { subject.value = PlaybackState(item: nil, status: .idle, sleepTimerEndsAt: nil) }
     func setSleepTimer(minutes: Int?) { subject.value.sleepTimerEndsAt = minutes.map { Date().addingTimeInterval(TimeInterval($0 * 60)) } }
-    func seek(to position: TimeInterval) {}
-    func skip(by seconds: TimeInterval) {}
-    func setRate(_ rate: Float) {}
+    func seek(to position: TimeInterval) {
+        guard let duration = subject.value.duration else { return }
+        subject.value.position = min(max(position, 0), duration)
+    }
+    func skip(by seconds: TimeInterval) { seek(to: (subject.value.position ?? 0) + seconds) }
+    func setRate(_ rate: Float) { if subject.value.item?.isLive == false { subject.value.rate = rate } }
 }
 
 extension AppDependencies {
@@ -186,6 +193,7 @@ extension AppDependencies {
 #if DEBUG
 /// Вкладка «Подкасты» как в макете (`-PodcastsMockData`): подписки «Вне игры» (2 новых), «Шайба» (1 новый), «Разбор» (всё прослушано),
 /// начатый «Итоги 11 тура». Подписки и позиция — в отдельном наборе UserDefaults, плеер без звука. Только в отладке.
+/// `-PodcastPlayerMock` — в плеере «Превью 12 тура», 18:42 из 34:10, 1,25× (макет «Плеер»); `-OpenPlayer` — сразу открыть плеер.
 /// `-PodcastsRealFeeds` — каталог из пяти подкастов миграции (таблицы `podcasts` на `tribuna_db` ещё нет), ленты и плеер настоящие.
 private struct MockPodcastsRepository: PodcastsRepository {
     let podcasts: [Podcast]
@@ -233,9 +241,10 @@ extension AppDependencies {
         let calendar = Calendar.autoupdatingCurrent
         let daysToNov16 = Double(calendar.dateComponents([.day], from: calendar.startOfDay(for: now),
                                                          to: calendar.date(from: DateComponents(year: 2026, month: 11, day: 16))!).day ?? 0)
+        let preview = episode("out", "preview", "Превью 12 тура: дерби на Энфилде", daysAgo: 0, minutes: 34 + 10.0 / 60)
         let results = episode("out", "results", "Итоги 11 тура", daysAgo: max(2.5, -daysToNov16), minutes: 40)
         let feeds = [
-            "out": [episode("out", "preview", "Превью 12 тура: дерби на Энфилде", daysAgo: 0, minutes: 34),
+            "out": [preview,
                     episode("out", "transfers", "Трансферное окно: кого ждать", daysAgo: 2, minutes: 45), results],
             "puck": [episode("puck", "cup", "Кто заберёт Кубок Стэнли", daysAgo: 1, minutes: 51)],
             "review": [episode("review", "r1", "Разбор тура", daysAgo: 3, minutes: 30)],
@@ -245,7 +254,11 @@ extension AppDependencies {
         for id in ["out", "puck", "review"] { services.subscriptions.toggle(id) }
         services.progress.setPosition(28 * 60, for: results.id)
         services.progress.markFinished(EpisodeID(podcastID: "review", guid: "r1"))
-        return (MockPodcastsRepository(podcasts: catalog), MockEpisodesRepository(feeds: feeds), services.subscriptions, services.progress, MockAudioPlayer(playing: nil))
+        let player = arguments.contains("-PodcastPlayerMock")
+            ? MockAudioPlayer(state: PlaybackState(item: .episode(preview, podcast: catalog[0]), status: .playing, sleepTimerEndsAt: nil,
+                                                   position: 18 * 60 + 42, duration: 34 * 60 + 10, rate: 1.25))
+            : MockAudioPlayer(playing: nil)
+        return (MockPodcastsRepository(podcasts: catalog), MockEpisodesRepository(feeds: feeds), services.subscriptions, services.progress, player)
     }
 
     /// Пять подкастов из начального списка миграции `20261120100000_podcasts.sql` — пока таблицы нет на `tribuna_db`.
