@@ -43,9 +43,33 @@ struct EpisodePlaybackTests {
 
     @Test func finishedRestartsFromBeginning() {
         store.markFinished(first.id)
+        player.play(.episode(first, podcast: derby))
+        store.setPosition(960, for: second.id)
+        store.markFinished(second.id)
+        store.setPosition(960, for: second.id)
+        player.play(.episode(second, podcast: derby))
+        #expect(engine.startPositions == [0, 0])
+        #expect(store.isFinished(second.id))
+    }
+
+    @Test func partialReplayOfFinishedContinues() {
+        store.markFinished(first.id)
         store.setPosition(500, for: first.id)
         player.play(.episode(first, podcast: derby))
-        #expect(engine.startPositions == [0])
+        #expect(engine.startPositions == [500])
+        #expect(store.isFinished(first.id))
+    }
+
+    @Test func rateIgnoresNonPositiveAndClamps() {
+        playing()
+        player.setRate(0)
+        player.setRate(-1)
+        #expect(player.state.rate == 1)
+        player.setRate(3)
+        #expect(player.state.rate == 2)
+        player.setRate(0.25)
+        #expect(player.state.rate == 0.5)
+        #expect(engine.rate == 0.5)
     }
 
     @Test func pauseKeepsStreamAndResumesWithoutReconnect() {

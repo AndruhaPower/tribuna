@@ -30,9 +30,12 @@ struct AppDependencies {
             return
         }
         #endif
-        let progress: ListeningProgressStore
-        (matches, standings, bookmarks, reminders, stations, _, _, _, progress) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
+        let progress: ListeningProgressStore, episodes: EpisodesRepository
+        (matches, standings, bookmarks, reminders, stations, _, episodes, _, progress) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
         player = RadioPlayer(progress: progress)
+        #if DEBUG
+        Self.debugEpisode(player: player, episodes: episodes)
+        #endif
     }
 }
 
@@ -145,6 +148,28 @@ extension AppDependencies {
         let player = RadioPlayer()
         player.play(vesti)
         return (MockStationsRepository(), player)
+    }
+}
+#endif
+
+#if DEBUG
+extension AppDependencies {
+    /// `-PodcastEpisodeDebug` — сразу играет последний выпуск «Дерби» (лента из каталога) и раз в 5 с печатает позицию;
+    /// `-PodcastSeek 600` — ещё и перематывает туда через 5 с. Проверка продолжения с места, пока нет экрана подкастов.
+    fileprivate static func debugEpisode(player: AudioPlayer, episodes: EpisodesRepository) {
+        guard ProcessInfo.processInfo.arguments.contains("-PodcastEpisodeDebug") else { return }
+        let podcast = Podcast(id: "debug", title: "Отладка", author: "", feedURL: URL(string: "https://podster.fm/rss.xml?pid=100138")!,
+                              artworkURL: URL(string: "https://example.com/a.jpg")!, featuredOrder: nil)
+        let seek = UserDefaults.standard.double(forKey: "PodcastSeek")
+        Task { @MainActor in
+            guard let episode = try? await episodes.episodes(for: podcast, forceRefresh: false).first else { return print("[PodcastDebug] нет ленты") }
+            player.play(.episode(episode, podcast: podcast))
+            for tick in 1... {
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                if tick == 1, seek > 0 { player.seek(to: seek) }
+                print("[PodcastDebug] \(player.state.status) position=\(player.state.position ?? -1) duration=\(player.state.duration ?? -1)")
+            }
+        }
     }
 }
 #endif

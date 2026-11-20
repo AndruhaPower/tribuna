@@ -10,6 +10,10 @@ final class AVPlayerEngine: PlaybackEngine {
     private var itemObservations: Set<AnyCancellable> = []
     /// Токен наблюдателя времени: живёт столько же, сколько плеер (движок один на приложение).
     private var timeObserver: Any?
+    /// Куда перемотать, когда элемент станет `readyToPlay`: до этого AVPlayer может потерять перемотку и начать с 0.
+    private var pendingStart: TimeInterval?
+    /// Играть ли после отложенной перемотки (пауза до готовности отменяет).
+    private var wantsPlay = false
 
     init() {
         playerObservation = player.publisher(for: \.timeControlStatus)
@@ -35,23 +39,45 @@ final class AVPlayerEngine: PlaybackEngine {
         // Пауза до замены: иначе у уже играющего плеера timeControlStatus может не смениться и .playing не придёт.
         player.pause()
         player.replaceCurrentItem(with: item)
-        if position > 0 { seek(to: position) }
-        player.play()
+        wantsPlay = true
+        pendingStart = position > 0 ? position : nil
+        if pendingStart == nil { player.play() }
     }
 
     func stop() {
+        pendingStart = nil
+        wantsPlay = false
         itemObservations = []
         player.pause()
         player.replaceCurrentItem(with: nil)
     }
 
-    func pause() { player.pause() }
+    func pause() {
+        wantsPlay = false
+        player.pause()
+    }
 
     /// `play()` берёт скорость из `defaultRate`.
-    func resume() { player.play() }
+    func resume() {
+        wantsPlay = true
+        if pendingStart == nil { player.play() }
+    }
 
     func seek(to position: TimeInterval) {
-        player.seek(to: CMTime(seconds: position, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+        if pendingStart != nil {
+            pendingStart = position
+            return
+        }
+        // Допуск 1 с: точная перемотка длинного VBR MP3 может читать файл с начала и упереться в таймаут подключения.
+        let tolerance = CMTime(seconds: 1, preferredTimescale: 600)
+        player.seek(to: CMTime(seconds: position, preferredTimescale: 600), toleranceBefore: tolerance, toleranceAfter: tolerance)
+    }
+
+    private func startWhenReady() {
+        guard let start = pendingStart else { return }
+        pendingStart = nil
+        seek(to: start)
+        if wantsPlay { player.play() }
     }
 
     func setRate(_ rate: Float) {
@@ -78,6 +104,13 @@ final class AVPlayerEngine: PlaybackEngine {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] event in
                 MainActor.assumeIsolated { self?.onEvent?(event) }
+            }
+            .store(in: &itemObservations)
+        item.publisher(for: \.status)
+            .first { $0 == .readyToPlay }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                MainActor.assumeIsolated { self?.startWhenReady() }
             }
             .store(in: &itemObservations)
     }
