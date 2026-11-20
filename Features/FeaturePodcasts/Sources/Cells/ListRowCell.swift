@@ -16,6 +16,8 @@ final class ListRowCell: UICollectionViewListCell {
         let button: (title: String, icon: String?, style: PillButton.Style)?
         /// Контурная «Скачать» справа от кнопки.
         var showsDownloadButton = false
+        /// VoiceOver для «Скачать»; nil — «Скачать».
+        var downloadButtonAccessibilityLabel: String?
         /// Полоска загрузки под текстом; nil — без неё.
         var progress: Double?
         let accessibilityLabel: String
@@ -169,6 +171,7 @@ final class ListRowCell: UICollectionViewListCell {
             separatorBelowButton?.deactivate()
         }
         downloadButton.isHidden = !content.showsDownloadButton
+        downloadButton.accessibilityLabel = content.downloadButtonAccessibilityLabel ?? "Скачать"
         progressBar.isHidden = content.progress == nil
         progressBar.progress = content.progress ?? 0
         if content.progress == nil {

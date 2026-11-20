@@ -31,6 +31,8 @@ struct EpisodeRow: Hashable, Identifiable {
     let downloadAction: DownloadAction
     /// VoiceOver для пилюли: «Слушать, <выпуск>» / «Пауза, <выпуск>»; nil — без кнопки.
     let buttonAccessibilityLabel: String?
+    /// VoiceOver для «Скачать»: «Скачать, <выпуск>»; nil — пилюли нет.
+    let downloadButtonAccessibilityLabel: String?
     /// VoiceOver: «<выпуск>, <подпись>, <дата и длительность>».
     let accessibilityLabel: String
 }

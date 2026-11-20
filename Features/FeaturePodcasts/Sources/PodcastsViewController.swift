@@ -196,33 +196,37 @@ final class PodcastsViewController: UIViewController {
     private func makeLayout() -> UICollectionViewCompositionalLayout {
         UICollectionViewCompositionalLayout { [weak self] index, environment in
             guard let self, let section = dataSource.sectionIdentifier(for: index) else { return nil }
-            guard section == .downloads else { return Self.layoutSection(section, width: environment.container.effectiveContentSize.width) }
-            // Список — ради свайпа «Удалить»; разделители рисует сама строка.
-            var configuration = UICollectionLayoutListConfiguration(appearance: .plain)
-            configuration.showsSeparators = false
-            configuration.backgroundColor = .clear
-            configuration.trailingSwipeActionsConfigurationProvider = { [weak self] indexPath in
-                guard case let .episode(id) = self?.dataSource.itemIdentifier(for: indexPath) else { return nil }
-                return UISwipeActionsConfiguration(actions: [UIContextualAction(style: .destructive, title: "Удалить") { _, _, done in
-                    self?.viewModel.didSwipeDelete(id)
-                    done(true)
-                }])
-            }
-            let result = NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: environment)
-            // Обложка первой строки — в 20.5 pt под переключателем, как в «Подборке».
-            result.contentInsets = NSDirectionalEdgeInsets(top: 4.5, leading: 20, bottom: 0, trailing: 20)
-            return result
+            return layoutSection(section, environment: environment)
         }
     }
 
+    /// «Загрузки» — список ради свайпа «Удалить»; разделители рисует сама строка.
+    private func downloadsSection(_ environment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection {
+        var configuration = UICollectionLayoutListConfiguration(appearance: .plain)
+        configuration.showsSeparators = false
+        configuration.backgroundColor = .clear
+        configuration.trailingSwipeActionsConfigurationProvider = { [weak self] indexPath in
+            guard case let .episode(id) = self?.dataSource.itemIdentifier(for: indexPath) else { return nil }
+            return UISwipeActionsConfiguration(actions: [UIContextualAction(style: .destructive, title: "Удалить") { _, _, done in
+                self?.viewModel.didSwipeDelete(id)
+                done(true)
+            }])
+        }
+        let result = NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: environment)
+        // Обложка первой строки — в 20.5 pt под переключателем, как в «Подборке».
+        result.contentInsets = NSDirectionalEdgeInsets(top: 4.5, leading: 20, bottom: 0, trailing: 20)
+        return result
+    }
+
     /// Размеры — замер макета «Подкасты» (390 pt): поля 20 pt.
-    private static func layoutSection(_ section: Section, width: CGFloat) -> NSCollectionLayoutSection {
+    private func layoutSection(_ section: Section, environment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection {
         let inset: CGFloat = 20
+        let width = environment.container.effectiveContentSize.width
         switch section {
         case .header:
-            return list(.absolute(PodcastsHeaderCell.height))
+            return Self.list(.absolute(PodcastsHeaderCell.height))
         case .downloads:
-            preconditionFailure("«Загрузки» — список со свайпом, его строит makeLayout")
+            return downloadsSection(environment)
         case .tiles:
             // Три плитки на ширину экрана с промежутком 12 pt; больше трёх — прокрутка вбок.
             let size = NSCollectionLayoutSize(widthDimension: .absolute((width - 2 * inset - 24) / 3), heightDimension: .absolute(SubscriptionTileCell.height))
@@ -234,7 +238,7 @@ final class PodcastsViewController: UIViewController {
             result.contentInsets = NSDirectionalEdgeInsets(top: 20.5, leading: inset, bottom: 0, trailing: inset)
             return result
         case .episodes:
-            let result = list(.estimated(ListRowCell.estimatedHeight))
+            let result = Self.list(.estimated(ListRowCell.estimatedHeight))
             result.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: inset, bottom: 0, trailing: inset)
             // Заголовок 40 pt: верх обложки первой строки в 56 pt от верха заголовка (16 pt — поле строки).
             result.boundarySupplementaryItems = [NSCollectionLayoutBoundarySupplementaryItem(
@@ -244,12 +248,12 @@ final class PodcastsViewController: UIViewController {
             )]
             return result
         case .catalog:
-            let result = list(.estimated(ListRowCell.estimatedHeight))
+            let result = Self.list(.estimated(ListRowCell.estimatedHeight))
             // Обложка первой строки — в 20.5 pt под переключателем, как плитки.
             result.contentInsets = NSDirectionalEdgeInsets(top: 4.5, leading: inset, bottom: 0, trailing: inset)
             return result
         case .status:
-            let result = list(.absolute(StatusCell.height))
+            let result = Self.list(.absolute(StatusCell.height))
             result.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: inset, bottom: 0, trailing: inset)
             return result
         }
@@ -315,6 +319,7 @@ extension ListRowCell.Content {
             subtitle: row.subtitle,
             button: row.button.map { $0 == .pause ? ("Пауза", "pause", .accent) : ("Слушать", "play", .accent) },
             showsDownloadButton: row.showsDownloadButton,
+            downloadButtonAccessibilityLabel: row.downloadButtonAccessibilityLabel,
             progress: row.downloadProgress,
             accessibilityLabel: row.accessibilityLabel,
             buttonAccessibilityLabel: row.buttonAccessibilityLabel

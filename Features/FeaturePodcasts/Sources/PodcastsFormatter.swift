@@ -115,6 +115,7 @@ enum PodcastsFormatter {
             downloadProgress: downloadProgress,
             downloadAction: action,
             buttonAccessibilityLabel: button.map { ($0 == .pause ? "Пауза" : "Слушать") + ", \(episode.title)" },
+            downloadButtonAccessibilityLabel: button != nil && action == .download ? "Скачать, \(episode.title)" : nil,
             accessibilityLabel: [episode.title, isNew ? "Новый, \(name)" : name, subtitle].joined(separator: ", ")
         )
     }
