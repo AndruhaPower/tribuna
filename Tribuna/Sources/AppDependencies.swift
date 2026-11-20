@@ -18,6 +18,12 @@ struct AppDependencies {
     let progress: ListeningProgressStore
     /// Единственный плеер приложения (D15): «Эфир», мини-плеер и плеер подписаны на него.
     let player: AudioPlayer
+    /// Загрузки выпусков; одни и те же и для отладочных моков.
+    let downloads: EpisodeDownloads = Self.backgroundDownloads
+
+    /// Единственная фоновая сессия загрузок: `Services.make` моки зовут несколько раз, поэтому не там.
+    /// Статическая — `AppDelegate` передаёт ей события сессии и при запуске в фоне, без сцены.
+    static let backgroundDownloads = BackgroundEpisodeDownloads.make()
 
     init() {
         #if DEBUG
