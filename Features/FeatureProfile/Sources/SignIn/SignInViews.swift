@@ -7,7 +7,7 @@ final class WidePillButton: UIButton {
     enum Style { case accent, outline }
 
     static let height: CGFloat = 50
-    var isLoading = false { didSet { setNeedsUpdateConfiguration() } }
+    var isLoading = false { didSet { setNeedsUpdateConfiguration(); accessibilityValue = isLoading ? "Загрузка" : nil } }
 
     init(_ title: String, style: Style, height: CGFloat = WidePillButton.height, font: UIFont = Typography.text(17, .semibold)) {
         super.init(frame: .zero)

@@ -191,6 +191,9 @@ final class FormViewController: UIViewController, UITextFieldDelegate {
         submitButton.isEnabled = state.canSubmit
         submitButton.isLoading = state.isLoading
         resendButton?.isEnabled = state.canResend
+        if let error = state.error, error != errorLabel.text {
+            UIAccessibility.post(notification: .announcement, argument: error)
+        }
         errorLabel.text = state.error
         errorGroup.isHidden = state.error == nil
         signInLink.isHidden = !state.offersSignIn
