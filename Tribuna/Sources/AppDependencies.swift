@@ -25,12 +25,12 @@ struct AppDependencies {
             return
         }
         if let radio = Self.radioMock() {
-            (matches, standings, bookmarks, reminders, _) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
+            (matches, standings, bookmarks, reminders, _, _, _, _, _) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
             (stations, player) = radio
             return
         }
         #endif
-        (matches, standings, bookmarks, reminders, stations) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
+        (matches, standings, bookmarks, reminders, stations, _, _, _, _) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
         player = RadioPlayer()
     }
 }

@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet href="/xsl/rss.xsl" type="text/xsl"?>
+
+
+<rss xmlns:podcast="https://podcastindex.org/namespace/1.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0">
+    <channel>
+        <title>Сквозь Спорт</title>
+        <link>https://skvozsport.podster.fm</link>
+        <atom:link href="https://podster.fm/rss.xml?pid=100138" rel="self" type="application/rss+xml"/>
+        
+        
+        <description><![CDATA[<p>«Сквозь спорт» — ежедневный подкаст о том, что действительно стоило заметить в спортивном мире.</p>
+<p>Главные результаты, неожиданные истории, яркие эпизоды, рекорды и события, о которых захочется рассказать кому-нибудь ещё. </p>
+<p>Футбол, теннис, Формула-1, хоккей, бег и всё остальное, если там произошло что-то достойное внимания. Плюс немного контекста, личного мнения и периодически совершенно ненужных, но прекрасных фактов.</p>
+<p>ссылка на телеграм https://t.me/skvozsport</p>]]></description>
+        <image>
+            <url>https://podster.fm/image-storage/609907/conversions/3yKF8HiuwT8KVPUw-3xl.jpg</url>
+            <link>https://skvozsport.podster.fm</link>
+            <title>Сквозь Спорт</title>
+        </image>
+                <itunes:author>Алексей Бибиков</itunes:author>
+        <itunes:owner>
+            <itunes:name>Алексей Бибиков</itunes:name>
+            <itunes:email>bibikov07@gmail.com</itunes:email>
+        </itunes:owner>
+                                <podcast:locked owner="bibikov07@gmail.com">yes</podcast:locked>
+                        <itunes:summary>«Сквозь спорт» — ежедневный подкаст о том, что действительно стоило заметить в спортивном мире.
+Главные результаты, неожиданные истории, яркие эпизоды, рекорды и события, о которых захочется рассказать кому-нибудь ещё. 
+Футбол, теннис, Формула-1, хоккей, бег и всё остальное, если там произошло что-то достойное внимания. Плюс немного контекста, личного мнения и периодически совершенно ненужных, но прекрасных фактов.
+ссылка на телеграм https://t.me/skvozsport</itunes:summary>
+        <itunes:image href="https://podster.fm/image-storage/609907/conversions/3yKF8HiuwT8KVPUw-3xl.jpg" />
+                                    <itunes:category text="Sports">
+                                            <itunes:category text="Soccer" />
+                                    </itunes:category>
+                                                <itunes:category text="News">
+                                            <itunes:category text="Sports News" />
+                                            <itunes:category text="Daily News" />
+                                    </itunes:category>
+                            <itunes:explicit>False</itunes:explicit>
+        <language>ru</language>
+        <copyright>Алексей Бибиков</copyright>
+        <generator>Podster</generator>
+                    <item>
+                <title>18 - ноября: Медведев, Евро, «Майами», ЦСКА, Пиастри</title>
+                <link>https://skvozsport.podster.fm/e/548050/18-noyabrya-medvedev-evro-mayami-tsska-piastri</link>
+                
+                
+                <description><![CDATA[<p>Медведев сыграет с Тиафо за полуфинал, УЕФА объявил состав жеребьёвки Евро, а Яннис впервые встретился с «Милуоки» в матче, который «Майами» оформил в стиле GTA VI. Ещё в выпуске — победа ЦСКА над чемпионом КХЛ и штраф Пиастри в Лас-Вегасе.</p><p>Другие площадки https://band.link/YM5Zk</p>]]></description>
+                                    <guid isPermaLink="false">a342cb6f-6b7d-4dd5-b605-7692e1cbdb7f</guid>
+                                <enclosure url="https://podster.fm/episodes/a342cb6f-6b7d-4dd5-b605-7692e1cbdb7f/audio.mp3?media=rss" length="11605074" type="audio/mpeg" />
+                <pubDate>Thu, 19 Nov 2026 10:19:22 +0300</pubDate>
+                                    <itunes:image href="https://podster.fm/image-storage/762020/f1A3St7ZYkJxuXs3.png" />
+                                                    <itunes:episode>46</itunes:episode>
+                                                <itunes:episodeType>full</itunes:episodeType>
+
+                
+                
+                <itunes:summary><![CDATA[<p>Медведев сыграет с Тиафо за полуфинал, УЕФА объявил состав жеребьёвки Евро, а Яннис впервые встретился с «Милуоки» в матче, который «Майами» оформил в стиле GTA VI. Ещё в выпуске — победа ЦСКА над чемпионом КХЛ и штраф Пиастри в Лас-Вегасе.<br /><br /></p>
+<p>Другие площадки https://band.link/YM5Zk</p>]]></itunes:summary>
+                <itunes:duration>12:05</itunes:duration>
+                <itunes:explicit>False</itunes:explicit>
+                            </item>
+                    <item>
+                <title>17 - ноября: Миранчук, Холанд, Овчинников, Хельсинки, Кучеров</title>
+                <link>https://skvozsport.podster.fm/e/547088/17-noyabrya-miranchuk-holand-ovchinnikov-helsinki-kucherov</link>
+                
+                
+                <description><![CDATA[<p>Миранчук завершил год за сборную дублем, Холанн вытащил Норвегию в четвертьфинал, а «Детройт» остановил «Сан-Антонио» после 12 побед подряд.</p><p>Другие площадки https://band.link/YM5Zk</p>]]></description>
+                                    <guid isPermaLink="false">a340d1bf-e780-4c1b-8509-a228d990ce47</guid>
+                                <enclosure url="https://podster.fm/episodes/a340d1bf-e780-4c1b-8509-a228d990ce47/audio.mp3?media=rss" length="15742864" type="audio/mpeg" />
+                <pubDate>Wed, 18 Nov 2026 10:45:22 +0300</pubDate>
+                                    <itunes:image href="https://podster.fm/image-storage/758325/conversions/QU8uDuW9SHK2IRRy-3xl.jpg" />
+                                                    <itunes:episode>45</itunes:episode>
+                                                <itunes:episodeType>full</itunes:episodeType>
+
+                
+                
+                <itunes:summary><![CDATA[<p>Миранчук завершил год за сборную дублем, Холанн вытащил Норвегию в четвертьфинал, а «Детройт» остановил «Сан-Антонио» после 12 побед подряд.</p>
+<p>Другие площадки https://band.link/YM5Zk</p>]]></itunes:summary>
+                <itunes:duration>10:56</itunes:duration>
+                <itunes:explicit>False</itunes:explicit>
+                            </item>
+                    <item>
+                <title>16 - ноября: Медведев, Германия, «Амур», «Орландо», «Хаас»</title>
+                <link>https://skvozsport.podster.fm/e/546190/16-noyabrya-medvedev-germaniya-amur-orlando-haas</link>
+                
+                
+                <description><![CDATA[<p>Медведев победил в Турине и теперь сыграет с Алькарасом, Германия разгромила Нидерланды 5:0, а ЦСКА и «Амур» добрались до 26-го буллита. Ещё в выпуске — ночные победы «Орландо» и «Рейнджерс».</p><p>другие платформы https://band.link/YM5Zk</p>]]></description>
+                                    <guid isPermaLink="false">a33ebc1f-9d73-4723-b6d2-539622ef3bda</guid>
+                                <enclosure url="https://podster.fm/episodes/a33ebc1f-9d73-4723-b6d2-539622ef3bda/audio.mp3?media=rss" length="20705993" type="audio/mpeg" />
+                <pubDate>Tue, 17 Nov 2026 09:53:14 +0300</pubDate>
+                                    <itunes:image href="https://podster.fm/image-storage/755292/conversions/1XOUJjsvtwKjKSlf-3xl.jpg" />
+                                                    <itunes:episode>44</itunes:episode>
+                                                <itunes:episodeType>full</itunes:episodeType>
+
+                
+                
+                <itunes:summary><![CDATA[<p>Медведев победил в Турине и теперь сыграет с Алькарасом, Германия разгромила Нидерланды 5:0, а ЦСКА и «Амур» добрались до 26-го буллита. Ещё в выпуске — ночные победы «Орландо» и «Рейнджерс».<br /><br /></p>
+<p>другие платформы https://band.link/YM5Zk</p>]]></itunes:summary>
+                <itunes:duration>10:53</itunes:duration>
+                <itunes:explicit>False</itunes:explicit>
+                            </item>
+                    <item>
+                <title>15 - ноября: Андреева, Англия, Макдэвид, Дончич, Лазарев</title>
+                <link>https://skvozsport.podster.fm/e/545459/15-noyabrya-andreeva-angliya-makdevid-donchich-lazarev</link>
+                
+                
+                <description><![CDATA[<p>Андреева взяла Итоговый без проигранного сета, Англия остановила беспроигрышную серию Испании, а Макдэвид повторил рекорд Грецки. Ещё в выпуске — 43 очка Дончича и первая взрослая победа Лазарева на этапе Гран-при.</p><p>Другие платформы https://band.link/YM5Zk</p>]]></description>
+                                    <guid isPermaLink="false">a33ca6a4-2cf9-407c-b463-53d1b4a0f41d</guid>
+                                <enclosure url="https://podster.fm/episodes/a33ca6a4-2cf9-407c-b463-53d1b4a0f41d/audio.mp3?media=rss" length="24194220" type="audio/mpeg" />
+                <pubDate>Mon, 16 Nov 2026 09:01:31 +0300</pubDate>
+                                    <itunes:image href="https://podster.fm/image-storage/752958/conversions/QaGK2kLaspAmVrp3-3xl.jpg" />
+                                                    <itunes:episode>43</itunes:episode>
+                                                <itunes:episodeType>full</itunes:episodeType>
+
+                
+                
+                <itunes:summary><![CDATA[<p>Андреева взяла Итоговый без проигранного сета, Англия остановила беспроигрышную серию Испании, а Макдэвид повторил рекорд Грецки. Ещё в выпуске — 43 очка Дончича и первая взрослая победа Лазарева на этапе Гран-при.</p>
+<p>Другие платформы https://band.link/YM5Zk</p>]]></itunes:summary>
+                <itunes:duration>11:59</itunes:duration>
+                <itunes:explicit>False</itunes:explicit>
+                            </item>
+                    <item>
+                <title>14 - ноября: Андреева, Билостенный, Дания, Коростелёв, Макдэвид</title>
+                <link>https://skvozsport.podster.fm/e/544975/14-noyabrya-andreeva-bilostennyy-daniya-korostelyov-makdevid</link>
+                
+                
+                <description><![CDATA[<p>Мирра Андреева сыграет со Свитолиной за титул, Билостенный отобрал пояс у Немкова, а Дания забила четыре Португалии в её первом матче после ухода Роналду. Ещё в выпуске — победа Коростелёва и пятьдесят очков Макдэвида за двадцать одну игру.</p><p>Другие площадки https://band.link/YM5Zk</p>]]></description>
+                                    <guid isPermaLink="false">a33ae58f-0f1c-4a07-91e9-974897c471f4</guid>
+                                <enclosure url="https://podster.fm/episodes/a33ae58f-0f1c-4a07-91e9-974897c471f4/audio.mp3?media=rss" length="20931137" type="audio/mpeg" />
+                <pubDate>Sun, 15 Nov 2026 12:05:47 +0300</pubDate>
+                                    <itunes:image href="https://podster.fm/image-storage/751321/conversions/MhwyXFtPsVFLNw2P-3xl.jpg" />
+                                                    <itunes:episode>42</itunes:episode>
+                                                <itunes:episodeType>full</itunes:episodeType>
+
+                
+                
+                <itunes:summary><![CDATA[<p>Мирра Андреева сыграет со Свитолиной за титул, Билостенный отобрал пояс у Немкова, а Дания забила четыре Португалии в её первом матче после ухода Роналду. Ещё в выпуске — победа Коростелёва и пятьдесят очков Макдэвида за двадцать одну игру.</p>
+<p>Другие площадки https://band.link/YM5Zk</p>]]></itunes:summary>
+                <itunes:duration>10:32</itunes:duration>
+                <itunes:explicit>False</itunes:explicit>
+                            </item>
+                    <item>
+                <title>13 - ноября: Почеттино, Андреева, Уругвай, Рейндерс, Большунов</title>
+                <link>https://skvozsport.podster.fm/e/544540/13-noyabrya-pochettino-andreeva-urugvay-reynders-bolshunov</link>
+                
+                
+                <description><![CDATA[<p>Почеттино возвращается в АПЛ, Уругвай выигрывает у Аргентины голом спиной, а Андреева проходит группу Итогового турнира без потерянного сета. Ещё в выпуске — семь голов Нидерландов и официальный отказ Большунову.</p><p>Другие платформы https://band.link/YM5Zk</p>]]></description>
+                                    <guid isPermaLink="false">a338d578-bdc8-4911-9744-cf0e97857167</guid>
+                                <enclosure url="https://podster.fm/episodes/a338d578-bdc8-4911-9744-cf0e97857167/audio.mp3?media=rss" length="25313013" type="audio/mpeg" />
+                <pubDate>Sat, 14 Nov 2026 11:29:09 +0300</pubDate>
+                                    <itunes:image href="https://podster.fm/image-storage/749960/conversions/oabvhoZQrUXJn01a-3xl.jpg" />
+                                                    <itunes:episode>41</itunes:episode>
+                                                <itunes:episodeType>full</itunes:episodeType>
+
+                
+                
+                <itunes:summary><![CDATA[<p>Почеттино возвращается в АПЛ, Уругвай выигрывает у Аргентины голом спиной, а Андреева проходит группу Итогового турнира без потерянного сета. Ещё в выпуске — семь голов Нидерландов и официальный отказ Большунову.</p>
+<p>Другие платформы https://band.link/YM5Zk</p>]]></itunes:summary>
+                <itunes:duration>13:05</itunes:duration>
+                <itunes:explicit>False</itunes:explicit>
+                            </item>
+                    <item>
+                <title>12 - ноября: Комличенко, Каннингем, Кэррик, Кейн, Андреева</title>
+                <link>https://skvozsport.podster.fm/e/543280/12-noyabrya-komlichenko-kanningem-kerrik-keyn-andreeva</link>
+                
+                
+                <description><![CDATA[<p>Россия перевернула матч в Ташкенте, Кейд Каннингем набрал 52 очка без единой потери, а «Манчестер Юнайтед» расстался с Майклом Кэрриком. Ещё в выпуске — соперница Мирры Андреевой по полуфиналу и рекорд Харри Кейна.</p><p>Другие площадки https://band.link/YM5Zk</p>]]></description>
+                                    <guid isPermaLink="false">a336bec3-9f5a-4a6a-b5ba-26a2131c180a</guid>
+                                <enclosure url="https://podster.fm/episodes/a336bec3-9f5a-4a6a-b5ba-26a2131c180a/audio.mp3?media=rss" length="19484482" type="audio/mpeg" />
+                <pubDate>Fri, 13 Nov 2026 10:34:00 +0300</pubDate>
+                                    <itunes:image href="https://podster.fm/image-storage/746201/conversions/be7z0Rgpv2rKaeMO-3xl.jpg" />
+                                                    <itunes:episode>40</itunes:episode>
+                                                <itunes:episodeType>full</itunes:episodeType>
+
+                
+                
+                <itunes:summary><![CDATA[<p>Россия перевернула матч в Ташкенте, Кейд Каннингем набрал 52 очка без единой потери, а «Манчестер Юнайтед» расстался с Майклом Кэрриком. Ещё в выпуске — соперница Мирры Андреевой по полуфиналу и рекорд Харри Кейна.</p>
+<p>Другие площадки https://band.link/YM5Zk</p>]]></itunes:summary>
+                <itunes:duration>11:19</itunes:duration>
+                <itunes:explicit>False</itunes:explicit>
+                            </item>
+                    <item>
+                <title>11 - ноября: Андреева, Кучеров, Дюрант, Плавание, Дакар</title>
+                <link>https://skvozsport.podster.fm/e/542738/11-noyabrya-andreeva-kucherov-dyurant-plavanie-dakar</link>
+                
+                
+                <description><![CDATA[<p>Андреева взяла 11 геймов подряд у Соболенко и вышла в полуфинал Итогового турнира. Кучеров остановил камбэк «Баффало» хет-триком, а 15-летняя София Молчанова выиграла чемпионат России на дистанции олимпийской финалистки.</p><p>Другие площадки https://band.link/YM5Zk</p>]]></description>
+                                    <guid isPermaLink="false">a334ad92-22f2-4e66-8d7d-b25e1c59b52c</guid>
+                                <enclosure url="https://podster.fm/episodes/a334ad92-22f2-4e66-8d7d-b25e1c59b52c/audio.mp3?media=rss" length="21132810" type="audio/mpeg" />
+                <pubDate>Thu, 12 Nov 2026 09:54:16 +0300</pubDate>
+                                    <itunes:image href="https://podster.fm/image-storage/744353/conversions/6VSfb8z2uucRr1o9-3xl.jpg" />
+                                                    <itunes:episode>39</itunes:episode>
+                                                <itunes:episodeType>full</itunes:episodeType>
+
+                
+                
+                <itunes:summary><![CDATA[<p>Андреева взяла 11 геймов подряд у Соболенко и вышла в полуфинал Итогового турнира. Кучеров остановил камбэк «Баффало» хет-триком, а 15-летняя София Молчанова выиграла чемпионат России на дистанции олимпийской финалистки.</p>
+<p>Другие площадки https://band.link/YM5Zk</p>]]></itunes:summary>
+                <itunes:duration>10:51</itunes:duration>
+                <itunes:explicit>False</itunes:explicit>
+                            </item>
+                    <item>
+                <title>10 - ноября: Марафон, Дакар, Овечкин, Носкова, «Бостон»</title>
+                <link>https://skvozsport.podster.fm/e/541930/10-noyabrya-marafon-dakar-ovechkin-noskova-boston</link>
+                
+                
+                <description><![CDATA[<p>Марафонские нормативы на Игры в Лос-Анджелесе оказались быстрее олимпийских рекордов Парижа, а российские гимнасты взяли два золота в Дакаре. Ещё в выпуске — рекордная передача Овечкина, 36 очков Пола Джорджа против бывшей команды и расклады перед матчем Андреевой с Соболенко.</p><p>Другие площадки https://band.link/YM5Zk</p>]]></description>
+                                    <guid isPermaLink="false">a332c77f-0353-4994-a0ab-e8fd7d2aad36</guid>
+                                <enclosure url="https://podster.fm/episodes/a332c77f-0353-4994-a0ab-e8fd7d2aad36/audio.mp3?media=rss" length="25407273" type="audio/mpeg" />
+                <pubDate>Wed, 11 Nov 2026 11:15:06 +0300</pubDate>
+                                    <itunes:image href="https://podster.fm/image-storage/742020/conversions/SRIk99TYjOllycTn-3xl.jpg" />
+                                                    <itunes:episode>38</itunes:episode>
+                                                <itunes:episodeType>full</itunes:episodeType>
+
+                
+                
+                <itunes:summary><![CDATA[<p>Марафонские нормативы на Игры в Лос-Анджелесе оказались быстрее олимпийских рекордов Парижа, а российские гимнасты взяли два золота в Дакаре. Ещё в выпуске — рекордная передача Овечкина, 36 очков Пола Джорджа против бывшей команды и расклады перед матчем Андреевой с Соболенко.</p>
+<p>Другие площадки https://band.link/YM5Zk</p>]]></itunes:summary>
+                <itunes:duration>12:52</itunes:duration>
+                <itunes:explicit>False</itunes:explicit>
+                            </item>
+                    <item>
+                <title>9 - ноября: Ринер, Андреева, Флэгг, Тамбиев, СКА</title>
+                <link>https://skvozsport.podster.fm/e/536811/9-noyabrya-riner-andreeva-flegg-tambiev-ska</link>
+                
+                
+                <description><![CDATA[<p>Тедди Ринер собирается в президенты Франции, Андреева громко дебютировала на Итоговом турнире, а Флэгг набрал 43 очка и сравнялся с Леброном. Ещё в выпуске — отстранение Тамбиева, разгром «Спартака» в Петербурге и травма Головина.</p><p>Другие места https://band.link/YM5Zk</p>]]></description>
+                                    <guid isPermaLink="false">a3309bbc-8a15-480a-a4e7-34df89091ae7</guid>
+                                <enclosure url="https://podster.fm/episodes/a3309bbc-8a15-480a-a4e7-34df89091ae7/audio.mp3?media=rss" length="17173911" type="audio/mpeg" />
+                <pubDate>Tue, 10 Nov 2026 09:21:05 +0300</pubDate>
+                                    <itunes:image href="https://podster.fm/image-storage/725991/conversions/FnI3KSRLGaBMEme7-3xl.jpg" />
+                                                    <itunes:episode>37</itunes:episode>
+                                                <itunes:episodeType>full</itunes:episodeType>
+
+                
+                
+                <itunes:summary><![CDATA[<p>Тедди Ринер собирается в президенты Франции, Андреева громко дебютировала на Итоговом турнире, а Флэгг набрал 43 очка и сравнялся с Леброном. Ещё в выпуске — отстранение Тамбиева, разгром «Спартака» в Петербурге и травма Головина.</p>
+<p>Другие места https://band.link/YM5Zk</p>]]></itunes:summary>
+                <itunes:duration>09:58</itunes:duration>
+                <itunes:explicit>False</itunes:explicit>
+                            </item>
+</channel>
+</rss>
