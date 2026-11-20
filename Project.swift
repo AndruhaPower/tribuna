@@ -55,6 +55,17 @@ let coreRepositoriesTests: Target = .target(
     settings: settings
 )
 
+let coreUITests: Target = .target(
+    name: "CoreUITests",
+    destinations: .iOS,
+    product: .unitTests,
+    bundleId: "\(bundleId).CoreUITests",
+    deploymentTargets: deployment,
+    sources: ["Core/CoreUI/Tests/**"],
+    dependencies: [.target(name: "CoreUI")],
+    settings: settings
+)
+
 let featureTodayTests: Target = .target(
     name: "FeatureTodayTests",
     destinations: .iOS,
@@ -141,5 +152,5 @@ let app: Target = .target(
 
 let project = Project(
     name: "Tribuna",
-    targets: [app, coreUI, coreDomain, coreRepositories, coreRepositoriesTests, corePlayback, corePlaybackTests, featureTodayTests, featureMatchTests, featureRadioTests, featurePlayerTests] + featureTargets
+    targets: [app, coreUI, coreDomain, coreRepositories, coreRepositoriesTests, coreUITests, corePlayback, corePlaybackTests, featureTodayTests, featureMatchTests, featureRadioTests, featurePlayerTests] + featureTargets
 )
