@@ -6,6 +6,7 @@ struct MatchState: Equatable {
     struct TeamItem: Hashable {
         let name: String
         let abbreviation: String?
+        var logoURL: URL? = nil
     }
 
     enum Reminder: Hashable {
@@ -25,11 +26,14 @@ struct MatchState: Equatable {
         let points: String
         /// Команда этого матча.
         let isHighlighted: Bool
+        var logoURL: URL? = nil
     }
 
     struct Card: Hashable {
         /// «АПЛ · 12 тур».
         let header: String
+        /// Значок турнира перед заголовком.
+        var emblemURL: URL? = nil
         /// «LIVE», «22:00», «Завершён», «Перенесён», «Отменён».
         let statusText: String
         let isLive: Bool

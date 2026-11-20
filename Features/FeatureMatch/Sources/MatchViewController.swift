@@ -50,6 +50,7 @@ final class MatchViewController: UIViewController {
     private let viewModel: MatchViewModel
     private let output: FeatureMatch.Output
     private let titleLabel = UILabel()
+    private let emblemView = EmblemView()
     private let shareButton = MatchViewController.roundButton(icon: "share", label: "Поделиться")
     private lazy var collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
     private lazy var dataSource = makeDataSource()
@@ -88,7 +89,10 @@ final class MatchViewController: UIViewController {
         let header = UIView()
         header.backgroundColor = Palette.background
         [collectionView, header].forEach(view.addSubview)
-        [backButton, titleLabel, shareButton].forEach(header.addSubview)
+        let titleStack = UIStackView(arrangedSubviews: [emblemView, titleLabel])
+        titleStack.alignment = .center
+        titleStack.spacing = 6
+        [backButton, titleStack, shareButton].forEach(header.addSubview)
         header.snp.makeConstraints {
             $0.top.equalTo(view.safeAreaLayoutGuide)
             $0.leading.trailing.equalToSuperview()
@@ -102,10 +106,11 @@ final class MatchViewController: UIViewController {
             $0.trailing.equalToSuperview().inset(12)
             $0.centerY.equalToSuperview()
         }
-        titleLabel.snp.makeConstraints {
-            $0.leading.equalTo(backButton.snp.trailing).offset(8)
-            $0.trailing.equalTo(shareButton.snp.leading).offset(-8)
-            $0.firstBaseline.equalTo(header.snp.top).offset(Self.headerHeight / 2 + titleFont.capHeight / 2)
+        titleStack.snp.makeConstraints {
+            $0.centerX.equalToSuperview().priority(.high)
+            $0.centerY.equalToSuperview()
+            $0.leading.greaterThanOrEqualTo(backButton.snp.trailing).offset(8)
+            $0.trailing.lessThanOrEqualTo(shareButton.snp.leading).offset(-8)
         }
         collectionView.snp.makeConstraints {
             $0.top.equalTo(header.snp.bottom)
@@ -200,6 +205,7 @@ final class MatchViewController: UIViewController {
             snapshot.appendItems([.status], toSection: .status)
         }
         titleLabel.text = new.card?.header
+        emblemView.setImage(url: new.card?.emblemURL)
         shareButton.isEnabled = new.card != nil
 
         let old = payload

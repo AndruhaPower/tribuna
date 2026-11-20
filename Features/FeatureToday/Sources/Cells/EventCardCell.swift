@@ -102,7 +102,7 @@ private final class TeamScoreRow: UIView {
     required init?(coder: NSCoder) { fatalError("init(coder:) не используется") }
 
     func configure(_ team: TodayState.TeamItem, score: String) {
-        badge.text = team.abbreviation
+        badge.configure(abbreviation: team.abbreviation, logoURL: team.logoURL)
         nameLabel.text = team.name
         scoreLabel.text = score
     }

@@ -32,6 +32,7 @@ enum TodayFormatter {
                 id: code,
                 title: competition.name.uppercased(),
                 trailing: trailing(code: code, matches: group, day: day, calendar: calendar),
+                emblemURL: competition.emblemURL,
                 rows: group.map { row($0, isBookmarked: bookmarks.contains($0.id), calendar: calendar) }
             )
         }
@@ -107,7 +108,7 @@ enum TodayFormatter {
     }
 
     private static func team(_ team: Team?) -> TodayState.TeamItem {
-        TodayState.TeamItem(name: team?.name ?? unknown, abbreviation: team?.abbreviation)
+        TodayState.TeamItem(name: team?.name ?? unknown, abbreviation: team?.abbreviation, logoURL: team?.logoURL)
     }
 
     private static func score(_ match: Match) -> String {

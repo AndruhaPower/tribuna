@@ -36,10 +36,10 @@ func match(
     Match(
         id: MatchID(rawValue: id),
         sport: code == "NHL" ? .hockey : .football,
-        competition: Competition(code: code, name: name),
+        competition: Competition(code: code, name: name, emblemURL: code == "NHL" ? nil : URL(string: "https://crests.test/\(code).png")),
         kickoff: date(kickoff),
         status: status,
-        home: home.map { Team(name: $0, abbreviation: String($0.prefix(3)).uppercased()) },
+        home: home.map { Team(name: $0, abbreviation: String($0.prefix(3)).uppercased(), logoURL: code == "NHL" ? nil : URL(string: "https://crests.test/\($0).png")) },
         away: away.map { Team(name: $0, abbreviation: String($0.prefix(3)).uppercased()) },
         homeScore: score?.0,
         awayScore: score?.1,

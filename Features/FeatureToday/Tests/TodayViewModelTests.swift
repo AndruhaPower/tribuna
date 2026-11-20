@@ -62,6 +62,7 @@ struct TodayViewModelTests {
         #expect(sections.map(\.title) == ["ЛИГА ЧЕМПИОНОВ", "АПЛ", "БУНДЕСЛИГА", "НХЛ"])
         #expect(sections.map(\.trailing) == ["2 матча", "1 матч", "5 матчей", "1 матч"])
         #expect(sections[0].rows.map(\.id.rawValue) == ["cl1", "cl2"])
+        #expect(sections[0].emblemURL != nil && sections[3].emblemURL == nil)
         #expect(repository.calls == 1)
     }
 
@@ -111,7 +112,8 @@ struct TodayViewModelTests {
         #expect(content.events.count == 1)
         #expect(event.header == "АПЛ · 12 тур")
         #expect(event.isLive)
-        #expect(event.home == TodayState.TeamItem(name: "Ливерпуль", abbreviation: "ЛИВ"))
+        #expect(event.home == TodayState.TeamItem(name: "Ливерпуль", abbreviation: "ЛИВ", logoURL: URL(string: "https://crests.test/Ливерпуль.png")))
+        #expect(content.sections[0].emblemURL == URL(string: "https://crests.test/PL.png"))
         #expect(event.homeScore == "1")
         #expect(event.awayScore == "0")
         #expect(event.statusText == "LIVE")

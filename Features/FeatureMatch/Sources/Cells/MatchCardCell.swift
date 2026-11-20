@@ -115,8 +115,8 @@ final class MatchCardCell: UICollectionViewCell {
         statusLabel.textColor = card.isLive ? Palette.accent : Palette.textSecondary
         liveDot.isHidden = !card.isLive
         pill.backgroundColor = card.isLive ? Palette.accentMuted : Palette.surfaceRaised
-        homeBadge.text = card.home.abbreviation
-        awayBadge.text = card.away.abbreviation
+        homeBadge.configure(abbreviation: card.home.abbreviation, logoURL: card.home.logoURL)
+        awayBadge.configure(abbreviation: card.away.abbreviation, logoURL: card.away.logoURL)
         homeLabel.text = card.home.name
         awayLabel.text = card.away.name
         scoreLabel.text = card.score

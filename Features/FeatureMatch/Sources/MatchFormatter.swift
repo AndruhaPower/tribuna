@@ -25,6 +25,7 @@ enum MatchFormatter {
         let canRemind = match.status == .scheduled && match.kickoff.timeIntervalSince(now) > reminderLead
         return MatchState.Card(
             header: [match.competition.name, match.round].compactMap(\.self).joined(separator: " · "),
+            emblemURL: match.competition.emblemURL,
             statusText: status,
             isLive: isLive,
             home: team(match.home),
@@ -41,7 +42,8 @@ enum MatchFormatter {
                     name: $0.team.name,
                     played: String($0.played),
                     points: String($0.points),
-                    isHighlighted: highlighted.contains($0.teamID)
+                    isHighlighted: highlighted.contains($0.teamID),
+                    logoURL: $0.team.logoURL
                 )
             },
             shareText: "\(match.home?.name ?? unknown) — \(match.away?.name ?? unknown), \(score.isEmpty ? shareWhen(status) : score) · "
@@ -82,7 +84,7 @@ enum MatchFormatter {
     }
 
     private static func team(_ team: Team?) -> MatchState.TeamItem {
-        MatchState.TeamItem(name: team?.name ?? unknown, abbreviation: team?.abbreviation)
+        MatchState.TeamItem(name: team?.name ?? unknown, abbreviation: team?.abbreviation, logoURL: team?.logoURL)
     }
 
     private static func time(_ date: Date, calendar: Calendar) -> String {

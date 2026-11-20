@@ -213,7 +213,7 @@ final class TodayViewController: UIViewController {
             header.configure(title: "МОИ СОБЫТИЯ", trailing: nil)
         case let .competition(code):
             let section = payload.sections[code]
-            header.configure(title: section?.title ?? "", trailing: section?.trailing)
+            header.configure(title: section?.title ?? "", trailing: section?.trailing, iconURL: section?.emblemURL)
         default:
             break
         }

@@ -1,19 +1,16 @@
 import SnapKit
 import UIKit
 
-/// Кружок с аббревиатурой команды вместо герба (D16). По умолчанию 28 pt, текст SF 12 semibold — замер по макету «Сегодня».
+/// Кружок с аббревиатурой команды с гербом (D26); пока герб не загружен — аббревиатура. По умолчанию 28 pt, текст SF 12 semibold — замер по макету «Сегодня».
 public final class TeamBadgeView: UIView {
     public static let size: CGFloat = 28
 
-    public var text: String? {
-        get { label.text }
-        set { label.text = newValue }
-    }
-
     private let label = UILabel()
     private let logoView = RemoteImageView()
+    private let loader: ImageLoader
 
-    public init(size: CGFloat = TeamBadgeView.size, font: UIFont = Typography.text(12, .semibold)) {
+    public init(size: CGFloat = TeamBadgeView.size, font: UIFont = Typography.text(12, .semibold), loader: ImageLoader = .shared) {
+        self.loader = loader
         super.init(frame: .zero)
         backgroundColor = Palette.surfaceHigh
         layer.cornerRadius = size / 2
@@ -39,7 +36,7 @@ public final class TeamBadgeView: UIView {
     public func configure(abbreviation: String?, logoURL: URL?) {
         label.text = abbreviation
         label.isHidden = false
-        logoView.setImage(url: logoURL) { [weak self] in self?.label.isHidden = true }
+        logoView.setImage(url: logoURL, loader: loader) { [weak self] in self?.label.isHidden = true }
     }
 
     @available(*, unavailable)

@@ -8,11 +8,18 @@ public final class ImageLoader {
 
     private let fetch: @Sendable (URL) async throws -> Data
     private let cache = NSCache<NSURL, UIImage>()
-    private var inFlight: [URL: Task<UIImage?, Never>] = [:]
+    /// Сетевой сбой (URLError) не запоминаем — следующий показ повторит запрос; 4xx и битые данные — навсегда на сессию.
+    private enum Result: Sendable {
+        case image(UIImage)
+        case definitiveFailure, transientFailure
+    }
+
+    private var inFlight: [URL: Task<Result, Never>] = [:]
     private var failed: Set<URL> = []
 
     public init(fetch: (@Sendable (URL) async throws -> Data)? = nil) {
         self.fetch = fetch ?? Self.networkFetch
+        cache.countLimit = 300
     }
 
     public func cachedImage(for url: URL) -> UIImage? { cache.object(forKey: url as NSURL) }
@@ -20,18 +27,34 @@ public final class ImageLoader {
     public func image(for url: URL) async -> UIImage? {
         if let image = cachedImage(for: url) { return image }
         if failed.contains(url) { return nil }
-        if let task = inFlight[url] { return await task.value }
+        if let task = inFlight[url] {
+            if case let .image(image) = await task.value { return image }
+            return nil
+        }
         let fetch = fetch
-        let task = Task<UIImage?, Never> {
-            guard let data = try? await fetch(url) else { return nil }
-            return UIImage(data: data)
+        let task = Task<Result, Never> {
+            do {
+                let data = try await fetch(url)
+                return UIImage(data: data).map(Result.image) ?? .definitiveFailure
+            } catch is URLError {
+                return .transientFailure
+            } catch {
+                return .definitiveFailure
+            }
         }
         inFlight[url] = task
-        let image = await task.value
+        let result = await task.value
         inFlight[url] = nil
-        if let image { cache.setObject(image, forKey: url as NSURL) } else { failed.insert(url) }
-        return image
+        switch result {
+        case let .image(image): cache.setObject(image, forKey: url as NSURL)
+        case .definitiveFailure: failed.insert(url)
+        case .transientFailure: break
+        }
+        if case let .image(image) = result { return image }
+        return nil
     }
+
+    private struct RejectedError: Error {}
 
     private static let session: URLSession = {
         let config = URLSessionConfiguration.default
@@ -42,7 +65,10 @@ public final class ImageLoader {
 
     private static let networkFetch: @Sendable (URL) async throws -> Data = { url in
         let (data, response) = try await session.data(from: url)
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
+        let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+        // 4xx — герба нет, повторять бессмысленно; остальное считаем временным сбоем.
+        if (400..<500).contains(code) { throw RejectedError() }
+        guard code == 200 else { throw URLError(.badServerResponse) }
         return data
     }
 }

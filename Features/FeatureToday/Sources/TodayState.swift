@@ -14,6 +14,7 @@ struct TodayState: Equatable {
     struct TeamItem: Hashable {
         let name: String
         let abbreviation: String?
+        var logoURL: URL? = nil
     }
 
     /// Крупная карточка «Моих событий».
@@ -43,6 +44,7 @@ struct TodayState: Equatable {
         let id: String
         let title: String
         let trailing: String
+        var emblemURL: URL? = nil
         let rows: [MatchRow]
     }
 

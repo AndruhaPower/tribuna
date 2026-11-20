@@ -7,8 +7,11 @@ public final class SectionHeaderView: UICollectionReusableView {
     public static let height: CGFloat = 45.5
     /// Середина заглавных букв от верха заголовка.
     private static let capCenter: CGFloat = 25.75
+    private static let iconSize = EmblemView.size
 
     private let titleLabel = UILabel()
+    private let iconView = EmblemView()
+    private var titleLeading: Constraint?
     private let trailingLabel = UILabel()
     private let titleFont = Typography.text(14, .semibold)
 
@@ -18,11 +21,16 @@ public final class SectionHeaderView: UICollectionReusableView {
         trailingLabel.textColor = Palette.textSecondary
         trailingLabel.textAlignment = .right
         trailingLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        addSubview(iconView)
         addSubview(titleLabel)
         addSubview(trailingLabel)
         titleLabel.snp.makeConstraints {
-            $0.leading.equalToSuperview()
+            titleLeading = $0.leading.equalToSuperview().constraint
             $0.firstBaseline.equalTo(snp.top).offset(Self.capCenter + titleFont.capHeight / 2)
+        }
+        iconView.snp.makeConstraints {
+            $0.leading.equalToSuperview()
+            $0.centerY.equalTo(titleLabel.snp.firstBaseline).offset(-titleFont.capHeight / 2)
         }
         trailingLabel.snp.makeConstraints {
             $0.trailing.equalToSuperview()
@@ -34,7 +42,10 @@ public final class SectionHeaderView: UICollectionReusableView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) не используется") }
 
-    public func configure(title: String, trailing: String?) {
+    /// `iconURL` — значок турнира перед названием; nil — без значка.
+    public func configure(title: String, trailing: String?, iconURL: URL? = nil) {
+        iconView.setImage(url: iconURL)
+        titleLeading?.update(offset: iconURL == nil ? 0 : Self.iconSize + 6)
         titleLabel.attributedText = NSAttributedString(string: title, attributes: [
             .font: titleFont,
             .foregroundColor: Palette.textSecondary,

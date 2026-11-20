@@ -34,10 +34,10 @@ func match(
     return Match(
         id: id,
         sport: isHockey ? .hockey : .football,
-        competition: isHockey ? Competition(code: "NHL", name: "НХЛ") : Competition(code: "PL", name: "АПЛ"),
+        competition: isHockey ? Competition(code: "NHL", name: "НХЛ") : Competition(code: "PL", name: "АПЛ", emblemURL: URL(string: "https://crests.test/PL.png")),
         kickoff: date(kickoff),
         status: status,
-        home: Team(name: "Ливерпуль", abbreviation: "LIV"),
+        home: Team(name: "Ливерпуль", abbreviation: "LIV", logoURL: isHockey ? nil : URL(string: "https://crests.test/64.png")),
         away: Team(name: "Арсенал", abbreviation: "ARS"),
         homeScore: score?.0,
         awayScore: score?.1,
@@ -48,7 +48,7 @@ func match(
 }
 
 func row(_ position: Int, _ name: String, _ teamID: String) -> StandingRow {
-    StandingRow(position: position, team: Team(name: name, abbreviation: nil), teamID: teamID, played: 12, points: 30 - position)
+    StandingRow(position: position, team: Team(name: name, abbreviation: nil, logoURL: URL(string: "https://crests.test/\(teamID).png")), teamID: teamID, played: 12, points: 30 - position)
 }
 
 let table = [row(1, "Арсенал", "57"), row(2, "Манчестер Сити", "65"), row(3, "Ливерпуль", "64")]
