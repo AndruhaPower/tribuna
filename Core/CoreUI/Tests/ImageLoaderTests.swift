@@ -12,6 +12,19 @@ private func pngData() -> Data {
     UIGraphicsImageRenderer(size: CGSize(width: 4, height: 4)).pngData { $0.fill(CGRect(x: 0, y: 0, width: 4, height: 4)) }
 }
 
+private func bigPngData() -> Data {
+    let format = UIGraphicsImageRendererFormat()
+    format.scale = 1
+    return UIGraphicsImageRenderer(size: CGSize(width: 3000, height: 3000), format: format).pngData {
+        UIColor.red.setFill()
+        $0.fill(CGRect(x: 0, y: 0, width: 3000, height: 3000))
+    }
+}
+
+private func maxSide(_ image: UIImage?) -> Int {
+    image?.cgImage.map { max($0.width, $0.height) } ?? .max
+}
+
 @MainActor
 struct ImageLoaderTests {
     private let url = URL(string: "https://example.com/a.png")!
@@ -36,6 +49,29 @@ struct ImageLoaderTests {
         let (x, y) = await (a, b)
         #expect(x != nil && y != nil)
         #expect(await counter.count == 1)
+    }
+
+    @Test func largeImageIsDownsampled() async {
+        let loader = ImageLoader { _ in bigPngData() }
+        let image = await loader.image(for: url, maxPixelSize: 300)
+        #expect(maxSide(image) <= 320 && maxSide(image) > 0)
+        #expect(maxSide(await loader.image(for: url)) <= 128)  // размер по умолчанию — отдельная запись
+    }
+
+    @Test func sameURLDifferentSizesAreSeparateEntries() async {
+        let counter = Counter()
+        let loader = ImageLoader { _ in await counter.hit(); return bigPngData() }
+        let small = await loader.image(for: url, maxPixelSize: 100)
+        let large = await loader.image(for: url, maxPixelSize: 500)
+        #expect(await counter.count == 2)
+        #expect(maxSide(small) <= 128 && maxSide(large) <= 512 && maxSide(large) > maxSide(small))
+        #expect(loader.cachedImage(for: url, maxPixelSize: 100) === small)
+        #expect(loader.cachedImage(for: url, maxPixelSize: 500) === large)
+    }
+
+    @Test func costLimitIsSet() {
+        let loader = ImageLoader { _ in pngData() }
+        #expect(Mirror(reflecting: loader).children.contains { ($0.value as? NSCache<NSString, UIImage>)?.totalCostLimit == 50_000_000 })
     }
 
     private struct Rejected: Error {}
