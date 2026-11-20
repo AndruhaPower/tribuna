@@ -206,7 +206,8 @@ final class MatchViewController: UIViewController {
             snapshot.appendItems([.status], toSection: .status)
         }
         titleLabel.text = new.card?.header
-        if emblemURL != new.card?.emblemURL {
+        // Скрытый значок перезапрашиваем на каждом обновлении: после сбоя без сети он должен появиться, когда сеть вернётся.
+        if emblemURL != new.card?.emblemURL || emblemView.isHidden {
             emblemURL = new.card?.emblemURL
             emblemView.setImage(url: emblemURL)
         }
