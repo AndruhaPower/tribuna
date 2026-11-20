@@ -2,7 +2,7 @@ import Combine
 import Foundation
 
 /// Подкаст каталога (D16): данные редакции из таблицы `podcasts`, выпуски — из RSS-ленты.
-public struct Podcast: Sendable, Equatable, Hashable, Identifiable {
+public struct Podcast: Sendable, Equatable, Hashable, Identifiable, Codable {
     public let id: String
     public let title: String
     public let author: String

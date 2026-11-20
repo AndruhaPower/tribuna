@@ -136,3 +136,28 @@ struct PodcastsMappingTests {
         #expect(result.map(\.id) == ["ok"])
     }
 }
+
+struct PodcastsCacheTests {
+    struct Down: Error {}
+    let file = FileManager.default.temporaryDirectory.appendingPathComponent("podcasts-\(UUID().uuidString).json")
+    let catalog = [Podcast(id: "a", title: "А", author: "Б", feedURL: URL(string: "https://example.com/f")!, artworkURL: URL(string: "https://example.com/a.jpg")!, featuredOrder: 1)]
+
+    @Test func catalogWritesCacheOnSuccess() async throws {
+        let list = catalog
+        let repo = SupabasePodcastsRepository(cacheFile: file, fetch: { list })
+        #expect(try await repo.podcasts() == catalog)
+        let cached = try JSONDecoder().decode([Podcast].self, from: Data(contentsOf: file))
+        #expect(cached == catalog)
+    }
+
+    @Test func catalogFallsBackToCacheOnFailure() async throws {
+        try JSONEncoder().encode(catalog).write(to: file)
+        let repo = SupabasePodcastsRepository(cacheFile: file, fetch: { throw Down() })
+        #expect(try await repo.podcasts() == catalog)
+    }
+
+    @Test func catalogThrowsWithoutCache() async {
+        let repo = SupabasePodcastsRepository(cacheFile: file, fetch: { throw Down() })
+        await #expect(throws: Down.self) { try await repo.podcasts() }
+    }
+}

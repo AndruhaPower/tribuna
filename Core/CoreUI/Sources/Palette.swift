@@ -29,6 +29,8 @@ public enum Palette {
     public static let accentMuted = UIColor(hex: 0x35302E)
     /// Тусклые столбики волны в карточке плеера.
     public static let waveDim = UIColor(hex: 0x1F2844)
+    /// Включённый переключатель (Профиль; бегунок — `background`).
+    public static let switchOn = UIColor(hex: 0xC9D0E0)
     public static let destructive = UIColor(hex: 0xFF8A7A)
 }
 

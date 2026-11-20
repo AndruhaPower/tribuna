@@ -14,6 +14,7 @@ final class PodcastViewModel {
     private let repository: EpisodesRepository
     private let subscriptionsStore: SubscriptionsStore
     private let player: AudioPlayer
+    private let downloads: EpisodeDownloads
     private let onOpenPlayer: () -> Void
     private let now: () -> Date
     private let calendar: Calendar
@@ -24,6 +25,7 @@ final class PodcastViewModel {
     private var subscriptions: [String: Date]
     private var progress: [EpisodeID: ListeningProgress]
     private var playback: PlaybackState
+    private var downloadItems: [DownloadedEpisode]
     private var hasAppeared = false
     private var cancellables = Set<AnyCancellable>()
 
@@ -33,6 +35,7 @@ final class PodcastViewModel {
         subscriptions: SubscriptionsStore,
         progress: ListeningProgressStore,
         player: AudioPlayer,
+        downloads: EpisodeDownloads,
         onOpenPlayer: @escaping () -> Void,
         now: @escaping () -> Date = Date.init,
         calendar: Calendar = .autoupdatingCurrent
@@ -41,12 +44,14 @@ final class PodcastViewModel {
         repository = episodes
         subscriptionsStore = subscriptions
         self.player = player
+        self.downloads = downloads
         self.onOpenPlayer = onOpenPlayer
         self.now = now
         self.calendar = calendar
         self.subscriptions = subscriptions.subscriptions
         self.progress = progress.progress
         playback = player.state
+        downloadItems = downloads.items
         state = PodcastState(header: Self.header(podcast, isSubscribed: subscriptions.subscriptions[podcast.id] != nil), episodes: .status(.loading))
 
         subscriptions.subscriptionsPublisher.dropFirst().sink { [weak self] value in
@@ -63,6 +68,12 @@ final class PodcastViewModel {
         }.store(in: &cancellables)
         player.statePublisher.sink { [weak self] value in
             MainActor.assumeIsolated { self?.playerChanged(value) }
+        }.store(in: &cancellables)
+        downloads.itemsPublisher.dropFirst().sink { [weak self] value in
+            MainActor.assumeIsolated {
+                self?.downloadItems = value
+                self?.render()
+            }
         }.store(in: &cancellables)
     }
 
@@ -110,6 +121,10 @@ final class PodcastViewModel {
         if playback.item?.episode?.id == id { onOpenPlayer() } else { player.play(.episode(episode, podcast: podcast)) }
     }
 
+    func didTapDownloadAction(_ id: EpisodeID, shown: EpisodeRow.DownloadAction? = nil) {
+        downloads.perform(id, entry: episodes?.first { $0.id == id }.map { ($0, podcast) }, shown: shown)
+    }
+
     private func load(force: Bool) {
         guard loadTask == nil else { return }
         let repository = repository
@@ -146,8 +161,8 @@ final class PodcastViewModel {
         state.episodes = .rows(episodes.enumerated().map { index, episode in
             let isNew = since.map { PodcastsFormatter.isNew(episode, subscribedAt: $0, progress: progress) } ?? false
             return PodcastsFormatter.row(
-                episode, podcast: podcast, isNew: isNew, isFirst: index == 0,
-                progress: progress, playback: playback, now: now, calendar: calendar
+                episode, podcast: podcast, isNew: isNew, isFirst: index == 0, progress: progress, playback: playback,
+                download: downloadItems.first { $0.id == episode.id }, wifiOnly: downloads.wifiOnly, now: now, calendar: calendar
             )
         })
     }

@@ -57,7 +57,8 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 episodes: dependencies.episodes,
                 subscriptions: dependencies.subscriptions,
                 progress: dependencies.progress,
-                player: dependencies.player
+                player: dependencies.player,
+                downloads: dependencies.downloads
             ),
             output: .init(openPlayer: { [weak self] in self?.openPlayer() })
         )
@@ -66,7 +67,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             .init(item: .init(title: "Сегодня", icon: "tab-today"), root: makeToday()),
             .init(item: .init(title: "Эфир", icon: "tab-radio"), root: radio),
             .init(item: .init(title: "Подкасты", icon: "tab-podcasts"), root: podcasts),
-            .init(item: .init(title: "Профиль", icon: "tab-profile"), root: FeatureProfile.makeRoot()),
+            .init(item: .init(title: "Профиль", icon: "tab-profile"), root: FeatureProfile.make(
+                dependencies: .init(bookmarks: dependencies.bookmarks, subscriptions: dependencies.subscriptions, downloads: dependencies.downloads)
+            )),
         ], miniPlayer: miniPlayer)
         #if DEBUG
         // `-RadioMockData` открывает «Эфир», если не сверяем «Сегодня» или карточку матча.
@@ -89,7 +92,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     /// Плеер (лист) поверх вкладок — из «Эфира», «Подкастов» и мини-плеера.
     private func openPlayer() {
         guard let root = window?.rootViewController, root.presentedViewController == nil else { return }
-        root.present(FeaturePlayer.makePlayer(player: dependencies.player), animated: true)
+        root.present(FeaturePlayer.makePlayer(player: dependencies.player, downloads: dependencies.downloads), animated: true)
     }
 
     private func makeToday() -> UIViewController {

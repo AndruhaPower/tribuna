@@ -20,6 +20,7 @@ public final class RadioPlayer: AudioPlayer {
     private let nowPlaying: NowPlayingControlling
     private let clock: PlaybackClock
     private let progress: ListeningProgressStore?
+    private let localFile: @MainActor (EpisodeID) -> URL?
     private let subject = CurrentValueSubject<PlaybackState, Never>(PlaybackState(item: nil, status: .idle, sleepTimerEndsAt: nil))
     private var connectTimeout: AnyCancellable?
     /// Номер попытки подключения: таймаут прошлой попытки ничего не делает, даже если снятие опоздало.
@@ -36,12 +37,14 @@ public final class RadioPlayer: AudioPlayer {
     public var statePublisher: AnyPublisher<PlaybackState, Never> { subject.eraseToAnyPublisher() }
 
     /// nil — позиция выпусков не сохраняется (отладочные сборки только с эфиром).
-    public convenience init(progress: ListeningProgressStore? = nil) {
-        self.init(engine: AVPlayerEngine(), session: SystemAudioSession(), nowPlaying: SystemNowPlaying(), clock: SystemClock(), progress: progress, notifications: .default)
+    /// `localFile` — скачанный файл выпуска (D30); nil — играем по сети.
+    public convenience init(progress: ListeningProgressStore? = nil, localFile: @escaping @MainActor (EpisodeID) -> URL? = { _ in nil }) {
+        self.init(engine: AVPlayerEngine(), session: SystemAudioSession(), nowPlaying: SystemNowPlaying(), clock: SystemClock(), progress: progress, notifications: .default, localFile: localFile)
     }
 
     init(engine: PlaybackEngine, session: AudioSessionControlling, nowPlaying: NowPlayingControlling, clock: PlaybackClock,
-         progress: ListeningProgressStore?, notifications: NotificationCenter) {
+         progress: ListeningProgressStore?, notifications: NotificationCenter, localFile: @escaping @MainActor (EpisodeID) -> URL? = { _ in nil }) {
+        self.localFile = localFile
         self.engine = engine
         self.session = session
         self.nowPlaying = nowPlaying
@@ -74,7 +77,7 @@ public final class RadioPlayer: AudioPlayer {
             // Длительность неизвестна — прослушанный начинаем с нуля.
             let atEnd = episode.duration.map { stored >= $0 * Self.finishedFraction } ?? true
             start = progress?.isFinished(episode.id) == true && atEnd ? 0 : stored
-            url = episode.audioURL
+            url = localFile(episode.id) ?? episode.audioURL
         }
         let rate = item.isLive ? 1 : episodeRate
         engine.setRate(rate)

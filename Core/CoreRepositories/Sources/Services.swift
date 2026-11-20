@@ -24,7 +24,7 @@ public enum Services {
             UserDefaultsBookmarksStore(defaults: defaults),
             LocalRemindersStore(center: UNUserNotificationCenter.current()),
             SupabaseStationsRepository(client: postgrest),
-            SupabasePodcastsRepository(client: postgrest),
+            SupabasePodcastsRepository(client: postgrest, cacheFile: caches.appendingPathComponent("podcasts.json")),
             FeedRepository(directory: caches.appendingPathComponent("feeds"), fetch: FeedRepository.fetch(session: .shared)),
             UserDefaultsSubscriptionsStore(defaults: defaults),
             UserDefaultsListeningProgressStore(defaults: defaults)

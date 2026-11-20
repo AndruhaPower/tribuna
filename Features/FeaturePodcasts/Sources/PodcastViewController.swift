@@ -117,6 +117,7 @@ final class PodcastViewController: UIViewController {
             guard let self, case let .episode(id) = item, let row = payload.episodes[id] else { return }
             cell.configure(ListRowCell.Content(row), isLast: payload.lastItem == item)
             cell.onButton = { [weak self] in self?.viewModel.didTapEpisodeButton(id) }
+            cell.onDownload = { [weak self] in self?.viewModel.didTapDownloadAction(id) }
         }
         let statusCell = UICollectionView.CellRegistration<StatusCell, Item> { [weak self] cell, _, _ in
             let status = self?.payload.status
@@ -176,5 +177,13 @@ extension PodcastViewController: UICollectionViewDelegate {
 
     func collectionView(_ collectionView: UICollectionView, shouldHighlightItemAt indexPath: IndexPath) -> Bool {
         if case .episode = dataSource.itemIdentifier(for: indexPath) { true } else { false }
+    }
+
+    func collectionView(
+        _ collectionView: UICollectionView, contextMenuConfigurationForItemsAt indexPaths: [IndexPath], point: CGPoint
+    ) -> UIContextMenuConfiguration? {
+        guard indexPaths.count == 1, case let .episode(id) = dataSource.itemIdentifier(for: indexPaths[0]),
+              let action = payload.episodes[id]?.downloadAction else { return nil }
+        return action.contextMenu { [weak self] in self?.viewModel.didTapDownloadAction(id, shown: action) }
     }
 }

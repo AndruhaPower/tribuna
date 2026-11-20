@@ -51,6 +51,31 @@ struct PlayerState: Equatable {
         let speed: String
         /// VoiceOver: «Скорость 1,25×».
         let speedLabel: String
+        /// Кнопка слева от «Поделиться».
+        let download: Download
+    }
+
+    /// «Скачать» (нет записи или ошибка), «45 %» (в очереди — «0 %»), «Скачан» (галочка; нажатие — «Удалить загрузку?»).
+    enum Download: Equatable {
+        case download
+        case progress(String)
+        case downloaded
+
+        var title: String {
+            switch self {
+            case .download: "Скачать"
+            case let .progress(percent): percent
+            case .downloaded: "Скачан"
+            }
+        }
+
+        /// VoiceOver.
+        var accessibilityLabel: String {
+            switch self {
+            case .download, .downloaded: title
+            case let .progress(percent): "Загрузка, \(percent)"
+            }
+        }
     }
 }
 
@@ -62,11 +87,13 @@ enum PlayerFormatter {
 
     /// nil — плеер закрыт, мини-плеер скрыт. `scrubPosition` — куда тянут ползунок: пока его держат, время и бегунок
     /// показывают его, а не позицию плеера.
-    static func state(_ playback: PlaybackState, now: Date, scrubPosition: TimeInterval? = nil,
+    /// `download` — запись загрузки выпуска в плеере; nil — записи нет. `localArtwork` — обложка скачанного выпуска: работает без сети.
+    static func state(_ playback: PlaybackState, now: Date, scrubPosition: TimeInterval? = nil, download: DownloadState? = nil, localArtwork: URL? = nil,
                       calendar: Calendar = .autoupdatingCurrent) -> PlayerState? {
         guard let item = playback.item else { return nil }
         if case let .episode(episode, podcast) = item {
-            return episodeState(playback, episode: episode, podcast: podcast, now: now, scrubPosition: scrubPosition, calendar: calendar)
+            return episodeState(playback, episode: episode, podcast: podcast, now: now, scrubPosition: scrubPosition,
+                                download: download, localArtwork: localArtwork, calendar: calendar)
         }
         let name = item.title
         var subtitle = item.station.map { [$0.country, $0.bitrate.map { "\($0) кбит/с" }].compactMap { $0 }.joined(separator: " · ") } ?? item.subtitle
@@ -93,7 +120,7 @@ enum PlayerFormatter {
 
     /// Выпуск: в мини-плеере вместо «В эфире» — «<подкаст> · 18:42 из 34:10» (и на паузе — где остановились).
     private static func episodeState(_ playback: PlaybackState, episode: Episode, podcast: Podcast, now: Date,
-                                     scrubPosition: TimeInterval?, calendar: Calendar) -> PlayerState {
+                                     scrubPosition: TimeInterval?, download: DownloadState?, localArtwork: URL?, calendar: Calendar) -> PlayerState {
         let name = episode.title
         let duration = playback.duration.flatMap { $0.isFinite && $0 > 0 ? $0 : nil }
         let position = max(0, min(scrubPosition ?? playback.position ?? 0, duration ?? .infinity))
@@ -118,15 +145,26 @@ enum PlayerFormatter {
         let remaining = duration.map { "−" + time(floor($0) - floor(position)) } ?? ""
         let progress = PlayerState.Progress(
             elapsed: elapsed, remaining: remaining, fraction: duration.map { Float(position / $0) },
-            accessibilityValue: spokenProgress, speed: speed, speedLabel: "Скорость \(speed.dropLast())"
+            accessibilityValue: spokenProgress, speed: speed, speedLabel: "Скорость \(speed.dropLast())",
+            download: downloadButton(download)
         )
         return PlayerState(
             name: name, header: "Подкаст · \(podcast.title)", caption: podcast.title.uppercased(),
             status: status, statusTone: tone, subtitle: subtitle, isError: tone == .error, button: button,
             actionLabel: actionLabel(button, name: name), summaryLabel: summary,
             isAnimating: playback.status == .playing, sleepTimer: sleepTimer(endsAt: playback.sleepTimerEndsAt, now: now),
-            artworkURL: episode.artworkURL ?? podcast.artworkURL, progress: progress
+            artworkURL: localArtwork ?? episode.artworkURL ?? podcast.artworkURL, progress: progress
         )
+    }
+
+    private static func downloadButton(_ state: DownloadState?) -> PlayerState.Download {
+        switch state {
+        case nil, .failed: .download
+        case .waiting: .progress("0 %")
+        // Вниз: 100 % только у скачанного.
+        case let .downloading(progress): .progress("\(Int(max(0, min(progress, 0.99)) * 100)) %")
+        case .downloaded: .downloaded
+        }
     }
 
     private static func actionLabel(_ button: PlayControl, name: String) -> String {

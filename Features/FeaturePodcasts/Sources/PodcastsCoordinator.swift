@@ -21,6 +21,7 @@ final class PodcastsCoordinator {
             subscriptions: dependencies.subscriptions,
             progress: dependencies.progress,
             player: dependencies.player,
+            downloads: dependencies.downloads,
             onOpenPodcast: { [self] in openPodcast($0) },
             onOpenPlayer: output.openPlayer
         ))
@@ -35,6 +36,7 @@ final class PodcastsCoordinator {
             subscriptions: dependencies.subscriptions,
             progress: dependencies.progress,
             player: dependencies.player,
+            downloads: dependencies.downloads,
             onOpenPlayer: output.openPlayer
         ))
         root?.navigationController?.pushViewController(controller, animated: true)

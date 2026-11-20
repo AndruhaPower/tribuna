@@ -8,23 +8,37 @@ final class PlayerViewModel {
     @Published private(set) var state: PlayerState?
 
     private let player: AudioPlayer
+    /// nil у мини-плеера: кнопки загрузки там нет.
+    private let downloads: EpisodeDownloads?
     private let now: () -> Date
-    private var subscription: AnyCancellable?
+    private var subscriptions: Set<AnyCancellable> = []
     /// Куда тянут ползунок; пока не nil, позиция плеера не двигает бегунок и время.
     private var scrubPosition: TimeInterval?
 
-    init(player: AudioPlayer, now: @escaping () -> Date = Date.init) {
+    init(player: AudioPlayer, downloads: EpisodeDownloads? = nil, now: @escaping () -> Date = Date.init) {
         self.player = player
+        self.downloads = downloads
         self.now = now
-        state = PlayerFormatter.state(player.state, now: now())
-        subscription = player.statePublisher.sink { [weak self] _ in
+        refresh()
+        player.statePublisher.sink { [weak self] _ in
             MainActor.assumeIsolated { self?.refresh() }
-        }
+        }.store(in: &subscriptions)
+        downloads?.itemsPublisher.sink { [weak self] _ in
+            MainActor.assumeIsolated { self?.refresh() }
+        }.store(in: &subscriptions)
+    }
+
+    private var currentEpisode: (episode: Episode, podcast: Podcast)? {
+        guard case let .episode(episode, podcast) = player.state.item else { return nil }
+        return (episode, podcast)
     }
 
     /// Пересчёт по текущему времени: плеер зовёт по таймеру, чтобы «Сон через N мин» не застывал.
     func refresh() {
-        let state = PlayerFormatter.state(player.state, now: now(), scrubPosition: scrubPosition)
+        let item = currentEpisode.flatMap { downloads?.item($0.episode.id) }
+        var artwork: URL?
+        if case .downloaded = item?.state { artwork = item?.artworkFile }
+        let state = PlayerFormatter.state(player.state, now: now(), scrubPosition: scrubPosition, download: item?.state, localArtwork: artwork)
         if state != self.state { self.state = state }
     }
 
@@ -78,6 +92,18 @@ final class PlayerViewModel {
     func didTapSpeed() {
         let rate = player.state.rate
         player.setRate(PlayerFormatter.rates.first { $0 > rate } ?? PlayerFormatter.rates[0])
+    }
+
+    /// «Скачать»: качаем, только если записи нет или загрузка не удалась; «Скачан» удаляется через подтверждение.
+    func didTapDownload() {
+        guard let (episode, podcast) = currentEpisode, state?.progress?.download == .download else { return }
+        downloads?.download(episode, podcast: podcast)
+    }
+
+    /// «Удалить загрузку?» → «Удалить». Воспроизведение не трогаем, даже если играет этот файл.
+    func didConfirmRemoveDownload() {
+        guard let (episode, _) = currentEpisode else { return }
+        downloads?.remove(episode.id)
     }
 
     /// «Поделиться»: «<выпуск> — <подкаст>» и ссылка выпуска, если она есть в ленте.

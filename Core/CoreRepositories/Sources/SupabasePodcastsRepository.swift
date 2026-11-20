@@ -36,15 +36,40 @@ enum PodcastsMapping {
 }
 
 /// Каталог подкастов из Supabase (D16): RLS отдаёт клиенту только enabled.
+/// Как `FeedRepository` (D27): успех пишет кеш, сбой отдаёт кеш, нет кеша — ошибка. Всегда сначала сеть.
 struct SupabasePodcastsRepository: PodcastsRepository {
-    let client: PostgrestClient
+    let cacheFile: URL?
+    let fetch: @Sendable () async throws -> [Podcast]
+
+    init(client: PostgrestClient, cacheFile: URL? = nil) {
+        self.init(cacheFile: cacheFile) {
+            let rows: [PodcastDTO] = try await client
+                .from("podcasts")
+                .select("id,title,author,feed_url,artwork_url,featured_order,enabled")
+                .execute()
+                .value
+            return PodcastsMapping.podcasts(from: rows)
+        }
+    }
+
+    init(cacheFile: URL?, fetch: @escaping @Sendable () async throws -> [Podcast]) {
+        self.cacheFile = cacheFile
+        self.fetch = fetch
+    }
 
     func podcasts() async throws -> [Podcast] {
-        let rows: [PodcastDTO] = try await client
-            .from("podcasts")
-            .select("id,title,author,feed_url,artwork_url,featured_order,enabled")
-            .execute()
-            .value
-        return PodcastsMapping.podcasts(from: rows)
+        do {
+            let result = try await fetch()
+            if let cacheFile {
+                try? FileManager.default.createDirectory(at: cacheFile.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try? JSONEncoder().encode(result).write(to: cacheFile, options: .atomic)
+            }
+            return result
+        } catch {
+            if let cacheFile, let data = try? Data(contentsOf: cacheFile), let cached = try? JSONDecoder().decode([Podcast].self, from: data) {
+                return cached
+            }
+            throw error
+        }
     }
 }

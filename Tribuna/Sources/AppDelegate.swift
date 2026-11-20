@@ -8,7 +8,17 @@ final class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationC
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        // Фоновая сессия поднимается до UI, чтобы система отдала ей события загрузок.
+        _ = AppDependencies.backgroundDownloads
         return true
+    }
+
+    func application(
+        _ application: UIApplication,
+        handleEventsForBackgroundURLSession identifier: String,
+        completionHandler: @escaping () -> Void
+    ) {
+        AppDependencies.backgroundDownloads.handleBackgroundEvents(identifier: identifier, completion: completionHandler)
     }
 
     /// Без делегата iOS не показывает уведомление, пока приложение на экране.

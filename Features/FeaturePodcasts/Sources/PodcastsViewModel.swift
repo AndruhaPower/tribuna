@@ -2,7 +2,7 @@ import Combine
 import CoreDomain
 import Foundation
 
-/// Вкладка «Подкасты»: «Подборка» (каталог) и «Подписки» (плитки и «Новые выпуски»).
+/// Вкладка «Подкасты»: «Подборка» (каталог), «Подписки» (плитки и «Новые выпуски») и «Загрузки».
 @MainActor
 final class PodcastsViewModel {
     @Published private(set) var state: PodcastsState
@@ -17,6 +17,7 @@ final class PodcastsViewModel {
     private let subscriptionsStore: SubscriptionsStore
     private let progressStore: ListeningProgressStore
     private let player: AudioPlayer
+    private let downloads: EpisodeDownloads
     private let onOpenPodcast: (Podcast) -> Void
     private let onOpenPlayer: () -> Void
     private let now: () -> Date
@@ -31,6 +32,7 @@ final class PodcastsViewModel {
     private var subscriptions: [String: Date]
     private var progress: [EpisodeID: ListeningProgress]
     private var playback: PlaybackState
+    private var downloadItems: [DownloadedEpisode]
     private var hasAppeared = false
     private var cancellables = Set<AnyCancellable>()
 
@@ -40,6 +42,7 @@ final class PodcastsViewModel {
         subscriptions: SubscriptionsStore,
         progress: ListeningProgressStore,
         player: AudioPlayer,
+        downloads: EpisodeDownloads,
         onOpenPodcast: @escaping (Podcast) -> Void,
         onOpenPlayer: @escaping () -> Void,
         now: @escaping () -> Date = Date.init,
@@ -50,6 +53,7 @@ final class PodcastsViewModel {
         subscriptionsStore = subscriptions
         progressStore = progress
         self.player = player
+        self.downloads = downloads
         self.onOpenPodcast = onOpenPodcast
         self.onOpenPlayer = onOpenPlayer
         self.now = now
@@ -57,6 +61,7 @@ final class PodcastsViewModel {
         self.subscriptions = subscriptions.subscriptions
         self.progress = progress.progress
         playback = player.state
+        downloadItems = downloads.items
         // Подписки на телефоне известны сразу: есть — открываем их, нет — «Подборку».
         state = PodcastsState(segment: subscriptions.subscriptions.isEmpty ? .catalog : .subscriptions, badge: nil, content: .status(.loading))
 
@@ -71,6 +76,13 @@ final class PodcastsViewModel {
         }.store(in: &cancellables)
         player.statePublisher.sink { [weak self] value in
             MainActor.assumeIsolated { self?.playerChanged(value) }
+        }.store(in: &cancellables)
+        // Прогресс приходит не чаще 2 раз в секунду; экран перенастраивает только изменившиеся строки.
+        downloads.itemsPublisher.dropFirst().sink { [weak self] value in
+            MainActor.assumeIsolated {
+                self?.downloadItems = value
+                self?.render()
+            }
         }.store(in: &cancellables)
     }
 
@@ -121,6 +133,17 @@ final class PodcastsViewModel {
     func didTapEpisode(_ id: EpisodeID) {
         guard let (episode, podcast) = entry(id) else { return }
         if playback.item?.episode?.id == id { onOpenPlayer() } else { player.play(.episode(episode, podcast: podcast)) }
+    }
+
+    /// Пилюля «Скачать» и меню долгого нажатия: «Скачать» (нет записи или `.failed`), иначе отменить или удалить.
+    /// `shown` — действие, которое видел пользователь (меню долгого нажатия); состояние уже другое — нажатие не в счёт.
+    func didTapDownloadAction(_ id: EpisodeID, shown: EpisodeRow.DownloadAction? = nil) {
+        downloads.perform(id, entry: entry(id), shown: shown)
+    }
+
+    /// «Удалить» свайпом в «Загрузках».
+    func didSwipeDelete(_ id: EpisodeID) {
+        downloads.remove(id)
     }
 
     // MARK: - Загрузка
@@ -186,16 +209,23 @@ final class PodcastsViewModel {
         PodcastsFormatter.subscribed(catalog ?? [], subscriptions: subscriptions).map(\.podcast)
     }
 
+    /// Из лент каталога, иначе из снимка загрузки — «Загрузки» работают без каталога.
     private func entry(_ id: EpisodeID) -> (Episode, Podcast)? {
         for podcast in catalog ?? [] {
             if let episode = episodes[podcast.id]?.first(where: { $0.id == id }) { return (episode, podcast) }
         }
-        return nil
+        return downloadItems.first { $0.id == id }.map { ($0.episode, $0.podcast) }
     }
 
     // MARK: - Состояние
 
     private func render() {
+        if state.segment == .downloads {
+            // Бейдж без каталога не посчитать — оставляем прежний.
+            if let catalog { state.badge = badge(catalog) }
+            state.content = .downloads(downloadsContent())
+            return
+        }
         guard let catalog else {
             state.badge = nil
             state.content = .status(catalogFailed
@@ -205,18 +235,37 @@ final class PodcastsViewModel {
         }
         let subscribed = PodcastsFormatter.subscribed(catalog, subscriptions: subscriptions)
         let feed = PodcastsFormatter.feed(subscribed, episodes: episodes, progress: progress)
-        let newCount = feed.filter(\.isNew).count
-        state.badge = newCount > 0 ? newCount : nil
+        state.badge = badge(catalog)
 
         switch state.segment {
         case .catalog:
             state.content = .catalog(catalog.map {
                 PodcastRow(id: $0.id, title: $0.title, author: $0.author, artworkURL: $0.artworkURL, isSubscribed: subscriptions[$0.id] != nil)
             })
+        case .downloads:
+            break
         case .subscriptions:
             let tiles = PodcastsFormatter.tiles(subscribed, episodes: episodes, failed: failedFeeds, progress: progress)
             state.content = .subscriptions(tiles: tiles, episodes: episodesContent(subscribed: subscribed, feed: feed))
         }
+    }
+
+    private func badge(_ catalog: [Podcast]) -> Int? {
+        let subscribed = PodcastsFormatter.subscribed(catalog, subscriptions: subscriptions)
+        let count = PodcastsFormatter.feed(subscribed, episodes: episodes, progress: progress).filter(\.isNew).count
+        return count > 0 ? count : nil
+    }
+
+    /// Скачанные и идущие загрузки из снимков, новые первыми; без «● Новый».
+    private func downloadsContent() -> PodcastsState.EpisodesContent {
+        guard !downloadItems.isEmpty else { return .status(StatusMessage(message: "Скачанных выпусков нет", showsRetry: false)) }
+        let now = now()
+        return .rows(downloadItems.enumerated().map { index, item in
+            PodcastsFormatter.row(
+                item.episode, podcast: item.podcast, isNew: false, isFirst: index == 0, progress: progress, playback: playback,
+                download: item, wifiOnly: downloads.wifiOnly, inDownloads: true, now: now, calendar: calendar
+            )
+        })
     }
 
     private func episodesContent(
@@ -230,8 +279,8 @@ final class PodcastsViewModel {
             let now = now()
             return .rows(feed.enumerated().map { index, item in
                 PodcastsFormatter.row(
-                    item.episode, podcast: item.podcast, isNew: item.isNew, isFirst: index == 0,
-                    progress: progress, playback: playback, now: now, calendar: calendar
+                    item.episode, podcast: item.podcast, isNew: item.isNew, isFirst: index == 0, progress: progress, playback: playback,
+                    download: downloadItems.first { $0.id == item.episode.id }, wifiOnly: downloads.wifiOnly, now: now, calendar: calendar
                 )
             })
         }
@@ -248,5 +297,25 @@ extension AudioPlayer {
     /// Выпуск в плеере — пауза/продолжение, другой — запуск.
     func playOrToggle(_ episode: Episode, podcast: Podcast) {
         if state.item?.episode?.id == episode.id { togglePlayPause() } else { play(.episode(episode, podcast: podcast)) }
+    }
+}
+
+extension EpisodeDownloads {
+    /// «Скачать», если записи нет или она `.failed`; иначе отменить или удалить (`remove` делает и то, и другое).
+    /// `shown` не nil и не совпадает с текущим состоянием — ничего не делаем: иначе «Отменить» после конца загрузки удалила бы файл.
+    func perform(_ id: EpisodeID, entry: (Episode, Podcast)?, shown: EpisodeRow.DownloadAction? = nil) {
+        let state = item(id)?.state
+        let current: EpisodeRow.DownloadAction = switch state {
+        case nil, .failed: .download
+        case .waiting, .downloading: .cancel
+        case .downloaded: .remove
+        }
+        if let shown, shown != current { return }
+        switch state {
+        case nil, .failed:
+            if let (episode, podcast) = entry { download(episode, podcast: podcast) }
+        default:
+            remove(id)
+        }
     }
 }
