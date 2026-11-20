@@ -21,6 +21,22 @@ struct EpisodePlaybackTests {
         player = RadioPlayer(engine: engine, session: session, nowPlaying: nowPlaying, clock: clock, progress: store, notifications: notifications)
     }
 
+    @Test func playsLocalFileWhenDownloaded() {
+        let file = URL(fileURLWithPath: "/tmp/1.mp3")
+        let id = first.id
+        let local = RadioPlayer(engine: engine, session: session, nowPlaying: nowPlaying, clock: clock, progress: store, notifications: notifications,
+                                localFile: { $0 == id ? file : nil })
+        store.setPosition(420, for: id)
+        local.play(.episode(first, podcast: derby))
+        #expect(engine.played == [file])
+        #expect(engine.startPositions == [420])
+    }
+
+    @Test func playsRemoteWhenNoLocalFile() {
+        player.play(.episode(first, podcast: derby))
+        #expect(engine.played == [first.audioURL])
+    }
+
     /// Выпуск запущен и играет с позиции `position`.
     private func playing(_ item: Episode? = nil, at position: TimeInterval = 0) {
         player.play(.episode(item ?? first, podcast: derby))

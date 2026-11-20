@@ -47,7 +47,7 @@ struct AppDependencies {
         }
         #endif
         (matches, standings, bookmarks, reminders, stations, podcasts, episodes, subscriptions, progress) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
-        player = RadioPlayer(progress: progress)
+        player = RadioPlayer(progress: progress, localFile: { Self.backgroundDownloads.localFile(for: $0) })
     }
 }
 
@@ -263,7 +263,7 @@ extension AppDependencies {
         let defaults = UserDefaults(suiteName: "PodcastsRealFeeds") ?? .standard
         let services = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey, defaults: defaults)
         return (MockPodcastsRepository(podcasts: realCatalog), services.episodes, services.subscriptions, services.progress,
-                RadioPlayer(progress: services.progress))
+                RadioPlayer(progress: services.progress, localFile: { backgroundDownloads.localFile(for: $0) }))
     }
 }
 #endif

@@ -197,6 +197,7 @@ xcodebuild test -workspace Tribuna.xcworkspace -scheme CoreRepositories -destina
 - Делегат сессии — на главной очереди (`delegateQueue: .main` + `MainActor.assumeIsolated`): перенос временного файла синхронно в `didFinishDownloadingTo` и сразу состояние, без перескоков между очередями. Прогресс — не чаще 2 раз в секунду, в индекс пишется только переход из `waiting`.
 - Файлы и `index.json` — `Application Support/Downloads` (`isExcludedFromBackup`); аудио `<SHA256 EpisodeID>.<mp3|m4a|aac|mp4>`, обложка `<хеш>.artwork` (обычной сессией после аудио; не удалась — nil, повтор при следующем запуске). Ошибка записи индекса — в `os.Logger` (`downloads`). В индексе — имена файлов, не абсолютные пути: путь контейнера меняется при обновлении приложения.
 - События старых задач (отменённых удалением или сменой Wi-Fi) отбрасываются: у выпуска хранится текущая задача. Наша отмена — записи нет; отмена системой (`NSURLErrorBackgroundTaskCancelledReasonKey`, например приложение смахнули) и ответ не 2xx — `failed`. При запуске `getAllTasks` сверяется с индексом: идущая запись без задачи — `failed` (но запоздавший `didFinishDownloadingTo` для неё принимается), задача без записи или заменённая (Wi-Fi сменили до сверки) — отменяется.
+- Воспроизведение: `RadioPlayer(progress:localFile:)` — для выпуска URL = `localFile(id) ?? audioURL`; позиция и «прослушано» те же. Каталог (`SupabasePodcastsRepository`) кеширует `[Podcast]` в `Caches/podcasts.json`: успех пишет кеш, сбой отдаёт кеш, нет кеша — ошибка; без троттлинга, сеть всегда первой.
 
 ## Грабли
 
