@@ -37,6 +37,8 @@ struct TodayState: Equatable {
         let home: String
         let away: String
         let isBookmarked: Bool
+        var homeLogoURL: URL? = nil
+        var awayLogoURL: URL? = nil
     }
 
     struct Section: Equatable, Identifiable {

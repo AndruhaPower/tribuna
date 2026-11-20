@@ -5,12 +5,16 @@ import UIKit
 /// Строка матча в карточке турнира: время или счёт, две команды, закладка 20 pt. 72 pt — замер по макету.
 final class MatchRowCell: UICollectionViewCell {
     static let height: CGFloat = 72
+    private static let teamX: CGFloat = 76
 
     var onToggleBookmark: (() -> Void)?
 
     private let leadingLabel = UILabel()
     private let homeLabel = UILabel()
     private let awayLabel = UILabel()
+    private let homeCrest = EmblemView()
+    private let awayCrest = EmblemView()
+    private var teamLeading: Constraint?
     private let bookmarkButton = UIButton(type: .custom)
     /// Висит над ячейкой в зазоре 1 pt между строками.
     private let separator = UIView()
@@ -32,7 +36,7 @@ final class MatchRowCell: UICollectionViewCell {
         bookmarkButton.addAction(UIAction { [weak self] _ in self?.onToggleBookmark?() }, for: .touchUpInside)
         separator.backgroundColor = Palette.separator
 
-        [leadingLabel, homeLabel, awayLabel, bookmarkButton, separator].forEach(contentView.addSubview)
+        [leadingLabel, homeCrest, awayCrest, homeLabel, awayLabel, bookmarkButton, separator].forEach(contentView.addSubview)
         // Замер от края карточки: время с 16 pt, команды с 76 pt, центр закладки в 38 pt от правого края.
         leadingLabel.snp.makeConstraints {
             $0.leading.equalToSuperview().offset(16)
@@ -40,7 +44,7 @@ final class MatchRowCell: UICollectionViewCell {
             $0.centerY.equalToSuperview()
         }
         homeLabel.snp.makeConstraints {
-            $0.leading.equalToSuperview().offset(76)
+            teamLeading = $0.leading.equalToSuperview().offset(Self.teamX).constraint
             $0.trailing.lessThanOrEqualTo(bookmarkButton.snp.leading).offset(-4)
             $0.firstBaseline.equalTo(contentView.snp.top).offset(19 + teamFont.capHeight)
         }
@@ -48,6 +52,13 @@ final class MatchRowCell: UICollectionViewCell {
             $0.leading.equalTo(homeLabel)
             $0.trailing.lessThanOrEqualTo(bookmarkButton.snp.leading).offset(-4)
             $0.firstBaseline.equalTo(homeLabel).offset(22)
+        }
+        // Герб занимает место под названием, пока грузится: имена не прыгают.
+        for (crest, label) in [(homeCrest, homeLabel), (awayCrest, awayLabel)] {
+            crest.snp.makeConstraints {
+                $0.leading.equalToSuperview().offset(Self.teamX)
+                $0.centerY.equalTo(label)
+            }
         }
         bookmarkButton.snp.makeConstraints {
             $0.size.equalTo(44)
@@ -71,6 +82,10 @@ final class MatchRowCell: UICollectionViewCell {
         leadingLabel.text = row.leading
         homeLabel.text = row.home
         awayLabel.text = row.away
+        let hasCrests = row.homeLogoURL != nil || row.awayLogoURL != nil
+        teamLeading?.update(offset: Self.teamX + (hasCrests ? EmblemView.size + 8 : 0))
+        homeCrest.setImage(url: row.homeLogoURL)
+        awayCrest.setImage(url: row.awayLogoURL)
         separator.isHidden = isFirst
         let icon = row.isBookmarked ? "bookmark-fill" : "bookmark"
         bookmarkButton.setImage(UIImage(named: icon, in: .module, compatibleWith: nil), for: .normal)

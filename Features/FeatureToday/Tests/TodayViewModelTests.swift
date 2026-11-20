@@ -63,6 +63,8 @@ struct TodayViewModelTests {
         #expect(sections.map(\.trailing) == ["2 матча", "1 матч", "5 матчей", "1 матч"])
         #expect(sections[0].rows.map(\.id.rawValue) == ["cl1", "cl2"])
         #expect(sections[0].emblemURL != nil && sections[3].emblemURL == nil)
+        #expect(sections[1].rows.allSatisfy { $0.homeLogoURL != nil && $0.awayLogoURL != nil })
+        #expect(sections[3].rows.allSatisfy { $0.homeLogoURL == nil && $0.awayLogoURL == nil })
         #expect(repository.calls == 1)
     }
 

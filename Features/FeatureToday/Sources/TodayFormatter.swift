@@ -80,7 +80,9 @@ enum TodayFormatter {
             leading: leading(match, calendar: calendar),
             home: match.home?.name ?? unknown,
             away: match.away?.name ?? unknown,
-            isBookmarked: isBookmarked
+            isBookmarked: isBookmarked,
+            homeLogoURL: match.home?.logoURL,
+            awayLogoURL: match.away?.logoURL
         )
     }
 

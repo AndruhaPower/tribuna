@@ -40,7 +40,7 @@ func match(
         kickoff: date(kickoff),
         status: status,
         home: home.map { Team(name: $0, abbreviation: String($0.prefix(3)).uppercased(), logoURL: code == "NHL" ? nil : URL(string: "https://crests.test/\($0).png")) },
-        away: away.map { Team(name: $0, abbreviation: String($0.prefix(3)).uppercased()) },
+        away: away.map { Team(name: $0, abbreviation: String($0.prefix(3)).uppercased(), logoURL: code == "NHL" ? nil : URL(string: "https://crests.test/\($0).png")) },
         homeScore: score?.0,
         awayScore: score?.1,
         round: round,
