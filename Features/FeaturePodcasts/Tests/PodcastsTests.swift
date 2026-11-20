@@ -100,11 +100,13 @@ struct PodcastsViewModelTests {
         let subscriptions: FakeSubscriptionsStore
         let progress: FakeProgressStore
         let player: FakeAudioPlayer
+        let downloads: FakeDownloads
     }
 
     func make(
         subscriptions: [String: Date]? = nil,
         feeds: [String: [Episode]]? = nil,
+        downloads: [DownloadedEpisode] = [],
         onOpenPodcast: @escaping (Podcast) -> Void = { _ in },
         onOpenPlayer: @escaping () -> Void = {}
     ) -> Setup {
@@ -113,11 +115,12 @@ struct PodcastsViewModelTests {
         let store = FakeSubscriptionsStore(subscriptions ?? self.subscriptions)
         let progress = FakeProgressStore(self.progress)
         let player = FakeAudioPlayer()
+        let fakeDownloads = FakeDownloads(downloads)
         let viewModel = PodcastsViewModel(
-            podcasts: podcasts, episodes: episodes, subscriptions: store, progress: progress, player: player,
+            podcasts: podcasts, episodes: episodes, subscriptions: store, progress: progress, player: player, downloads: fakeDownloads,
             onOpenPodcast: onOpenPodcast, onOpenPlayer: onOpenPlayer, now: { testNow }, calendar: testCalendar
         )
-        return Setup(viewModel: viewModel, podcasts: podcasts, episodes: episodes, subscriptions: store, progress: progress, player: player)
+        return Setup(viewModel: viewModel, podcasts: podcasts, episodes: episodes, subscriptions: store, progress: progress, player: player, downloads: fakeDownloads)
     }
 
     func appear(_ viewModel: PodcastsViewModel) async {
@@ -312,13 +315,13 @@ struct PodcastViewModelTests {
         [episode("out", "1", "Превью", ago: 3600), episode("out", "2", "Итоги", ago: days(4), minutes: 40), episode("out", "3", "Старый", ago: days(90))]
     }
 
-    func make(subscribed: Bool, feed: [Episode]? = nil, player: FakeAudioPlayer = FakeAudioPlayer())
+    func make(subscribed: Bool, feed: [Episode]? = nil, player: FakeAudioPlayer = FakeAudioPlayer(), downloads: FakeDownloads = FakeDownloads())
         -> (PodcastViewModel, FakeSubscriptionsStore, FakeEpisodesRepository) {
         let store = FakeSubscriptionsStore(subscribed ? ["out": testNow.addingTimeInterval(-days(1))] : [:])
         let episodes = FakeEpisodesRepository(feed.map { ["out": $0] } ?? [:])
         let progress = FakeProgressStore([EpisodeID(podcastID: "out", guid: "2"): ListeningProgress(position: 28 * 60, isFinished: false)])
         let viewModel = PodcastViewModel(
-            podcast: show, episodes: episodes, subscriptions: store, progress: progress, player: player,
+            podcast: show, episodes: episodes, subscriptions: store, progress: progress, player: player, downloads: downloads,
             onOpenPlayer: {}, now: { testNow }, calendar: testCalendar
         )
         return (viewModel, store, episodes)

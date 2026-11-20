@@ -1,7 +1,7 @@
 import ImageIO
 import UIKit
 
-/// Загрузка картинок по URL: кэш в памяти, дисковый URLCache, склейка параллельных запросов.
+/// Загрузка картинок по URL (и `file://`): кэш в памяти, дисковый URLCache, склейка параллельных запросов.
 /// Неудачные URL помним до конца сессии — без повторов при скролле.
 @MainActor
 public final class ImageLoader {
@@ -103,6 +103,8 @@ public final class ImageLoader {
     }()
 
     private static let networkFetch: @Sendable (URL) async throws -> Data = { url in
+        // Локальный файл (обложка скачанного выпуска): ответ не HTTP, статуса нет.
+        if url.isFileURL { return try Data(contentsOf: url) }
         let (data, response) = try await session.data(from: url)
         try validate(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 0)
         return data

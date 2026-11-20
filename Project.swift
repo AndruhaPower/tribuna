@@ -126,8 +126,6 @@ let featureTargets = features.map {
     var resources: ResourceFileElements?
     if ["FeatureToday", "FeatureMatch", "FeatureRadio", "FeaturePlayer", "FeaturePodcasts"].contains($0) {
         deps.append(.target(name: "CoreDomain"))
-    }
-    if ["FeatureToday", "FeatureMatch", "FeatureRadio", "FeaturePlayer"].contains($0) {
         resources = ["Features/\($0)/Resources/**"]
     }
     return module($0, path: "Features/\($0)", resources: resources, dependencies: deps)

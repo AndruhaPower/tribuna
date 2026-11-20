@@ -4,12 +4,12 @@ import CoreUI
 import SnapKit
 import UIKit
 
-/// Вкладка «Подкасты»: шапка с переключателем, плитки подписок и «Новые выпуски» или каталог, состояние.
+/// Вкладка «Подкасты»: шапка с переключателем, плитки подписок и «Новые выпуски», каталог или «Загрузки», состояние.
 final class PodcastsViewController: UIViewController {
     /// Идентификаторы стабильные (id подкаста, id выпуска), содержимое — в `payload`: смена статуса плеера
     /// или прогресса перенастраивает ячейки на месте.
     private enum Section: Hashable {
-        case header, tiles, episodes, catalog, status
+        case header, tiles, episodes, catalog, downloads, status
     }
 
     private enum Item: Hashable {
@@ -107,15 +107,9 @@ final class PodcastsViewController: UIViewController {
                 snapshot.appendSections([.tiles])
                 snapshot.appendItems(tileItems, toSection: .tiles)
             }
-            switch episodes {
-            case let .rows(rows):
-                let items = rows.filter { new.episodes.updateValue($0, forKey: $0.id) == nil }.map { Item.episode($0.id) }
-                new.lastItem = items.last
-                snapshot.appendSections([.episodes])
-                snapshot.appendItems(items, toSection: .episodes)
-            case let .status(status):
-                new.status = status
-            }
+            append(episodes, to: .episodes, &snapshot, &new)
+        case let .downloads(episodes):
+            append(episodes, to: .downloads, &snapshot, &new)
         }
         if new.status != nil {
             snapshot.appendSections([.status])
@@ -133,6 +127,24 @@ final class PodcastsViewController: UIViewController {
         if !state.isRefreshing, refreshControl.isRefreshing { refreshControl.endRefreshing() }
     }
 
+    private func append(
+        _ episodes: PodcastsState.EpisodesContent,
+        to section: Section,
+        _ snapshot: inout NSDiffableDataSourceSnapshot<Section, Item>,
+        _ new: inout Payload
+    ) {
+        switch episodes {
+        case let .rows(rows):
+            // Повтор id в снимке роняет diffable — дубликаты пропускаем.
+            let items = rows.filter { new.episodes.updateValue($0, forKey: $0.id) == nil }.map { Item.episode($0.id) }
+            new.lastItem = items.last
+            snapshot.appendSections([section])
+            snapshot.appendItems(items, toSection: section)
+        case let .status(status):
+            new.status = status
+        }
+    }
+
     // MARK: - Коллекция
 
     private func makeDataSource() -> UICollectionViewDiffableDataSource<Section, Item> {
@@ -148,6 +160,7 @@ final class PodcastsViewController: UIViewController {
             guard let self, case let .episode(id) = item, let row = payload.episodes[id] else { return }
             cell.configure(ListRowCell.Content(row), isLast: payload.lastItem == item)
             cell.onButton = { [weak self] in self?.viewModel.didTapEpisodeButton(id) }
+            cell.onDownload = { [weak self] in self?.viewModel.didTapDownloadAction(id) }
         }
         let podcastCell = UICollectionView.CellRegistration<ListRowCell, Item> { [weak self] cell, _, item in
             guard let self, case let .podcast(id) = item, let row = payload.podcasts[id] else { return }
@@ -182,8 +195,23 @@ final class PodcastsViewController: UIViewController {
 
     private func makeLayout() -> UICollectionViewCompositionalLayout {
         UICollectionViewCompositionalLayout { [weak self] index, environment in
-            guard let section = self?.dataSource.sectionIdentifier(for: index) else { return nil }
-            return Self.layoutSection(section, width: environment.container.effectiveContentSize.width)
+            guard let self, let section = dataSource.sectionIdentifier(for: index) else { return nil }
+            guard section == .downloads else { return Self.layoutSection(section, width: environment.container.effectiveContentSize.width) }
+            // Список — ради свайпа «Удалить»; разделители рисует сама строка.
+            var configuration = UICollectionLayoutListConfiguration(appearance: .plain)
+            configuration.showsSeparators = false
+            configuration.backgroundColor = .clear
+            configuration.trailingSwipeActionsConfigurationProvider = { [weak self] indexPath in
+                guard case let .episode(id) = self?.dataSource.itemIdentifier(for: indexPath) else { return nil }
+                return UISwipeActionsConfiguration(actions: [UIContextualAction(style: .destructive, title: "Удалить") { _, _, done in
+                    self?.viewModel.didSwipeDelete(id)
+                    done(true)
+                }])
+            }
+            let result = NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: environment)
+            // Обложка первой строки — в 20.5 pt под переключателем, как в «Подборке».
+            result.contentInsets = NSDirectionalEdgeInsets(top: 4.5, leading: 20, bottom: 0, trailing: 20)
+            return result
         }
     }
 
@@ -193,6 +221,8 @@ final class PodcastsViewController: UIViewController {
         switch section {
         case .header:
             return list(.absolute(PodcastsHeaderCell.height))
+        case .downloads:
+            preconditionFailure("«Загрузки» — список со свайпом, его строит makeLayout")
         case .tiles:
             // Три плитки на ширину экрана с промежутком 12 pt; больше трёх — прокрутка вбок.
             let size = NSCollectionLayoutSize(widthDimension: .absolute((width - 2 * inset - 24) / 3), heightDimension: .absolute(SubscriptionTileCell.height))
@@ -251,6 +281,28 @@ extension PodcastsViewController: UICollectionViewDelegate {
         default: false
         }
     }
+
+    func collectionView(
+        _ collectionView: UICollectionView, contextMenuConfigurationForItemsAt indexPaths: [IndexPath], point: CGPoint
+    ) -> UIContextMenuConfiguration? {
+        guard indexPaths.count == 1, case let .episode(id) = dataSource.itemIdentifier(for: indexPaths[0]),
+              let action = payload.episodes[id]?.downloadAction else { return nil }
+        return action.contextMenu { [weak self] in self?.viewModel.didTapDownloadAction(id) }
+    }
+}
+
+extension EpisodeRow.DownloadAction {
+    /// Меню долгого нажатия на строку выпуска — один пункт по состоянию загрузки.
+    @MainActor func contextMenu(_ handler: @escaping @MainActor () -> Void) -> UIContextMenuConfiguration {
+        let (title, attributes): (String, UIMenuElement.Attributes) = switch self {
+        case .download: ("Скачать", [])
+        case .cancel: ("Отменить загрузку", [])
+        case .remove: ("Удалить загрузку", .destructive)
+        }
+        return UIContextMenuConfiguration(actionProvider: { _ in
+            UIMenu(children: [UIAction(title: title, attributes: attributes) { _ in handler() }])
+        })
+    }
 }
 
 extension ListRowCell.Content {
@@ -262,6 +314,8 @@ extension ListRowCell.Content {
             title: row.title,
             subtitle: row.subtitle,
             button: row.button.map { $0 == .pause ? ("Пауза", "pause", .accent) : ("Слушать", "play", .accent) },
+            showsDownloadButton: row.showsDownloadButton,
+            progress: row.downloadProgress,
             accessibilityLabel: row.accessibilityLabel,
             buttonAccessibilityLabel: row.buttonAccessibilityLabel
         )

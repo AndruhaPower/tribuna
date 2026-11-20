@@ -3,8 +3,9 @@ import SnapKit
 import UIKit
 
 /// Строка списка из макета «Подкасты»: обложка 52 pt, подпись сверху (у выпуска), название, вторая строка,
-/// кнопка-пилюля под текстом. Высота по содержимому: без кнопки 85 pt, с кнопкой 130 pt (замер), длинное название — в две строки.
-final class ListRowCell: UICollectionViewCell {
+/// полоска загрузки и кнопки-пилюли под текстом. Высота по содержимому: без кнопки 85 pt, с кнопкой 130 pt, с полоской 100 pt (замер),
+/// длинное название — в две строки. Ячейка списка (`UICollectionViewListCell`) — ради свайпа в «Загрузках».
+final class ListRowCell: UICollectionViewListCell {
     struct Content {
         let artworkURL: URL
         /// Подпись над названием («● Новый · Вне игры»); nil — без неё, название поднимается.
@@ -13,6 +14,10 @@ final class ListRowCell: UICollectionViewCell {
         let title: String
         let subtitle: String
         let button: (title: String, icon: String?, style: PillButton.Style)?
+        /// Контурная «Скачать» справа от кнопки.
+        var showsDownloadButton = false
+        /// Полоска загрузки под текстом; nil — без неё.
+        var progress: Double?
         let accessibilityLabel: String
         /// VoiceOver для пилюли; nil — по её названию.
         var buttonAccessibilityLabel: String?
@@ -23,16 +28,22 @@ final class ListRowCell: UICollectionViewCell {
     private static let artworkPixels: CGFloat = 52 * 3
 
     var onButton: (() -> Void)?
+    var onDownload: (() -> Void)?
 
     private let artwork = RemoteImageView()
     private let captionLabel = UILabel()
     private let titleLabel = UILabel()
     private let subtitleLabel = UILabel()
     private let button = PillButton()
+    private let downloadButton = PillButton()
+    private let progressBar = ProgressBar()
     private let separator = UIView()
     private var titleBelowCaption: Constraint?
     private var titleAtTop: Constraint?
     private var separatorBelowButton: Constraint?
+    private var separatorBelowBar: Constraint?
+    private var buttonBelowSubtitle: Constraint?
+    private var buttonBelowBar: Constraint?
 
     private let captionFont = Typography.text(13, .medium)
     private let titleFont = Typography.text(17, .semibold)
@@ -40,6 +51,7 @@ final class ListRowCell: UICollectionViewCell {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
+        backgroundConfiguration = .clear()
         artwork.backgroundColor = Palette.surfaceRaised
         artwork.contentMode = .scaleAspectFill
         artwork.clipsToBounds = true
@@ -51,9 +63,11 @@ final class ListRowCell: UICollectionViewCell {
         subtitleLabel.font = subtitleFont
         subtitleLabel.textColor = Palette.textSecondary
         button.addAction(UIAction { [weak self] _ in self?.onButton?() }, for: .touchUpInside)
+        downloadButton.configure(title: "Скачать", icon: "download", style: .outline)
+        downloadButton.addAction(UIAction { [weak self] _ in self?.onDownload?() }, for: .touchUpInside)
         separator.backgroundColor = Palette.separator
 
-        [artwork, captionLabel, titleLabel, subtitleLabel, button, separator].forEach(contentView.addSubview)
+        [artwork, captionLabel, titleLabel, subtitleLabel, progressBar, button, downloadButton, separator].forEach(contentView.addSubview)
         // Замер от верха строки (низа разделителя): обложка с 16 pt; базовые линии подписи 27, названия 48.5, второй строки 67.5;
         // кнопка в 14 pt под второй строкой, разделитель в 11.5 pt под кнопкой или в 16 pt под обложкой.
         artwork.snp.makeConstraints {
@@ -78,10 +92,23 @@ final class ListRowCell: UICollectionViewCell {
             $0.trailing.lessThanOrEqualToSuperview()
             $0.firstBaseline.equalTo(titleLabel.snp.lastBaseline).offset(19)
         }
+        // Полоска 6 pt на всю ширину текста: верх в 13.5 pt под второй строкой, разделитель в 12 pt под ней.
+        progressBar.snp.makeConstraints {
+            $0.leading.equalTo(captionLabel).offset(-1)
+            $0.trailing.equalToSuperview()
+            $0.top.equalTo(subtitleLabel.snp.lastBaseline).offset(13.5)
+            $0.height.equalTo(6)
+        }
         button.snp.makeConstraints {
             $0.leading.equalTo(captionLabel)
-            $0.top.equalTo(subtitleLabel.snp.lastBaseline).offset(14)
+            buttonBelowSubtitle = $0.top.equalTo(subtitleLabel.snp.lastBaseline).offset(14).constraint
+            buttonBelowBar = $0.top.equalTo(progressBar.snp.bottom).offset(14).constraint
             $0.height.equalTo(PillButton.height)
+        }
+        // «Скачать» в 8 pt справа от «Слушать».
+        downloadButton.snp.makeConstraints {
+            $0.leading.equalTo(button.snp.trailing).offset(8)
+            $0.top.height.equalTo(button)
         }
         separator.snp.makeConstraints {
             $0.leading.trailing.bottom.equalToSuperview()
@@ -89,10 +116,12 @@ final class ListRowCell: UICollectionViewCell {
             $0.top.greaterThanOrEqualTo(artwork.snp.bottom).offset(16)
             $0.top.greaterThanOrEqualTo(subtitleLabel.snp.lastBaseline).offset(16.5)
             separatorBelowButton = $0.top.equalTo(button.snp.bottom).offset(11.5).constraint
+            separatorBelowBar = $0.top.greaterThanOrEqualTo(progressBar.snp.bottom).offset(12).constraint
             // Без кнопки — как можно выше.
             $0.top.equalTo(artwork.snp.bottom).offset(16).priority(.low)
         }
         titleAtTop?.deactivate()
+        buttonBelowBar?.deactivate()
         // VoiceOver: строка — один элемент-кнопка, кнопка-пилюля — отдельный.
         isAccessibilityElement = false
         contentView.isAccessibilityElement = true
@@ -103,7 +132,7 @@ final class ListRowCell: UICollectionViewCell {
     required init?(coder: NSCoder) { fatalError("init(coder:) не используется") }
 
     override var accessibilityElements: [Any]? {
-        get { button.isHidden ? [contentView] : [contentView, button] }
+        get { [contentView, button, downloadButton].filter { !$0.isHidden } }
         set {}
     }
 
@@ -139,7 +168,47 @@ final class ListRowCell: UICollectionViewCell {
             button.isHidden = true
             separatorBelowButton?.deactivate()
         }
+        downloadButton.isHidden = !content.showsDownloadButton
+        progressBar.isHidden = content.progress == nil
+        progressBar.progress = content.progress ?? 0
+        if content.progress == nil {
+            separatorBelowBar?.deactivate()
+            buttonBelowBar?.deactivate()
+            buttonBelowSubtitle?.activate()
+        } else {
+            separatorBelowBar?.activate()
+            buttonBelowSubtitle?.deactivate()
+            buttonBelowBar?.activate()
+        }
         separator.isHidden = isLast
         contentView.accessibilityLabel = content.accessibilityLabel
+        contentView.accessibilityValue = content.progress.map { "\(Int(($0 * 100).rounded())) %" }
+    }
+}
+
+/// Полоска загрузки: дорожка `track`, заполнение `textPrimary`, скругление по высоте (макет).
+private final class ProgressBar: UIView {
+    private let fill = UIView()
+
+    var progress: Double = 0 {
+        didSet { setNeedsLayout() }
+    }
+
+    init() {
+        super.init(frame: .zero)
+        backgroundColor = Palette.track
+        fill.backgroundColor = Palette.textPrimary
+        clipsToBounds = true
+        addSubview(fill)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) не используется") }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        layer.cornerRadius = bounds.height / 2
+        fill.frame = CGRect(x: 0, y: 0, width: bounds.width * min(max(progress, 0), 1), height: bounds.height)
+        fill.layer.cornerRadius = bounds.height / 2
     }
 }

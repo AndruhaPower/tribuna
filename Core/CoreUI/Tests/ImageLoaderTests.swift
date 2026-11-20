@@ -107,6 +107,14 @@ struct ImageLoaderTests {
         #expect(await loader.image(for: url) == nil)
         #expect(await counter.count == 1)
     }
+
+    /// Обложка скачанного выпуска — локальный файл (имя без расширения картинки); ответ на `file://` не HTTP.
+    @Test func loadsLocalFile() async throws {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).artwork")
+        try pngData().write(to: file)
+        defer { try? FileManager.default.removeItem(at: file) }
+        #expect(await ImageLoader().image(for: file) != nil)
+    }
 }
 
 @MainActor

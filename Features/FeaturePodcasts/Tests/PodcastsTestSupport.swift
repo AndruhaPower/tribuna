@@ -128,3 +128,41 @@ final class FakeAudioPlayer: AudioPlayer {
     func skip(by seconds: TimeInterval) {}
     func setRate(_ rate: Float) {}
 }
+
+/// Загрузки в памяти: новые записи — первыми, как у настоящих. Запоминает вызовы `download` и `remove`.
+@MainActor
+final class FakeDownloads: EpisodeDownloads {
+    let subject: CurrentValueSubject<[DownloadedEpisode], Never>
+    var wifiOnly = true
+    private(set) var downloaded: [EpisodeID] = []
+    private(set) var removed: [EpisodeID] = []
+
+    init(_ items: [DownloadedEpisode] = []) { subject = CurrentValueSubject(items) }
+
+    var items: [DownloadedEpisode] { subject.value }
+    var itemsPublisher: AnyPublisher<[DownloadedEpisode], Never> { subject.eraseToAnyPublisher() }
+
+    func set(_ id: EpisodeID, _ state: DownloadState) {
+        if let index = subject.value.firstIndex(where: { $0.id == id }) { subject.value[index].state = state }
+    }
+
+    func download(_ episode: Episode, podcast: Podcast) {
+        downloaded.append(episode.id)
+        subject.value.removeAll { $0.id == episode.id }
+        subject.value.insert(DownloadedEpisode(episode: episode, podcast: podcast, addedAt: testNow, state: .waiting, artworkFile: nil), at: 0)
+    }
+
+    func remove(_ id: EpisodeID) {
+        removed.append(id)
+        subject.value.removeAll { $0.id == id }
+    }
+
+    func removeAll() { subject.value = [] }
+    func localFile(for id: EpisodeID) -> URL? { nil }
+    func usage() -> (bytes: Int64, count: Int) { (0, 0) }
+    func availableCapacity() -> Int64? { nil }
+}
+
+func download(_ episode: Episode, _ podcast: Podcast, _ state: DownloadState, ago: TimeInterval = days(1), artwork: URL? = nil) -> DownloadedEpisode {
+    DownloadedEpisode(episode: episode, podcast: podcast, addedAt: testNow.addingTimeInterval(-ago), state: state, artworkFile: artwork)
+}

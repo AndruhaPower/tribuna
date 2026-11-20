@@ -2,9 +2,9 @@ import CoreUI
 import SnapKit
 import UIKit
 
-/// Шапка вкладки: заголовок «Подкасты» и переключатель «Подборка» / «Подписки N». Отступы — от верха безопасной зоны, замер макета:
-/// переключатель 44 pt с 61.5 pt, подложка `surface` со скруглением 14, выбранный сегмент `surfaceHigh` с полем 4 pt и скруглением 10.
-/// Сегмент «Загрузки» — подэтап 2, пока его нет: два сегмента делят ширину поровну.
+/// Шапка вкладки: заголовок «Подкасты» и переключатель «Подборка» / «Подписки N» / «Загрузки». Отступы — от верха безопасной зоны,
+/// замер макета: переключатель 44 pt с 61.5 pt, подложка `surface` со скруглением 14, выбранный сегмент `surfaceHigh` с полем 4 pt
+/// и скруглением 10; три сегмента по 111 pt с промежутком 4.5 pt.
 final class PodcastsHeaderCell: UICollectionViewCell {
     static let height: CGFloat = 105.5
 
@@ -25,9 +25,9 @@ final class PodcastsHeaderCell: UICollectionViewCell {
         box.backgroundColor = Palette.surface
         box.layer.cornerRadius = 14
         let stack = UIStackView()
-        stack.spacing = 6
+        stack.spacing = 4.5
         stack.distribution = .fillEqually
-        for (segment, text) in [(PodcastsState.Segment.catalog, "Подборка"), (.subscriptions, "Подписки")] {
+        for (segment, text) in [(PodcastsState.Segment.catalog, "Подборка"), (.subscriptions, "Подписки"), (.downloads, "Загрузки")] {
             let button = SegmentButton(title: text)
             button.addAction(UIAction { [weak self] _ in self?.onSelect?(segment) }, for: .touchUpInside)
             segments[segment] = button

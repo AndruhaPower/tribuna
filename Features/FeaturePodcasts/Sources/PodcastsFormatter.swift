@@ -61,7 +61,8 @@ enum PodcastsFormatter {
             .sorted { $0.episode.publishedAt > $1.episode.publishedAt }
     }
 
-    /// Кнопка — у первой строки и у выпуска, который сейчас в плеере.
+    /// Кнопка — у первой строки и у выпуска, который сейчас в плеере; «Скачать» — рядом с ней, если записи нет или она `.failed`.
+    /// `inDownloads` — строка сегмента «Загрузки»: обложка из файла, размер скачанного во второй строке.
     static func row(
         _ episode: Episode,
         podcast: Podcast,
@@ -69,25 +70,58 @@ enum PodcastsFormatter {
         isFirst: Bool,
         progress: [EpisodeID: ListeningProgress],
         playback: PlaybackState,
+        download: DownloadedEpisode?,
+        wifiOnly: Bool,
+        inDownloads: Bool = false,
         now: Date,
         calendar: Calendar
     ) -> EpisodeRow {
         let isCurrent = playback.item?.episode?.id == episode.id
         let isActive = isCurrent && (playback.status == .playing || playback.status == .loading)
-        let caption = isNew ? "● Новый · \(podcast.title)" : podcast.title
-        let subtitle = subtitle(episode, progress: progress[episode.id], now: now, calendar: calendar)
+        let state = download?.state
+        var name = podcast.title
+        var tail: String?
+        var downloadProgress: Double?
+        let action: EpisodeRow.DownloadAction
+        switch state {
+        case nil, .failed:
+            action = .download
+            if state == .failed { tail = "не удалось скачать" }
+        case .waiting:
+            action = .cancel
+            tail = wifiOnly ? "ждёт Wi-Fi" : "ждёт сеть"
+            downloadProgress = 0
+        case let .downloading(value):
+            action = .cancel
+            tail = wifiOnly ? "загрузка по Wi-Fi" : "загрузка"
+            downloadProgress = value
+        case let .downloaded(bytes):
+            action = .remove
+            name += " · скачан"
+            if inDownloads { tail = size(bytes) }
+        }
+        let subtitle = [subtitle(episode, progress: progress[episode.id], now: now, calendar: calendar), tail].compactMap { $0 }.joined(separator: " · ")
+        let caption = isNew ? "● Новый · \(name)" : name
         let button: EpisodeRow.Button? = isFirst || isCurrent ? (isActive ? .pause : .listen) : nil
         return EpisodeRow(
             id: episode.id,
-            artworkURL: episode.artworkURL ?? podcast.artworkURL,
+            artworkURL: (inDownloads ? download?.artworkFile : nil) ?? episode.artworkURL ?? podcast.artworkURL,
             caption: caption,
             isNew: isNew,
             title: episode.title,
             subtitle: subtitle,
             button: button,
+            showsDownloadButton: button != nil && action == .download,
+            downloadProgress: downloadProgress,
+            downloadAction: action,
             buttonAccessibilityLabel: button.map { ($0 == .pause ? "Пауза" : "Слушать") + ", \(episode.title)" },
-            accessibilityLabel: [episode.title, isNew ? "Новый, \(podcast.title)" : podcast.title, subtitle].joined(separator: ", ")
+            accessibilityLabel: [episode.title, isNew ? "Новый, \(name)" : name, subtitle].joined(separator: ", ")
         )
+    }
+
+    /// «48 МБ», «1,25 ГБ» — по-русски независимо от языка устройства.
+    static func size(_ bytes: Int64) -> String {
+        bytes.formatted(.byteCount(style: .file).locale(Locale(identifier: "ru_RU")))
     }
 
     /// «Сегодня · 34 мин», «16 нояб · осталось 12 мин» (начат), «2 нояб · прослушано».

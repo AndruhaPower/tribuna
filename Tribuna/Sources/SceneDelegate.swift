@@ -57,7 +57,8 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 episodes: dependencies.episodes,
                 subscriptions: dependencies.subscriptions,
                 progress: dependencies.progress,
-                player: dependencies.player
+                player: dependencies.player,
+                downloads: dependencies.downloads
             ),
             output: .init(openPlayer: { [weak self] in self?.openPlayer() })
         )

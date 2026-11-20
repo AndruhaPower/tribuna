@@ -8,19 +8,22 @@ public enum FeaturePodcasts {
         let subscriptions: SubscriptionsStore
         let progress: ListeningProgressStore
         let player: AudioPlayer
+        let downloads: EpisodeDownloads
 
         public init(
             podcasts: PodcastsRepository,
             episodes: EpisodesRepository,
             subscriptions: SubscriptionsStore,
             progress: ListeningProgressStore,
-            player: AudioPlayer
+            player: AudioPlayer,
+            downloads: EpisodeDownloads
         ) {
             self.podcasts = podcasts
             self.episodes = episodes
             self.subscriptions = subscriptions
             self.progress = progress
             self.player = player
+            self.downloads = downloads
         }
     }
 

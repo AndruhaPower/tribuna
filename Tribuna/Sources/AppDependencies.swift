@@ -18,8 +18,8 @@ struct AppDependencies {
     let progress: ListeningProgressStore
     /// Единственный плеер приложения (D15): «Эфир», мини-плеер и плеер подписаны на него.
     let player: AudioPlayer
-    /// Загрузки выпусков; одни и те же и для отладочных моков.
-    let downloads: EpisodeDownloads = Self.backgroundDownloads
+    /// Загрузки выпусков; одни и те же и для отладочных моков, кроме `-PodcastsMockData`.
+    private(set) var downloads: EpisodeDownloads = Self.backgroundDownloads
 
     /// Единственная фоновая сессия загрузок: `Services.make` моки зовут несколько раз, поэтому не там.
     /// Статическая — `AppDelegate` передаёт ей события сессии и при запуске в фоне, без сцены.
@@ -42,7 +42,7 @@ struct AppDependencies {
         }
         if let mock = Self.podcastsMock() {
             (matches, standings, bookmarks, reminders, stations, _, _, _, _) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
-            (podcasts, episodes, subscriptions, progress, player) = mock
+            (podcasts, episodes, subscriptions, progress, player, downloads) = mock
             return
         }
         #endif
@@ -188,6 +188,34 @@ private struct MockEpisodesRepository: EpisodesRepository {
     func episodes(for podcast: Podcast, forceRefresh: Bool) async throws -> [Episode] { feeds[podcast.id] ?? [] }
 }
 
+/// Загрузки в памяти: «Скачать» сразу даёт скачанный выпуск (48 МБ), файлов нет — плеер играет по сети.
+private final class MockEpisodeDownloads: EpisodeDownloads {
+    private let subject: CurrentValueSubject<[DownloadedEpisode], Never>
+    var wifiOnly = true
+
+    init(items: [DownloadedEpisode]) { subject = CurrentValueSubject(items) }
+
+    var items: [DownloadedEpisode] { subject.value }
+    var itemsPublisher: AnyPublisher<[DownloadedEpisode], Never> { subject.eraseToAnyPublisher() }
+
+    func download(_ episode: Episode, podcast: Podcast) {
+        subject.value.removeAll { $0.id == episode.id }
+        subject.value.insert(DownloadedEpisode(episode: episode, podcast: podcast, addedAt: Date(), state: .downloaded(bytes: 48_000_000), artworkFile: nil), at: 0)
+    }
+
+    func remove(_ id: EpisodeID) { subject.value.removeAll { $0.id == id } }
+    func removeAll() { subject.value = [] }
+    func localFile(for id: EpisodeID) -> URL? { nil }
+
+    func usage() -> (bytes: Int64, count: Int) {
+        subject.value.reduce((0, 0)) { total, item in
+            if case let .downloaded(bytes) = item.state { (total.0 + bytes, total.1 + 1) } else { total }
+        }
+    }
+
+    func availableCapacity() -> Int64? { 64_000_000_000 }
+}
+
 extension AppDependencies {
     /// `-PodcastsMockData` или `-PodcastsRealFeeds`: открыть вкладку «Подкасты».
     static var isPodcastsMock: Bool {
@@ -196,7 +224,7 @@ extension AppDependencies {
     }
 
     fileprivate static func podcastsMock()
-        -> (PodcastsRepository, EpisodesRepository, SubscriptionsStore, ListeningProgressStore, AudioPlayer)? {
+        -> (PodcastsRepository, EpisodesRepository, SubscriptionsStore, ListeningProgressStore, AudioPlayer, EpisodeDownloads)? {
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-PodcastsRealFeeds") { return realFeedsMock() }
         guard arguments.contains("-PodcastsMockData") else { return nil }
@@ -239,7 +267,13 @@ extension AppDependencies {
             ? MockAudioPlayer(state: PlaybackState(item: .episode(preview, podcast: catalog[0]), status: .playing, sleepTimerEndsAt: nil,
                                                    position: 18 * 60 + 42, duration: 34 * 60 + 10, rate: 1.25))
             : MockAudioPlayer(playing: nil)
-        return (MockPodcastsRepository(podcasts: catalog), MockEpisodesRepository(feeds: feeds), services.subscriptions, services.progress, player)
+        // Загрузки как в макете: «Кто заберёт Кубок Стэнли» качается (60 %), «Итоги 11 тура» скачан.
+        let cup = feeds["puck"]![0]
+        let downloads = MockEpisodeDownloads(items: [
+            DownloadedEpisode(episode: cup, podcast: catalog[1], addedAt: now, state: .downloading(progress: 0.6), artworkFile: nil),
+            DownloadedEpisode(episode: results, podcast: catalog[0], addedAt: now.addingTimeInterval(-3600), state: .downloaded(bytes: 48_000_000), artworkFile: nil),
+        ])
+        return (MockPodcastsRepository(podcasts: catalog), MockEpisodesRepository(feeds: feeds), services.subscriptions, services.progress, player, downloads)
     }
 
     /// Пять подкастов из начального списка миграции `20261120100000_podcasts.sql` — пока таблицы нет на `tribuna_db`.
@@ -259,11 +293,12 @@ extension AppDependencies {
     }
 
     /// Каталог — пять настоящих лент из начального списка (D27), выпуски и плеер настоящие; подписки и позиция — отдельный набор UserDefaults.
-    private static func realFeedsMock() -> (PodcastsRepository, EpisodesRepository, SubscriptionsStore, ListeningProgressStore, AudioPlayer) {
+    private static func realFeedsMock()
+        -> (PodcastsRepository, EpisodesRepository, SubscriptionsStore, ListeningProgressStore, AudioPlayer, EpisodeDownloads) {
         let defaults = UserDefaults(suiteName: "PodcastsRealFeeds") ?? .standard
         let services = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey, defaults: defaults)
         return (MockPodcastsRepository(podcasts: realCatalog), services.episodes, services.subscriptions, services.progress,
-                RadioPlayer(progress: services.progress, localFile: { backgroundDownloads.localFile(for: $0) }))
+                RadioPlayer(progress: services.progress, localFile: { backgroundDownloads.localFile(for: $0) }), backgroundDownloads)
     }
 }
 #endif

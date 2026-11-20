@@ -8,6 +8,11 @@ struct EpisodeRow: Hashable, Identifiable {
         case listen, pause
     }
 
+    /// Пункт меню долгого нажатия (и пилюли «Скачать»): «Скачать» / «Отменить загрузку» / «Удалить загрузку».
+    enum DownloadAction: Hashable {
+        case download, cancel, remove
+    }
+
     let id: EpisodeID
     let artworkURL: URL
     /// «● Новый · Вне игры» или «Вне игры».
@@ -19,6 +24,11 @@ struct EpisodeRow: Hashable, Identifiable {
     let subtitle: String
     /// nil — без кнопки (она у первой строки и у выпуска в плеере).
     let button: Button?
+    /// Контурная «Скачать» рядом с кнопкой: только при кнопке и если записи загрузки нет или она `.failed`.
+    let showsDownloadButton: Bool
+    /// Полоска под текстом: доля скачанного (`.waiting` — 0); nil — без полоски.
+    let downloadProgress: Double?
+    let downloadAction: DownloadAction
     /// VoiceOver для пилюли: «Слушать, <выпуск>» / «Пауза, <выпуск>»; nil — без кнопки.
     let buttonAccessibilityLabel: String?
     /// VoiceOver: «<выпуск>, <подпись>, <дата и длительность>».
@@ -53,7 +63,7 @@ struct StatusMessage: Hashable {
 /// Готовое к показу состояние вкладки «Подкасты».
 struct PodcastsState: Equatable {
     enum Segment: Hashable, CaseIterable {
-        case catalog, subscriptions
+        case catalog, subscriptions, downloads
     }
 
     enum Content: Equatable {
@@ -62,6 +72,8 @@ struct PodcastsState: Equatable {
         case catalog([PodcastRow])
         /// Без подписок — `tiles` пусты, `episodes` — сообщение «Подпишитесь…».
         case subscriptions(tiles: [SubscriptionTile], episodes: EpisodesContent)
+        /// Строится из снимков загрузок — каталог и сеть не нужны.
+        case downloads(EpisodesContent)
     }
 
     enum EpisodesContent: Equatable {
