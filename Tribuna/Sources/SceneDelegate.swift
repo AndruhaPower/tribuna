@@ -51,11 +51,21 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             dependencies: .init(stations: dependencies.stations, player: dependencies.player),
             output: .init(openPlayer: { [weak self] in self?.openPlayer() })
         )
+        let podcasts = FeaturePodcasts.make(
+            dependencies: .init(
+                podcasts: dependencies.podcasts,
+                episodes: dependencies.episodes,
+                subscriptions: dependencies.subscriptions,
+                progress: dependencies.progress,
+                player: dependencies.player
+            ),
+            output: .init(openPlayer: { [weak self] in self?.openPlayer() })
+        )
         let miniPlayer = FeaturePlayer.makeMiniPlayer(player: dependencies.player, onOpen: { [weak self] in self?.openPlayer() })
         let tabBar = MainTabBarController(tabs: [
             .init(item: .init(title: "Сегодня", icon: "tab-today"), root: makeToday()),
             .init(item: .init(title: "Эфир", icon: "tab-radio"), root: radio),
-            .init(item: .init(title: "Подкасты", icon: "tab-podcasts"), root: FeaturePodcasts.makeRoot()),
+            .init(item: .init(title: "Подкасты", icon: "tab-podcasts"), root: podcasts),
             .init(item: .init(title: "Профиль", icon: "tab-profile"), root: FeatureProfile.makeRoot()),
         ], miniPlayer: miniPlayer)
         #if DEBUG
@@ -65,11 +75,15 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             tabBar.loadViewIfNeeded()
             tabBar.select(1)
         }
+        if AppDependencies.isPodcastsMock {
+            tabBar.loadViewIfNeeded()
+            tabBar.select(2)
+        }
         #endif
         return tabBar
     }
 
-    /// Плеер (лист) поверх вкладок — из «Эфира» и мини-плеера.
+    /// Плеер (лист) поверх вкладок — из «Эфира», «Подкастов» и мини-плеера.
     private func openPlayer() {
         guard let root = window?.rootViewController, root.presentedViewController == nil else { return }
         root.present(FeaturePlayer.makePlayer(player: dependencies.player), animated: true)

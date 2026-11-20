@@ -12,6 +12,10 @@ struct AppDependencies {
     let bookmarks: BookmarksStore
     let reminders: RemindersStore
     let stations: StationsRepository
+    let podcasts: PodcastsRepository
+    let episodes: EpisodesRepository
+    let subscriptions: SubscriptionsStore
+    let progress: ListeningProgressStore
     /// Единственный плеер приложения (D15): «Эфир», мини-плеер и плеер подписаны на него.
     let player: AudioPlayer
 
@@ -20,18 +24,23 @@ struct AppDependencies {
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-TodayMockData") || arguments.contains("-MatchMockData") {
             (matches, standings, bookmarks, reminders, stations) = Self.todayMockData()
+            (_, _, _, _, _, podcasts, episodes, subscriptions, progress) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
             // С `-RadioMockData` — ещё и мини-плеер со «Стадион FM», как на макете «Сегодня».
             player = Self.radioMock()?.player ?? RadioPlayer()
             return
         }
         if let radio = Self.radioMock() {
-            (matches, standings, bookmarks, reminders, _, _, _, _, _) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
+            (matches, standings, bookmarks, reminders, _, podcasts, episodes, subscriptions, progress) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
             (stations, player) = radio
             return
         }
+        if let mock = Self.podcastsMock() {
+            (matches, standings, bookmarks, reminders, stations, _, _, _, _) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
+            (podcasts, episodes, subscriptions, progress, player) = mock
+            return
+        }
         #endif
-        let progress: ListeningProgressStore, episodes: EpisodesRepository
-        (matches, standings, bookmarks, reminders, stations, _, episodes, _, progress) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
+        (matches, standings, bookmarks, reminders, stations, podcasts, episodes, subscriptions, progress) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
         player = RadioPlayer(progress: progress)
         #if DEBUG
         Self.debugEpisode(player: player, episodes: episodes)
@@ -117,8 +126,8 @@ private struct MockStationsRepository: StationsRepository {
 private final class MockAudioPlayer: AudioPlayer {
     private let subject: CurrentValueSubject<PlaybackState, Never>
 
-    init(playing station: Station) {
-        subject = CurrentValueSubject(PlaybackState(item: .station(station), status: .playing, sleepTimerEndsAt: nil))
+    init(playing station: Station?) {
+        subject = CurrentValueSubject(PlaybackState(item: station.map(PlaybackItem.station), status: station == nil ? .idle : .playing, sleepTimerEndsAt: nil))
     }
 
     var state: PlaybackState { subject.value }
@@ -170,6 +179,97 @@ extension AppDependencies {
                 print("[PodcastDebug] \(player.state.status) position=\(player.state.position ?? -1) duration=\(player.state.duration ?? -1)")
             }
         }
+    }
+}
+#endif
+
+#if DEBUG
+/// Вкладка «Подкасты» как в макете (`-PodcastsMockData`): подписки «Вне игры» (2 новых), «Шайба» (1 новый), «Разбор» (всё прослушано),
+/// начатый «Итоги 11 тура». Подписки и позиция — в отдельном наборе UserDefaults, плеер без звука. Только в отладке.
+/// `-PodcastsRealFeeds` — каталог из пяти подкастов миграции (таблицы `podcasts` на `tribuna_db` ещё нет), ленты и плеер настоящие.
+private struct MockPodcastsRepository: PodcastsRepository {
+    let podcasts: [Podcast]
+
+    func podcasts() async throws -> [Podcast] { podcasts }
+}
+
+private struct MockEpisodesRepository: EpisodesRepository {
+    let feeds: [String: [Episode]]
+
+    func episodes(for podcast: Podcast, forceRefresh: Bool) async throws -> [Episode] { feeds[podcast.id] ?? [] }
+}
+
+extension AppDependencies {
+    /// `-PodcastsMockData` или `-PodcastsRealFeeds`: открыть вкладку «Подкасты».
+    static var isPodcastsMock: Bool {
+        let arguments = ProcessInfo.processInfo.arguments
+        return arguments.contains("-PodcastsMockData") || arguments.contains("-PodcastsRealFeeds")
+    }
+
+    fileprivate static func podcastsMock()
+        -> (PodcastsRepository, EpisodesRepository, SubscriptionsStore, ListeningProgressStore, AudioPlayer)? {
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-PodcastsRealFeeds") { return realFeedsMock() }
+        guard arguments.contains("-PodcastsMockData") else { return nil }
+        let defaults = UserDefaults(suiteName: "PodcastsMockData") ?? .standard
+        defaults.removePersistentDomain(forName: "PodcastsMockData")
+        let services = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey, defaults: defaults)
+        // Обложки нет — плитки и строки остаются плашками `surfaceRaised`, как в макете.
+        func podcast(_ id: String, _ title: String, _ author: String, _ order: Int) -> Podcast {
+            Podcast(id: id, title: title, author: author, feedURL: URL(string: "https://example.com/\(id).xml")!,
+                    artworkURL: URL(string: "https://example.invalid/\(id).jpg")!, featuredOrder: order)
+        }
+        let catalog = [
+            podcast("out", "Вне игры", "Tribuna", 1), podcast("puck", "Шайба", "Хоккейный подкаст", 2),
+            podcast("review", "Разбор", "Футбол без воды", 3), podcast("tennis", "Больше, чем теннис", "Теннисный клуб", 4),
+            podcast("run", "Бегущий город", "Про бег и марафоны", 5),
+        ]
+        let now = Date()
+        func episode(_ podcast: String, _ guid: String, _ title: String, daysAgo: Double, minutes: Double) -> Episode {
+            Episode(id: EpisodeID(podcastID: podcast, guid: guid), podcastID: podcast, title: title,
+                    publishedAt: now.addingTimeInterval(-daysAgo * 86400 - 60), duration: minutes * 60,
+                    audioURL: URL(string: "https://example.com/\(guid).mp3")!, artworkURL: nil, link: nil)
+        }
+        let calendar = Calendar.autoupdatingCurrent
+        let daysToNov16 = Double(calendar.dateComponents([.day], from: calendar.startOfDay(for: now),
+                                                         to: calendar.date(from: DateComponents(year: 2026, month: 11, day: 16))!).day ?? 0)
+        let results = episode("out", "results", "Итоги 11 тура", daysAgo: max(2.5, -daysToNov16), minutes: 40)
+        let feeds = [
+            "out": [episode("out", "preview", "Превью 12 тура: дерби на Энфилде", daysAgo: 0, minutes: 34),
+                    episode("out", "transfers", "Трансферное окно: кого ждать", daysAgo: 2, minutes: 45), results],
+            "puck": [episode("puck", "cup", "Кто заберёт Кубок Стэнли", daysAgo: 1, minutes: 51)],
+            "review": [episode("review", "r1", "Разбор тура", daysAgo: 3, minutes: 30)],
+            "tennis": [episode("tennis", "t1", "Итоги сезона", daysAgo: 5, minutes: 60)],
+            "run": [episode("run", "m1", "Как пробежать первый марафон", daysAgo: 6, minutes: 42)],
+        ]
+        for id in ["out", "puck", "review"] { services.subscriptions.toggle(id) }
+        services.progress.setPosition(28 * 60, for: results.id)
+        services.progress.markFinished(EpisodeID(podcastID: "review", guid: "r1"))
+        return (MockPodcastsRepository(podcasts: catalog), MockEpisodesRepository(feeds: feeds), services.subscriptions, services.progress, MockAudioPlayer(playing: nil))
+    }
+
+    /// Пять подкастов из начального списка миграции `20261120100000_podcasts.sql` — пока таблицы нет на `tribuna_db`.
+    private static var realCatalog: [Podcast] {
+        [
+            Podcast(id: "skvoz-sport", title: "Сквозь Спорт", author: "Алексей Бибиков", feedURL: URL(string: "https://podster.fm/rss.xml?pid=100138")!,
+                    artworkURL: URL(string: "https://is1-ssl.mzstatic.com/image/thumb/Podcasts211/v4/ae/fe/42/aefe420e-f011-e07e-5991-815550cbdae5/mza_16765462091896871357.jpg/600x600bb.jpg")!, featuredOrder: 1),
+            Podcast(id: "kp-sport-news", title: "Новости спорта", author: "Радио «Комсомольская правда»", feedURL: URL(string: "https://cloud.mave.digital/36130")!,
+                    artworkURL: URL(string: "https://is1-ssl.mzstatic.com/image/thumb/Podcasts126/v4/69/f4/37/69f437a4-6199-6ff6-faec-c1ed59c041ed/mza_11842677910032958963.jpg/600x600bb.jpg")!, featuredOrder: 2),
+            Podcast(id: "four-four-two", title: "4-4-2", author: "Фёдор Замыцкий", feedURL: URL(string: "https://cloud.mave.digital/32729")!,
+                    artworkURL: URL(string: "https://is1-ssl.mzstatic.com/image/thumb/Podcasts211/v4/f7/84/79/f7847917-4e5d-e619-9488-05c7899dc892/mza_3324083100343931127.jpg/600x600bb.jpg")!, featuredOrder: 8),
+            Podcast(id: "shaibovorot", title: "Шайбоворот Ткачева", author: "Александр Ткачев", feedURL: URL(string: "https://cloud.mave.digital/54729")!,
+                    artworkURL: URL(string: "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/c6/dd/0c/c6dd0c2b-174a-5e10-0046-2642f7e7b1c5/mza_17234498207233401191.jpg/600x600bb.jpg")!, featuredOrder: 13),
+            Podcast(id: "okko-tennis", title: "Выход к сетке", author: "Okko Tennis", feedURL: URL(string: "https://cloud.mave.digital/36633")!,
+                    artworkURL: URL(string: "https://is1-ssl.mzstatic.com/image/thumb/Podcasts116/v4/f7/01/a3/f701a339-2042-3b9c-e403-9c421e9fe320/mza_2192722762668020214.jpg/600x600bb.jpg")!, featuredOrder: 14),
+        ]
+    }
+
+    /// Каталог — пять настоящих лент из начального списка (D27), выпуски и плеер настоящие; подписки и позиция — отдельный набор UserDefaults.
+    private static func realFeedsMock() -> (PodcastsRepository, EpisodesRepository, SubscriptionsStore, ListeningProgressStore, AudioPlayer) {
+        let defaults = UserDefaults(suiteName: "PodcastsRealFeeds") ?? .standard
+        let services = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey, defaults: defaults)
+        return (MockPodcastsRepository(podcasts: realCatalog), services.episodes, services.subscriptions, services.progress,
+                RadioPlayer(progress: services.progress))
     }
 }
 #endif
