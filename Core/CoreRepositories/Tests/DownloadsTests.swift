@@ -45,7 +45,7 @@ struct DownloadsTests {
                 duration: 60, audioURL: URL(string: audio)!, artworkURL: nil, link: nil)
     }
 
-    fileprivate func make(_ session: FakeSession, defaults: UserDefaults) -> BackgroundEpisodeDownloads {
+    func make(_ session: any DownloadSession, defaults: UserDefaults) -> BackgroundEpisodeDownloads {
         BackgroundEpisodeDownloads(directory: directory, defaults: defaults, fetchArtwork: { _ in throw URLError(.notConnectedToInternet) },
                                    makeSession: { _ in session })
     }
@@ -230,5 +230,56 @@ struct DownloadsTests {
         downloads.download(episode("new"), podcast: podcast)
 
         #expect(downloads.items.map(\.episode.title) == ["new", "old"])
+    }
+
+    @Test func lateFinishAfterRestoreFailedIsAccepted() throws {
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { cleanUp(defaults) }
+        let episode = episode("e1")
+        make(FakeSession(), defaults: defaults).download(episode, podcast: podcast)
+        let relaunched = make(FakeSession(), defaults: defaults)
+        #expect(relaunched.item(episode.id)?.state == .failed)
+
+        relaunched.handleFinished(id: episode.id.rawValue, tempFile: try tempFile(bytes: 10), mimeType: nil)
+
+        #expect(relaunched.item(episode.id)?.state == .downloaded(bytes: 10))
+        #expect(relaunched.localFile(for: episode.id) != nil)
+    }
+
+    @Test func restoreCancelsSystemTaskReplacedBeforeSync() throws {
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { cleanUp(defaults) }
+        let episode = episode("e1")
+        make(FakeSession(), defaults: defaults).download(episode, podcast: podcast)
+
+        // Сверка позже смены Wi-Fi: сессия отдаёт задачи только по вызову `deliver`.
+        let session = DeferredSession()
+        let downloads = make(session, defaults: defaults)
+        let stale = FakeTask(id: episode.id.rawValue, allowsCellularAccess: false)
+        downloads.wifiOnly = false
+        session.deliver([stale])
+
+        #expect(stale.isCancelled)
+        #expect(session.created.last?.allowsCellularAccess == true)
+        #expect(downloads.item(episode.id)?.state == .waiting)
+    }
+}
+
+private final class DeferredSession: DownloadSession, @unchecked Sendable {
+    var created: [FakeTask] = []
+    private var completion: (@MainActor @Sendable ([(id: String, handle: any DownloadTaskHandle)]) -> Void)?
+
+    func start(url: URL, allowsCellularAccess: Bool, id: String) -> any DownloadTaskHandle {
+        let task = FakeTask(id: id, allowsCellularAccess: allowsCellularAccess)
+        created.append(task)
+        return task
+    }
+
+    func allTasks(_ completion: @escaping @MainActor @Sendable ([(id: String, handle: any DownloadTaskHandle)]) -> Void) {
+        self.completion = completion
+    }
+
+    @MainActor func deliver(_ tasks: [FakeTask]) {
+        completion?(tasks.map { (id: $0.id, handle: $0 as any DownloadTaskHandle) })
     }
 }

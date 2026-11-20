@@ -1,6 +1,7 @@
 import CoreDomain
 import CryptoKit
 import Foundation
+import os
 
 /// Индекс загрузок — `index.json` в папке загрузок, рядом с файлами. Порядок записей — новые первыми.
 /// Пути хранятся именами файлов: абсолютный путь к контейнеру приложения меняется при обновлении.
@@ -10,6 +11,8 @@ struct DownloadsIndex {
         /// Имя аудиофайла в папке; nil — ещё не скачан.
         var fileName: String?
     }
+
+    private static let logger = Logger(subsystem: "com.tribuna.app", category: "downloads")
 
     let directory: URL
 
@@ -38,12 +41,15 @@ struct DownloadsIndex {
 
     func save(_ entries: [Entry]) {
         prepareDirectory()
-        try? JSONEncoder().encode(entries).write(to: indexFile, options: .atomic)
+        do {
+            try JSONEncoder().encode(entries).write(to: indexFile, options: .atomic)
+        } catch {
+            Self.logger.error("Не записан индекс загрузок: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     /// Папка без резервной копии iCloud: выпуски можно скачать заново.
     func prepareDirectory() {
-        guard !FileManager.default.fileExists(atPath: directory.path) else { return }
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         var values = URLResourceValues()
         values.isExcludedFromBackup = true

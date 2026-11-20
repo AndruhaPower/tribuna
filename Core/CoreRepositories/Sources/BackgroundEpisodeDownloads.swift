@@ -108,9 +108,10 @@ public final class BackgroundEpisodeDownloads: NSObject, EpisodeDownloads {
 
     public func download(_ episode: Episode, podcast: Podcast) {
         if let existing = item(episode.id), existing.state != .failed { return }
-        entries.removeAll { $0.item.id == episode.id }
+        var updated = entries.filter { $0.item.id != episode.id }
         let item = DownloadedEpisode(episode: episode, podcast: podcast, addedAt: Date(), state: .waiting, artworkFile: nil)
-        entries.insert(DownloadsIndex.Entry(item: item, fileName: nil), at: 0)
+        updated.insert(DownloadsIndex.Entry(item: item, fileName: nil), at: 0)
+        entries = updated
         start(episode)
         index.save(entries)
     }
@@ -118,6 +119,7 @@ public final class BackgroundEpisodeDownloads: NSObject, EpisodeDownloads {
     public func remove(_ id: EpisodeID) {
         guard let i = position(id.rawValue) else { return }
         tasks.removeValue(forKey: id.rawValue)?.cancel()
+        progressPublishedAt[id.rawValue] = nil
         if let name = entries[i].fileName { try? FileManager.default.removeItem(at: index.directory.appendingPathComponent(name)) }
         try? FileManager.default.removeItem(at: index.artworkFile(id))
         entries.remove(at: i)
@@ -127,6 +129,7 @@ public final class BackgroundEpisodeDownloads: NSObject, EpisodeDownloads {
     public func removeAll() {
         tasks.values.forEach { $0.cancel() }
         tasks = [:]
+        progressPublishedAt = [:]
         // Вместе с папкой уходят и файлы, потерянные индексом.
         try? FileManager.default.removeItem(at: index.directory)
         entries = []
@@ -172,10 +175,11 @@ public final class BackgroundEpisodeDownloads: NSObject, EpisodeDownloads {
     }
 
     /// Переносит временный файл синхронно: после возврата из делегата система его удаляет.
+    /// Принимает и `.failed`: сверка при запуске могла не увидеть задачу, которая как раз завершалась.
     func handleFinished(id: String, tempFile: URL, mimeType: String?) {
         tasks[id] = nil
         progressPublishedAt[id] = nil
-        guard let i = position(id), entries[i].item.state.isActive else { return }
+        guard let i = position(id), !entries[i].item.state.isDownloaded else { return }
         let item = entries[i].item
         let name = DownloadsIndex.baseName(item.id) + "." + Self.fileExtension(audioURL: item.episode.audioURL, mimeType: mimeType)
         let file = index.directory.appendingPathComponent(name)
@@ -229,7 +233,12 @@ public final class BackgroundEpisodeDownloads: NSObject, EpisodeDownloads {
 
     /// Сверка индекса с задачами сессии: идущая запись без задачи — «не удалось», задача без записи — отменяем.
     private func restore(_ running: [(id: String, handle: any DownloadTaskHandle)]) {
-        for task in running where tasks[task.id] == nil {
+        for task in running {
+            // У выпуска уже новая задача (сменили Wi-Fi до сверки) — старая с прежним правилом не нужна.
+            if let current = tasks[task.id] {
+                if current !== task.handle { task.handle.cancel() }
+                continue
+            }
             if let i = position(task.id), entries[i].item.state.isActive {
                 tasks[task.id] = task.handle
             } else {
