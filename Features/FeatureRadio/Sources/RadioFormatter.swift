@@ -35,7 +35,7 @@ enum RadioFormatter {
         }
         guard !found.isEmpty else { return .empty(message: "Ничего не нашлось") }
         return .loaded(title: title, rows: found.map { station in
-            let status = playback.item?.id == station.id ? playback.status : .idle
+            let status = playback.item?.station?.id == station.id ? playback.status : .idle
             let (value, action): (String?, String) = switch status {
             case .playing: ("играет", "Пауза")
             case .loading: ("подключение", "Остановить")
@@ -50,7 +50,7 @@ enum RadioFormatter {
     }
 
     static func nowPlaying(_ playback: PlaybackState) -> RadioState.NowPlaying? {
-        guard let station = playback.item else { return nil }
+        guard let station = playback.item?.station else { return nil }
         var subtitle = [station.country, station.bitrate.map { "\($0) кбит/с" }].compactMap { $0 }.joined(separator: " · ")
         var isError = false
         let button: RadioState.Button

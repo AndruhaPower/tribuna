@@ -38,8 +38,11 @@ struct PlayerState: Equatable {
 enum PlayerFormatter {
     /// nil — плеер закрыт, мини-плеер скрыт.
     static func state(_ playback: PlaybackState, now: Date) -> PlayerState? {
-        guard let station = playback.item else { return nil }
-        var subtitle = [station.country, station.bitrate.map { "\($0) кбит/с" }].compactMap { $0 }.joined(separator: " · ")
+        guard let item = playback.item else { return nil }
+        let name = item.title
+        // shortcut: выпуск показан как станция (шапка «Подкаст», подпись — подкаст); свой экран выпуска — в задаче 5.
+        let header = item.isLive ? "Радио · \(name)" : "Подкаст · \(item.subtitle)"
+        var subtitle = item.station.map { [$0.country, $0.bitrate.map { "\($0) кбит/с" }].compactMap { $0 }.joined(separator: " · ") } ?? item.subtitle
         let status: String, tone: PlayerState.Tone, button: PlayControl
         switch playback.status {
         case .playing:
@@ -53,14 +56,14 @@ enum PlayerFormatter {
             subtitle = message
         }
         let actionLabel = switch button {
-        case .pause: "Пауза, \(station.name)"
-        case .loading: "Остановить, \(station.name)"
-        case .play: "Слушать \(station.name)"
+        case .pause: "Пауза, \(name)"
+        case .loading: "Остановить, \(name)"
+        case .play: "Слушать \(name)"
         }
         return PlayerState(
-            name: station.name, header: "Радио · \(station.name)", caption: station.subtitle.uppercased(),
+            name: name, header: header, caption: item.subtitle.uppercased(),
             status: status, statusTone: tone, subtitle: subtitle, isError: tone == .error, button: button,
-            actionLabel: actionLabel, summaryLabel: "\(station.name), \(status)",
+            actionLabel: actionLabel, summaryLabel: "\(name), \(status)",
             isAnimating: playback.status == .playing, sleepTimer: sleepTimer(endsAt: playback.sleepTimerEndsAt, now: now)
         )
     }

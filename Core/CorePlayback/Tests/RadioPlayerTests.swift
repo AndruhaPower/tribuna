@@ -14,7 +14,7 @@ struct RadioPlayerTests {
     let player: RadioPlayer
 
     init() {
-        player = RadioPlayer(engine: engine, session: session, nowPlaying: nowPlaying, clock: clock)
+        player = RadioPlayer(engine: engine, session: session, nowPlaying: nowPlaying, clock: clock, progress: FakeProgressStore(), notifications: NotificationCenter())
     }
 
     /// Станция запущена и играет.
@@ -29,7 +29,7 @@ struct RadioPlayerTests {
 
     @Test func playLoadsThenPlays() {
         player.play(matchTV)
-        #expect(player.state.item == matchTV)
+        #expect(player.state.item == .station(matchTV))
         #expect(player.state.status == .loading)
         #expect(engine.played == [matchTV.streamURL])
         #expect(session.activateCount == 1)
@@ -50,7 +50,7 @@ struct RadioPlayerTests {
         player.play(matchTV)
         engine.send(.failed)
         #expect(player.state.status == .failed("Не удалось подключиться"))
-        #expect(player.state.item == matchTV)
+        #expect(player.state.item == .station(matchTV))
         #expect(engine.stopCount == 1)
     }
 
@@ -112,7 +112,7 @@ struct RadioPlayerTests {
     @Test func switchingStationLoadsNew() {
         playing()
         player.play(sportFM)
-        #expect(player.state.item == sportFM)
+        #expect(player.state.item == .station(sportFM))
         #expect(player.state.status == .loading)
         #expect(engine.played.last == sportFM.streamURL)
     }
@@ -147,7 +147,7 @@ struct RadioPlayerTests {
         playing()
         session.send(.outputLost)
         #expect(player.state.status == .paused)
-        #expect(player.state.item == matchTV)
+        #expect(player.state.item == .station(matchTV))
     }
 
     @Test func sleepTimerPausesAndClears() {
@@ -157,7 +157,7 @@ struct RadioPlayerTests {
         clock.advance(by: 1799)
         #expect(player.state.status == .playing)
         clock.advance(by: 1)
-        #expect(player.state == PlaybackState(item: matchTV, status: .paused, sleepTimerEndsAt: nil))
+        #expect(player.state == PlaybackState(item: .station(matchTV), status: .paused, sleepTimerEndsAt: nil))
         #expect(engine.stopCount == 1)
     }
 
@@ -200,7 +200,7 @@ struct RadioPlayerTests {
         #expect(player.state.sleepTimerEndsAt == endsAt)
         clock.advance(by: 900)
         #expect(player.state.status == .paused)
-        #expect(player.state.item == sportFM)
+        #expect(player.state.item == .station(sportFM))
     }
 
     @Test func stopClosesPlayer() {

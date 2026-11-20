@@ -50,11 +50,14 @@ final class FakeAudioPlayer: AudioPlayer {
     var statePublisher: AnyPublisher<PlaybackState, Never> { subject.eraseToAnyPublisher() }
 
     func set(_ item: Station?, _ status: PlaybackStatus) {
-        subject.value = PlaybackState(item: item, status: status, sleepTimerEndsAt: nil)
+        subject.value = PlaybackState(item: item.map(PlaybackItem.station), status: status, sleepTimerEndsAt: nil)
     }
 
-    func play(_ station: Station) { played.append(station.id) }
+    func play(_ item: PlaybackItem) { item.station.map { played.append($0.id) } }
     func togglePlayPause() { toggles += 1 }
     func stop() {}
     func setSleepTimer(minutes: Int?) {}
+    func seek(to position: TimeInterval) {}
+    func skip(by seconds: TimeInterval) {}
+    func setRate(_ rate: Float) {}
 }

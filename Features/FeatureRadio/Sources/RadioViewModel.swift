@@ -61,7 +61,7 @@ final class RadioViewModel {
 
     /// Строка и её кнопка: текущая станция — пауза/продолжение, другая — запуск.
     func didTapStation(_ id: String) {
-        if playback.item?.id == id {
+        if playback.item?.station?.id == id {
             player.togglePlayPause()
         } else if let station = stations.first(where: { $0.id == id }) {
             player.play(station)

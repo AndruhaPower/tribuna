@@ -15,13 +15,16 @@ final class FakeAudioPlayer: AudioPlayer {
     var statePublisher: AnyPublisher<PlaybackState, Never> { subject.eraseToAnyPublisher() }
 
     func set(_ item: Station?, _ status: PlaybackStatus, sleepTimerEndsAt: Date? = nil) {
-        subject.value = PlaybackState(item: item, status: status, sleepTimerEndsAt: sleepTimerEndsAt)
+        subject.value = PlaybackState(item: item.map(PlaybackItem.station), status: status, sleepTimerEndsAt: sleepTimerEndsAt)
     }
 
-    func play(_ station: Station) {}
+    func play(_ item: PlaybackItem) {}
     func togglePlayPause() { toggles += 1 }
     func stop() { stops += 1 }
     func setSleepTimer(minutes: Int?) { sleepTimers.append(minutes) }
+    func seek(to position: TimeInterval) {}
+    func skip(by seconds: TimeInterval) {}
+    func setRate(_ rate: Float) {}
 }
 
 @MainActor
@@ -86,6 +89,17 @@ struct PlayerViewModelTests {
                           bitrate: nil, genres: [.sport], subtitle: "Спорт", featuredOrder: nil)
         player.set(hls, .playing)
         #expect(viewModel.state?.subtitle == "Великобритания")
+    }
+
+    @Test func episodeShownLikeStation() throws {
+        let podcast = Podcast(id: "derby", title: "Дерби", author: "Редакция", feedURL: stadion.streamURL, artworkURL: stadion.streamURL, featuredOrder: nil)
+        let episode = Episode(id: EpisodeID(podcastID: "derby", guid: "1"), podcastID: "derby", title: "Выпуск 1",
+                              publishedAt: start, duration: 600, audioURL: stadion.streamURL, artworkURL: nil, link: nil)
+        let player = FakeAudioPlayer()
+        let viewModel = PlayerViewModel(player: player)
+        player.subject.value = PlaybackState(item: .episode(episode, podcast: podcast), status: .paused, sleepTimerEndsAt: nil, position: 30, duration: 600)
+        let state = try #require(viewModel.state)
+        #expect((state.name, state.header, state.caption, state.subtitle) == ("Выпуск 1", "Подкаст · Дерби", "ДЕРБИ", "Дерби"))
     }
 
     @Test func sleepTimerTextRoundsUpAndRefreshesWithTime() {

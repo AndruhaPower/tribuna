@@ -1,18 +1,25 @@
 import Combine
 import CoreDomain
 import Foundation
+import UIKit
 
-/// Плеер эфира: один на приложение (D15).
-/// Пауза закрывает соединение, а продолжение подключается заново — эфир всегда «сейчас», без отставания.
+/// Плеер эфира и выпусков подкастов: один на приложение (D15, D23, D28).
+/// У эфира пауза закрывает соединение, а продолжение подключается заново — эфир всегда «сейчас», без отставания.
+/// У выпуска пауза настоящая; позиция сохраняется в `ListeningProgressStore`.
 @MainActor
 public final class RadioPlayer: AudioPlayer {
     static let connectTimeout: TimeInterval = 30
     static let failureMessage = "Не удалось подключиться"
+    /// Как часто сохраняем позицию играющего выпуска.
+    static let saveInterval: TimeInterval = 10
+    /// С этой доли выпуск считается прослушанным.
+    static let finishedFraction = 0.95
 
     private let engine: PlaybackEngine
     private let session: AudioSessionControlling
     private let nowPlaying: NowPlayingControlling
     private let clock: PlaybackClock
+    private let progress: ListeningProgressStore?
     private let subject = CurrentValueSubject<PlaybackState, Never>(PlaybackState(item: nil, status: .idle, sleepTimerEndsAt: nil))
     private var connectTimeout: AnyCancellable?
     /// Номер попытки подключения: таймаут прошлой попытки ничего не делает, даже если снятие опоздало.
@@ -20,30 +27,63 @@ public final class RadioPlayer: AudioPlayer {
     private var sleepTimer: AnyCancellable?
     /// Играли, когда началось прерывание (звонок, Siri) — после него можно продолжить.
     private var resumeAfterInterruption = false
+    /// Скорость выпусков: переходит на следующие выпуски до перезапуска приложения, у эфира всегда 1.
+    private var episodeRate: Float = 1
+    private var lastSavedAt: Date
+    private var backgroundObservation: AnyCancellable?
 
     public var state: PlaybackState { subject.value }
     public var statePublisher: AnyPublisher<PlaybackState, Never> { subject.eraseToAnyPublisher() }
 
-    public convenience init() {
-        self.init(engine: AVPlayerEngine(), session: SystemAudioSession(), nowPlaying: SystemNowPlaying(), clock: SystemClock())
+    /// nil — позиция выпусков не сохраняется (отладочные сборки только с эфиром).
+    public convenience init(progress: ListeningProgressStore? = nil) {
+        self.init(engine: AVPlayerEngine(), session: SystemAudioSession(), nowPlaying: SystemNowPlaying(), clock: SystemClock(), progress: progress, notifications: .default)
     }
 
-    init(engine: PlaybackEngine, session: AudioSessionControlling, nowPlaying: NowPlayingControlling, clock: PlaybackClock) {
+    init(engine: PlaybackEngine, session: AudioSessionControlling, nowPlaying: NowPlayingControlling, clock: PlaybackClock,
+         progress: ListeningProgressStore?, notifications: NotificationCenter) {
         self.engine = engine
         self.session = session
         self.nowPlaying = nowPlaying
         self.clock = clock
+        self.progress = progress
+        lastSavedAt = clock.now
         engine.onEvent = { [weak self] in self?.handle($0) }
         session.onEvent = { [weak self] in self?.handle($0) }
         nowPlaying.onCommand = { [weak self] in self?.handle($0) }
+        // Из фона приложение могут выгрузить — позицию сохраняем сразу.
+        backgroundObservation = notifications.publisher(for: UIApplication.didEnterBackgroundNotification)
+            .sink { [weak self] _ in
+                MainActor.assumeIsolated { self?.savePosition() }
+            }
     }
 
-    public func play(_ station: Station) {
+    public func play(_ item: PlaybackItem) {
+        savePosition()
         resumeAfterInterruption = false
         // Без активной сессии звук может не пойти в фоне, но играть всё равно пробуем.
         try? session.activate()
-        engine.play(station.streamURL)
-        update { $0.item = station; $0.status = .loading }
+        let start: TimeInterval?
+        let url: URL
+        switch item {
+        case let .station(station):
+            (start, url) = (nil, station.streamURL)
+        case let .episode(episode, _):
+            // Прослушанный — с начала (D27: «прослушано» не снимается при повторе).
+            start = progress?.isFinished(episode.id) == true ? 0 : progress?.position(for: episode.id) ?? 0
+            url = episode.audioURL
+        }
+        let rate = item.isLive ? 1 : episodeRate
+        engine.setRate(rate)
+        engine.play(url, from: start ?? 0)
+        lastSavedAt = clock.now
+        update {
+            $0.item = item
+            $0.status = .loading
+            $0.position = start
+            $0.duration = item.episode?.duration
+            $0.rate = rate
+        }
         startConnectTimeout()
     }
 
@@ -55,6 +95,7 @@ public final class RadioPlayer: AudioPlayer {
     }
 
     public func stop() {
+        savePosition()
         engine.stop()
         connectTimeout = nil
         sleepTimer = nil
@@ -78,15 +119,35 @@ public final class RadioPlayer: AudioPlayer {
         update { $0.sleepTimerEndsAt = clock.now.addingTimeInterval(seconds) }
     }
 
+    public func seek(to position: TimeInterval) {
+        guard state.item?.isLive == false else { return }
+        let position = min(max(position, 0), state.duration ?? .infinity)
+        engine.seek(to: position)
+        update { $0.position = position }
+        markFinishedIfNeeded()
+    }
+
+    public func skip(by seconds: TimeInterval) {
+        seek(to: (state.position ?? 0) + seconds)
+    }
+
+    public func setRate(_ rate: Float) {
+        guard state.item?.isLive == false else { return }
+        episodeRate = rate
+        engine.setRate(rate)
+        update { $0.rate = rate }
+    }
+
     // MARK: - Внутреннее
 
     private var isActive: Bool { state.status == .playing || state.status == .loading }
 
     private func pause() {
         guard isActive else { return }
-        engine.stop()
+        if state.item?.isLive == false { engine.pause() } else { engine.stop() }
         connectTimeout = nil
         update { $0.status = .paused }
+        savePosition()
     }
 
     private func resume() {
@@ -96,13 +157,53 @@ public final class RadioPlayer: AudioPlayer {
             sleepTimer = nil
             update { $0.sleepTimerEndsAt = nil }
         }
-        play(item)
+        guard !item.isLive, state.status == .paused else { return play(item) }
+        // Выпуск на паузе: поток не отпускали, продолжаем с того же места.
+        try? session.activate()
+        engine.resume()
+        update { $0.status = .loading }
+        startConnectTimeout()
     }
 
     private func fail() {
         engine.stop()
         connectTimeout = nil
         update { $0.status = .failed(Self.failureMessage) }
+        savePosition()
+    }
+
+    /// Выпуск доиграл: прослушан, пауза на начале; следующий сам не запускается.
+    private func finish() {
+        engine.pause()
+        engine.seek(to: 0)
+        connectTimeout = nil
+        update { $0.status = .paused; $0.position = 0 }
+        if let episode = state.item?.episode { progress?.markFinished(episode.id) }
+    }
+
+    private func savePosition() {
+        guard let episode = state.item?.episode, let position = state.position else { return }
+        lastSavedAt = clock.now
+        progress?.setPosition(position, for: episode.id)
+    }
+
+    private func markFinishedIfNeeded() {
+        guard let episode = state.item?.episode, let position = state.position, let duration = state.duration, duration > 0,
+              position >= duration * Self.finishedFraction, progress?.isFinished(episode.id) == false else { return }
+        progress?.markFinished(episode.id)
+    }
+
+    private func handleProgress(position: TimeInterval, duration: TimeInterval?) {
+        // Только пока играет: при подключении движок может отдать 0 до перемотки на сохранённое место.
+        guard state.item?.isLive == false, state.status == .playing else { return }
+        let durationChanged = duration != nil && duration != state.duration
+        // Экран блокировки сам ведёт время по скорости — обновляем его, только если сменилась длительность.
+        update(refreshNowPlaying: durationChanged) {
+            $0.position = position
+            if let duration { $0.duration = duration }
+        }
+        markFinishedIfNeeded()
+        if clock.now.timeIntervalSince(lastSavedAt) >= Self.saveInterval { savePosition() }
     }
 
     private func startConnectTimeout() {
@@ -115,6 +216,7 @@ public final class RadioPlayer: AudioPlayer {
     }
 
     private func handle(_ event: PlaybackEngineEvent) {
+        if case let .progress(position, duration) = event { return handleProgress(position: position, duration: duration) }
         // События остановленного потока (после паузы, ошибки, stop) не учитываем.
         guard isActive else { return }
         switch event {
@@ -127,6 +229,10 @@ public final class RadioPlayer: AudioPlayer {
             startConnectTimeout()
         case .failed:
             fail()
+        case .ended:
+            if state.item?.isLive == false { finish() } else { fail() }
+        case .progress:
+            break
         }
     }
 
@@ -148,14 +254,20 @@ public final class RadioPlayer: AudioPlayer {
         case .play: if !isActive { resume() }
         case .pause: pause()
         case .togglePlayPause: togglePlayPause()
+        case let .skip(seconds): skip(by: seconds)
+        case let .seek(position): seek(to: position)
         }
     }
 
-    private func update(_ change: (inout PlaybackState) -> Void) {
+    private func update(refreshNowPlaying: Bool = true, _ change: (inout PlaybackState) -> Void) {
         var new = state
         change(&new)
         guard new != state else { return }
         subject.send(new)
-        nowPlaying.update(new.item.map { NowPlayingInfo(title: $0.name, artist: $0.subtitle, isPlaying: new.status == .playing) })
+        guard refreshNowPlaying else { return }
+        nowPlaying.update(new.item.map {
+            NowPlayingInfo(title: $0.title, artist: $0.subtitle, isPlaying: new.status == .playing, isLive: $0.isLive,
+                           elapsed: new.position, duration: new.duration, rate: new.rate)
+        })
     }
 }

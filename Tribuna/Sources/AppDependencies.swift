@@ -30,8 +30,9 @@ struct AppDependencies {
             return
         }
         #endif
-        (matches, standings, bookmarks, reminders, stations, _, _, _, _) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
-        player = RadioPlayer()
+        let progress: ListeningProgressStore
+        (matches, standings, bookmarks, reminders, stations, _, _, _, progress) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
+        player = RadioPlayer(progress: progress)
     }
 }
 
@@ -114,15 +115,18 @@ private final class MockAudioPlayer: AudioPlayer {
     private let subject: CurrentValueSubject<PlaybackState, Never>
 
     init(playing station: Station) {
-        subject = CurrentValueSubject(PlaybackState(item: station, status: .playing, sleepTimerEndsAt: nil))
+        subject = CurrentValueSubject(PlaybackState(item: .station(station), status: .playing, sleepTimerEndsAt: nil))
     }
 
     var state: PlaybackState { subject.value }
     var statePublisher: AnyPublisher<PlaybackState, Never> { subject.eraseToAnyPublisher() }
-    func play(_ station: Station) { subject.value = PlaybackState(item: station, status: .playing, sleepTimerEndsAt: nil) }
+    func play(_ item: PlaybackItem) { subject.value = PlaybackState(item: item, status: .playing, sleepTimerEndsAt: nil) }
     func togglePlayPause() { subject.value.status = subject.value.status == .playing ? .paused : .playing }
     func stop() { subject.value = PlaybackState(item: nil, status: .idle, sleepTimerEndsAt: nil) }
     func setSleepTimer(minutes: Int?) { subject.value.sleepTimerEndsAt = minutes.map { Date().addingTimeInterval(TimeInterval($0 * 60)) } }
+    func seek(to position: TimeInterval) {}
+    func skip(by seconds: TimeInterval) {}
+    func setRate(_ rate: Float) {}
 }
 
 extension AppDependencies {
