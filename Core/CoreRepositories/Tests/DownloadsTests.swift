@@ -154,6 +154,15 @@ struct DownloadsTests {
         #expect(FileManager.default.fileExists(atPath: directory.appendingPathComponent("index.json").path))
     }
 
+    @Test func unreadableIndexKeepsFiles() throws {
+        try writeIndex("not json")
+        let file = directory.appendingPathComponent("x.mp3")
+        try Data(count: 5).write(to: file)
+
+        #expect(DownloadsIndex(directory: directory).load().isEmpty)
+        #expect(FileManager.default.fileExists(atPath: file.path))
+    }
+
     @Test func downloadIsIdempotent() throws {
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { cleanUp(defaults) }

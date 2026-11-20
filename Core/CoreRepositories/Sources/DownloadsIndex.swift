@@ -34,7 +34,9 @@ struct DownloadsIndex {
     /// Сверка с диском: у скачанной записи нет файла — записи нет; обложка — только если файл на месте (путь в JSON
     /// не берём, собираем заново). Файлы папки, на которые не ссылается ни одна запись, удаляются.
     func load() -> [Entry] {
-        let decoded = (try? Data(contentsOf: indexFile)).flatMap { try? JSONDecoder().decode([Lossy].self, from: $0) } ?? []
+        let exists = FileManager.default.fileExists(atPath: indexFile.path)
+        let parsed = (try? Data(contentsOf: indexFile)).flatMap { try? JSONDecoder().decode([Lossy].self, from: $0) }
+        let decoded = parsed ?? []
         let entries: [Entry] = decoded.compactMap(\.entry).compactMap { entry in
             var entry = entry
             if case .downloaded = entry.item.state {
@@ -44,7 +46,9 @@ struct DownloadsIndex {
             entry.item.artworkFile = FileManager.default.fileExists(atPath: artwork.path) ? artwork : nil
             return entry
         }
-        removeOrphans(keeping: entries)
+        // Индекс есть, но не прочитан (запуск в фоне до первой разблокировки, битый файл) — файлы не трогаем:
+        // иначе удалили бы все загрузки.
+        if parsed != nil || !exists { removeOrphans(keeping: entries) }
         return entries
     }
 
