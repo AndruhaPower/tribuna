@@ -59,6 +59,16 @@ struct FeedRepositoryTests {
         #expect(requests.value.count == 2)
     }
 
+    @Test func futureFetchDateIsStale() async throws {
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let repo = repository()
+        _ = try await repo.episodes(for: podcast, forceRefresh: false)
+        now.value -= 3600 // часы перевели назад: загрузка «из будущего»
+        response.value = .success(feed(item("b", day: 2)))
+        #expect(try await repo.episodes(for: podcast, forceRefresh: false).map(\.id.rawValue) == ["p1:b"])
+        #expect(requests.value.count == 2)
+    }
+
     @Test func forceRefreshSkipsThrottle() async throws {
         defer { try? FileManager.default.removeItem(at: directory) }
         let repo = repository()

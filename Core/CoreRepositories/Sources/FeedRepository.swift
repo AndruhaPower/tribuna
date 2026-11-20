@@ -38,7 +38,8 @@ struct FeedRepository: EpisodesRepository {
         let file = directory.appendingPathComponent(fileName(podcast.id))
         let cached = (try? Data(contentsOf: file)).flatMap { try? JSONDecoder().decode(Cache.self, from: $0) }
             .flatMap { $0.feedURL == podcast.feedURL ? $0 : nil }
-        if !forceRefresh, let cached, now().timeIntervalSince(cached.fetchedAt) < Self.refreshInterval {
+        // Время загрузки в будущем (часы перевели назад) — кеш считаем устаревшим.
+        if !forceRefresh, let cached, (0..<Self.refreshInterval).contains(now().timeIntervalSince(cached.fetchedAt)) {
             return cached.episodes
         }
         do {

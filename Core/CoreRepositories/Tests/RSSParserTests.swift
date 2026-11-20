@@ -61,7 +61,7 @@ struct RSSParserTests {
         #expect(RSSParser.duration(text) == seconds)
     }
 
-    @Test(arguments: ["", "abc", "1:2:3:4", "-5", "12:xx"])
+    @Test(arguments: ["", "abc", "1:2:3:4", "-5", "12:xx", "inf", "nan", "1:inf"])
     func rejectsBrokenDuration(text: String) {
         #expect(RSSParser.duration(text) == nil)
     }
@@ -100,6 +100,18 @@ struct RSSParserTests {
         <pubDate>Mon, 16 Nov 2026 19:44:45 GMT</pubDate><enclosure url="https://example.com/b.mp3" type="audio/mpeg"/></item>
         """), podcastID: "p")
         #expect(episodes.map(\.title) == ["«Спартак» & \"ЦСКА\" — A Б", "Рок & ролл «футбол»"])
+    }
+
+    @Test func toleratesHTMLEntitiesOutsideCDATA() throws {
+        let data = Data("""
+        <?xml version="1.0" encoding="UTF-8"?>
+        <rss version="2.0"><channel><title>Канал</title><description>Про&nbsp;спорт &mdash; и &foo; всё</description>
+        <item><guid>g</guid><title>&laquo;Спартак&raquo;&nbsp;&mdash; ЦСКА &amp; &foo;Зенит&hellip;</title>
+        <pubDate>Tue, 17 Nov 2026 19:44:45 GMT</pubDate><enclosure url="https://example.com/a.mp3" type="audio/mpeg"/></item>
+        </channel></rss>
+        """.utf8)
+        let episodes = try RSSParser.episodes(from: data, podcastID: "p")
+        #expect(episodes.map(\.title) == ["«Спартак» — ЦСКА &  Зенит…"])
     }
 
     @Test func ignoresHTTPArtworkAndChannelFields() throws {

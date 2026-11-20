@@ -10,7 +10,7 @@ enum RSSParser {
     /// Выпуски, новые первыми. Отбрасываются элементы без https-аудио (ATS) и без читаемой даты:
     /// без даты выпуск не встанет в список по времени и не посчитается «новым».
     static func episodes(from data: Data, podcastID: String) throws -> [Episode] {
-        let parser = XMLParser(data: data)
+        let parser = XMLParser(data: numericEntities(data))
         let collector = ItemCollector()
         parser.delegate = collector
         guard parser.parse() else { throw ParseError(underlying: parser.parserError) }
@@ -39,7 +39,7 @@ enum RSSParser {
         guard (1...3).contains(parts.count) else { return nil }
         var total: TimeInterval = 0
         for part in parts {
-            guard let value = Double(part), value >= 0 else { return nil }
+            guard let value = Double(part), value.isFinite, value >= 0 else { return nil }
             total = total * 60 + value
         }
         return total
@@ -50,10 +50,33 @@ enum RSSParser {
         return url
     }
 
+    private static let xmlBuiltins: Set<String> = ["amp", "lt", "gt", "quot", "apos"]
+    private static let named = ["amp": "&", "quot": "\"", "apos": "'", "lt": "<", "gt": ">", "nbsp": " ", "laquo": "«", "raquo": "»",
+                                "mdash": "—", "ndash": "–", "hellip": "…", "lsquo": "‘", "rsquo": "’", "ldquo": "“", "rdquo": "”",
+                                "bdquo": "„", "bull": "•", "middot": "·", "copy": "©", "reg": "®", "trade": "™", "times": "×", "deg": "°"]
+    private static let namedEntity = try! NSRegularExpression(pattern: "&([A-Za-z][A-Za-z0-9]{1,31});")
+
+    /// Именованные HTML-сущности вне XML (`&nbsp;`) роняют XMLParser на всей ленте: заменяем их числовыми,
+    /// неизвестные — пробелом. Пять встроенных XML-сущностей не трогаем. Не UTF-8 — оставляем как есть.
+    static func numericEntities(_ data: Data) -> Data {
+        guard let text = String(data: data, encoding: .utf8), text.contains("&") else { return data }
+        let source = text as NSString
+        var result = ""
+        var last = 0
+        for match in namedEntity.matches(in: text, range: NSRange(location: 0, length: source.length)) {
+            let name = source.substring(with: match.range(at: 1))
+            guard !xmlBuiltins.contains(name) else { continue }
+            result += source.substring(with: NSRange(location: last, length: match.range.location - last))
+            result += named[name].map { $0.unicodeScalars.map { "&#\($0.value);" }.joined() } ?? " "
+            last = match.range.location + match.range.length
+        }
+        guard last > 0 else { return data }
+        return Data((result + source.substring(from: last)).utf8)
+    }
+
     /// HTML-сущности, которые XMLParser не раскрывает: внутри CDATA и двойное экранирование.
     static func decodeEntities(_ text: String) -> String {
         guard text.contains("&") else { return text }
-        let named = ["amp": "&", "quot": "\"", "apos": "'", "lt": "<", "gt": ">", "nbsp": " ", "laquo": "«", "raquo": "»", "mdash": "—", "ndash": "–", "hellip": "…"]
         var result = ""
         var rest = Substring(text)
         while let amp = rest.firstIndex(of: "&") {
