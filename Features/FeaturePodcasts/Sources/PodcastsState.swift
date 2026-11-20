@@ -76,6 +76,8 @@ struct PodcastsState: Equatable {
         case subscriptions(tiles: [SubscriptionTile], episodes: EpisodesContent)
         /// Строится из снимков загрузок — каталог и сеть не нужны.
         case downloads(EpisodesContent)
+        /// «Подписки» и «Загрузки» без входа (D31): заголовок и «Войти».
+        case signIn(title: String)
     }
 
     enum EpisodesContent: Equatable {

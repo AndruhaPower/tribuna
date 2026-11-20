@@ -160,8 +160,8 @@ final class MatchViewController: UIViewController {
     }
 
     private func remind() {
-        Task { [weak self] in
-            guard let self, await viewModel.didTapRemind() else { return }
+        viewModel.didTapRemindButton { [weak self] in
+            guard let self else { return }
             let alert = UIAlertController(
                 title: "Уведомления выключены",
                 message: "Чтобы получить напоминание о матче, разрешите уведомления Tribuna в Настройках.",

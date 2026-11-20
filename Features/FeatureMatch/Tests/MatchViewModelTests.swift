@@ -7,6 +7,7 @@ import Testing
 struct MatchViewModelTests {
     let bookmarks = FakeBookmarksStore()
     let reminders = FakeRemindersStore()
+    let signIn = FakeSignIn()
 
     func makeViewModel(
         _ repository: FakeMatchesRepository,
@@ -16,7 +17,7 @@ struct MatchViewModelTests {
     ) -> MatchViewModel {
         MatchViewModel(
             matchID: id, matches: repository, standings: standings, bookmarks: bookmarks, reminders: reminders,
-            now: now, calendar: calendar()
+            requireSignIn: signIn.require, now: now, calendar: calendar()
         )
     }
 
@@ -358,5 +359,84 @@ struct MatchViewModelTests {
         viewModel.didEnterForeground()
         await viewModel.loadTask?.value
         #expect(repository.calls == 2)
+    }
+
+    // MARK: - Ворота (D31)
+
+    @Test func bookmarkGatedActionRunsAfterSignIn() async throws {
+        signIn.isSignedIn = false
+        let viewModel = makeViewModel(FakeMatchesRepository(match()))
+        await appear(viewModel)
+
+        viewModel.didToggleBookmark()
+        #expect(signIn.reasons == [.bookmark])
+        #expect(bookmarks.bookmarks.isEmpty)
+
+        signIn.signIn()
+        #expect(bookmarks.bookmarks == [footballID])
+        #expect(try #require(loaded(viewModel)).isBookmarked)
+    }
+
+    @Test func bookmarkGatedActionDroppedOnCancel() async {
+        signIn.isSignedIn = false
+        let viewModel = makeViewModel(FakeMatchesRepository(match()))
+        await appear(viewModel)
+
+        viewModel.didToggleBookmark()
+        signIn.cancel()
+        signIn.signIn()
+        #expect(bookmarks.bookmarks.isEmpty)
+    }
+
+    /// Закладка уже пришла с сервера после входа — «В закладки» её не снимает.
+    @Test func bookmarkGateKeepsBookmarkThatArrivedWithSignIn() async {
+        signIn.isSignedIn = false
+        let viewModel = makeViewModel(FakeMatchesRepository(match()))
+        await appear(viewModel)
+
+        viewModel.didToggleBookmark()
+        bookmarks.subject.value = [footballID]
+        signIn.signIn()
+        #expect(bookmarks.bookmarks == [footballID])
+    }
+
+    @Test func reminderGatedActionRunsAfterSignIn() async throws {
+        signIn.isSignedIn = false
+        bookmarks.subject.value = [footballID]
+        let viewModel = makeViewModel(FakeMatchesRepository(match()))
+        await appear(viewModel)
+
+        viewModel.didTapRemindButton(onDenied: {})
+        #expect(signIn.reasons == [.reminder])
+        #expect(viewModel.remindTask == nil)
+
+        signIn.signIn()
+        await viewModel.remindTask?.value
+        #expect(reminders.scheduledMatches == [footballID])
+        #expect(try #require(loaded(viewModel)).reminder == .on)
+    }
+
+    @Test func reminderGatedActionDroppedOnCancel() async {
+        signIn.isSignedIn = false
+        bookmarks.subject.value = [footballID]
+        let viewModel = makeViewModel(FakeMatchesRepository(match()))
+        await appear(viewModel)
+
+        viewModel.didTapRemindButton(onDenied: {})
+        signIn.cancel()
+        #expect(viewModel.remindTask == nil)
+        #expect(reminders.scheduledMatches.isEmpty)
+    }
+
+    @Test func remindButtonWhenSignedInReportsDenied() async {
+        reminders.scheduleResult = .denied
+        let viewModel = makeViewModel(FakeMatchesRepository(match()))
+        await appear(viewModel)
+
+        var denied = false
+        viewModel.didTapRemindButton { denied = true }
+        await viewModel.remindTask?.value
+        #expect(denied)
+        #expect(signIn.reasons.isEmpty)
     }
 }

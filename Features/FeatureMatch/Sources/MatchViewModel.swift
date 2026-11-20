@@ -8,12 +8,15 @@ final class MatchViewModel {
 
     /// Текущий запрос; тесты ждут его `value`.
     private(set) var loadTask: Task<Void, Never>?
+    /// Напоминание после нажатия «Напомнить»; тесты ждут его `value`.
+    private(set) var remindTask: Task<Void, Never>?
 
     private let matchID: MatchID
     private let matchesRepository: MatchesRepository
     private let standingsRepository: StandingsRepository
     private let bookmarksStore: BookmarksStore
     private let remindersStore: RemindersStore
+    private let requireSignIn: (SignInReason, @escaping @MainActor () -> Void) -> Void
     private let now: () -> Date
     private let calendar: Calendar
 
@@ -33,6 +36,7 @@ final class MatchViewModel {
         standings: StandingsRepository,
         bookmarks: BookmarksStore,
         reminders: RemindersStore,
+        requireSignIn: @escaping (SignInReason, @escaping @MainActor () -> Void) -> Void,
         now: @escaping () -> Date = Date.init,
         calendar: Calendar = .autoupdatingCurrent
     ) {
@@ -41,6 +45,7 @@ final class MatchViewModel {
         standingsRepository = standings
         bookmarksStore = bookmarks
         remindersStore = reminders
+        self.requireSignIn = requireSignIn
         self.now = now
         self.calendar = calendar
         self.bookmarks = bookmarks.bookmarks
@@ -86,8 +91,25 @@ final class MatchViewModel {
         load()
     }
 
+    /// Ворота (D31): без входа — лист входа, закладка — после входа. Пока входили, закладка могла прийти
+    /// с сервера — тогда не трогаем (переключаем, только если состояние то, что видел человек).
     func didToggleBookmark() {
-        bookmarksStore.toggle(matchID)
+        let wasOn = bookmarks.contains(matchID)
+        requireSignIn(.bookmark) { [weak self] in
+            guard let self, bookmarksStore.bookmarks.contains(matchID) == wasOn else { return }
+            bookmarksStore.toggle(matchID)
+        }
+    }
+
+    /// «Напомнить» за воротами (D31); `onDenied` — уведомления запрещены.
+    func didTapRemindButton(onDenied: @escaping @MainActor () -> Void) {
+        let wasOn = reminders.contains(matchID)
+        requireSignIn(.reminder) { [weak self] in
+            guard let self, reminders.contains(matchID) == wasOn else { return }
+            remindTask = Task { [weak self] in
+                if await self?.didTapRemind() == true { onDenied() }
+            }
+        }
     }
 
     /// Ставит или снимает напоминание. true — уведомления запрещены, показать алерт со ссылкой в Настройки.

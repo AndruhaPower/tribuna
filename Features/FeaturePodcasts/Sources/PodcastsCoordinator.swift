@@ -22,8 +22,10 @@ final class PodcastsCoordinator {
             progress: dependencies.progress,
             player: dependencies.player,
             downloads: dependencies.downloads,
+            account: dependencies.account,
             onOpenPodcast: { [self] in openPodcast($0) },
-            onOpenPlayer: output.openPlayer
+            onOpenPlayer: output.openPlayer,
+            requireSignIn: output.requireSignIn
         ))
         root = controller
         return controller
@@ -37,7 +39,8 @@ final class PodcastsCoordinator {
             progress: dependencies.progress,
             player: dependencies.player,
             downloads: dependencies.downloads,
-            onOpenPlayer: output.openPlayer
+            onOpenPlayer: output.openPlayer,
+            requireSignIn: output.requireSignIn
         ))
         root?.navigationController?.pushViewController(controller, animated: true)
     }

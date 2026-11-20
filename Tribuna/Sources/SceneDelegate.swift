@@ -18,12 +18,18 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = scene as? UIWindowScene else { return }
         // Выход или смена пользователя — снять напоминания и удалить загрузки (D31).
-        var cleanupDefaults = UserDefaults.standard
+        var cleanupDefaults: UserDefaults? = .standard
         #if DEBUG
-        if AppDependencies.isProfileMock { cleanupDefaults = AppDependencies.profileMockDefaults }
+        if AppDependencies.isProfileMock {
+            cleanupDefaults = AppDependencies.profileMockDefaults
+        } else if dependencies.account is MockAccount {
+            // Моки вёрстки на «вошедшем» `MockAccount`: вход не меняется, а владелец «mock» в настоящем наборе стёр бы данные при обычном запуске.
+            cleanupDefaults = nil
+        }
         #endif
-        cleanup = AccountCleanup(account: dependencies.account, reminders: dependencies.reminders,
-                                 downloads: dependencies.downloads, defaults: cleanupDefaults)
+        cleanup = cleanupDefaults.map {
+            AccountCleanup(account: dependencies.account, reminders: dependencies.reminders, downloads: dependencies.downloads, defaults: $0)
+        }
         let window = UIWindow(windowScene: windowScene)
         window.rootViewController = makeTabBar()
         window.makeKeyAndVisible()
@@ -67,9 +73,10 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 subscriptions: dependencies.subscriptions,
                 progress: dependencies.progress,
                 player: dependencies.player,
-                downloads: dependencies.downloads
+                downloads: dependencies.downloads,
+                account: dependencies.account
             ),
-            output: .init(openPlayer: { [weak self] in self?.openPlayer() })
+            output: .init(openPlayer: { [weak self] in self?.openPlayer() }, requireSignIn: { [weak self] in self?.requireSignIn($0, then: $1) })
         )
         let miniPlayer = FeaturePlayer.makeMiniPlayer(player: dependencies.player, onOpen: { [weak self] in self?.openPlayer() })
         let tabBar = MainTabBarController(tabs: [
@@ -132,7 +139,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     /// Плеер (лист) поверх вкладок — из «Эфира», «Подкастов» и мини-плеера.
     private func openPlayer() {
         guard let root = window?.rootViewController, root.presentedViewController == nil else { return }
-        root.present(FeaturePlayer.makePlayer(player: dependencies.player, downloads: dependencies.downloads), animated: true)
+        let player = FeaturePlayer.makePlayer(player: dependencies.player, downloads: dependencies.downloads,
+                                              requireSignIn: { [weak self] in self?.requireSignIn($0, then: $1) })
+        root.present(player, animated: true)
     }
 
     private func makeToday() -> UIViewController {
@@ -142,7 +151,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             output: .init(openMatch: { [weak self] id in
                 guard let self, let navigation = today?.navigationController else { return }
                 navigation.pushViewController(makeMatch(id), animated: true)
-            })
+            }, requireSignIn: { [weak self] in self?.requireSignIn($0, then: $1) })
         )
         today = controller
         #if DEBUG
@@ -167,7 +176,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             output: .init(openSettings: {
                 guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
                 UIApplication.shared.open(url)
-            }),
+            }, requireSignIn: { [weak self] in self?.requireSignIn($0, then: $1) }),
             matchID: id
         )
     }

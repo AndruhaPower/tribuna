@@ -10,14 +10,22 @@ final class PlayerViewModel {
     private let player: AudioPlayer
     /// nil у мини-плеера: кнопки загрузки там нет.
     private let downloads: EpisodeDownloads?
+    private let requireSignIn: (SignInReason, @escaping @MainActor () -> Void) -> Void
     private let now: () -> Date
     private var subscriptions: Set<AnyCancellable> = []
     /// Куда тянут ползунок; пока не nil, позиция плеера не двигает бегунок и время.
     private var scrubPosition: TimeInterval?
 
-    init(player: AudioPlayer, downloads: EpisodeDownloads? = nil, now: @escaping () -> Date = Date.init) {
+    /// `requireSignIn` — ворота «Скачать» (D31); у мини-плеера загрузок нет, ворота не нужны.
+    init(
+        player: AudioPlayer,
+        downloads: EpisodeDownloads? = nil,
+        requireSignIn: @escaping (SignInReason, @escaping @MainActor () -> Void) -> Void = { $1() },
+        now: @escaping () -> Date = Date.init
+    ) {
         self.player = player
         self.downloads = downloads
+        self.requireSignIn = requireSignIn
         self.now = now
         refresh()
         player.statePublisher.sink { [weak self] _ in
@@ -95,9 +103,15 @@ final class PlayerViewModel {
     }
 
     /// «Скачать»: качаем, только если записи нет или загрузка не удалась; «Скачан» удаляется через подтверждение.
+    /// Без входа — лист входа (D31), загрузка — после входа, если выпуск всё ещё не скачивается.
     func didTapDownload() {
         guard let (episode, podcast) = currentEpisode, state?.progress?.download == .download else { return }
-        downloads?.download(episode, podcast: podcast)
+        requireSignIn(.download) { [weak self] in
+            switch self?.downloads?.item(episode.id)?.state {
+            case nil, .failed: self?.downloads?.download(episode, podcast: podcast)
+            default: break
+            }
+        }
     }
 
     /// «Удалить загрузку?» → «Удалить». Воспроизведение не трогаем, даже если играет этот файл.

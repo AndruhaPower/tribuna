@@ -74,6 +74,37 @@ struct PlayerDownloadTests {
         #expect(viewModel.state?.progress?.download == .download)
     }
 
+    @Test func downloadGatedActionRunsAfterSignIn() {
+        let player = FakeAudioPlayer()
+        let downloads = FakeDownloads()
+        let signIn = FakeSignIn()
+        signIn.isSignedIn = false
+        let viewModel = PlayerViewModel(player: player, downloads: downloads, requireSignIn: signIn.require)
+        playing(player)
+
+        viewModel.didTapDownload()
+        #expect(signIn.reasons == [.download])
+        #expect(downloads.downloaded.isEmpty)
+
+        signIn.signIn()
+        #expect(downloads.downloaded == [episode.id])
+        #expect(viewModel.state?.progress?.download == .progress("0 %"))
+    }
+
+    @Test func downloadGatedActionDroppedOnCancel() {
+        let player = FakeAudioPlayer()
+        let downloads = FakeDownloads()
+        let signIn = FakeSignIn()
+        signIn.isSignedIn = false
+        let viewModel = PlayerViewModel(player: player, downloads: downloads, requireSignIn: signIn.require)
+        playing(player)
+
+        viewModel.didTapDownload()
+        signIn.cancel()
+        signIn.signIn()
+        #expect(downloads.downloaded.isEmpty)
+    }
+
     /// Удаление скачанного играющего выпуска не трогает воспроизведение — кнопка снова «Скачать».
     @Test func removeWhilePlayingKeepsState() {
         let player = FakeAudioPlayer()
@@ -105,4 +136,28 @@ struct PlayerDownloadTests {
         downloads.subject.value = [DownloadedEpisode(episode: episode, podcast: podcast, addedAt: Date(), state: .downloaded(bytes: 1), artworkFile: local)]
         #expect(viewModel.state?.artworkURL == local)
     }
+}
+
+/// Фейковые ворота (D31): вошёл — действие сразу, как у приложения; иначе запоминает повод и ждёт `signIn()` / `cancel()`.
+@MainActor
+final class FakeSignIn {
+    var isSignedIn = true
+    private(set) var reasons: [SignInReason] = []
+    private var pending: (@MainActor () -> Void)?
+
+    func require(_ reason: SignInReason, then action: @escaping @MainActor () -> Void) {
+        if isSignedIn { return action() }
+        reasons.append(reason)
+        pending = action
+    }
+
+    /// Вход удался — действие выполняется.
+    func signIn() {
+        isSignedIn = true
+        pending?()
+        pending = nil
+    }
+
+    /// Лист закрыли без входа.
+    func cancel() { pending = nil }
 }

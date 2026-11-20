@@ -27,12 +27,14 @@ final class PodcastsViewController: UIViewController {
         var podcasts: [String: PodcastRow] = [:]
         var lastItem: Item?
         var status: StatusMessage?
+        /// Статус — приглашение войти: кнопка «Войти» вместо «Повторить».
+        var signsIn = false
 
         /// Содержимое элемента для сравнения со старым; nil — элемента не было.
         func value(for item: Item) -> AnyHashable? {
             switch item {
             case .header: AnyHashable([AnyHashable(segment), AnyHashable(badge)])
-            case .status: status.map(AnyHashable.init)
+            case .status: status.map { AnyHashable([AnyHashable($0), AnyHashable(signsIn)]) }
             case let .tile(id): tiles[id].map(AnyHashable.init)
             case let .episode(id): episodes[id].map { AnyHashable([AnyHashable($0), AnyHashable(lastItem == item)]) }
             case let .podcast(id): podcasts[id].map { AnyHashable([AnyHashable($0), AnyHashable(lastItem == item)]) }
@@ -110,6 +112,9 @@ final class PodcastsViewController: UIViewController {
             append(episodes, to: .episodes, &snapshot, &new)
         case let .downloads(episodes):
             append(episodes, to: .downloads, &snapshot, &new)
+        case let .signIn(title):
+            new.status = StatusMessage(message: title, showsRetry: true)
+            new.signsIn = true
         }
         if new.status != nil {
             snapshot.appendSections([.status])
@@ -169,8 +174,9 @@ final class PodcastsViewController: UIViewController {
         }
         let statusCell = UICollectionView.CellRegistration<StatusCell, Item> { [weak self] cell, _, _ in
             let status = self?.payload.status
-            cell.configure(message: status?.message, showsRetry: status?.showsRetry ?? false)
-            cell.onRetry = { self?.viewModel.didTapRetry() }
+            let signsIn = self?.payload.signsIn ?? false
+            cell.configure(message: status?.message, showsRetry: status?.showsRetry ?? false, buttonTitle: signsIn ? "Войти" : "Повторить")
+            cell.onRetry = { signsIn ? self?.viewModel.didTapSignIn() : self?.viewModel.didTapRetry() }
         }
 
         let dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) { collectionView, indexPath, item in

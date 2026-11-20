@@ -117,3 +117,27 @@ final class FakeBookmarksStore: BookmarksStore {
         if subject.value.contains(id) { subject.value.remove(id) } else { subject.value.insert(id) }
     }
 }
+
+/// Фейковые ворота (D31): вошёл — действие сразу, как у приложения; иначе запоминает повод и ждёт `signIn()` / `cancel()`.
+@MainActor
+final class FakeSignIn {
+    var isSignedIn = true
+    private(set) var reasons: [SignInReason] = []
+    private var pending: (@MainActor () -> Void)?
+
+    func require(_ reason: SignInReason, then action: @escaping @MainActor () -> Void) {
+        if isSignedIn { return action() }
+        reasons.append(reason)
+        pending = action
+    }
+
+    /// Вход удался — действие выполняется.
+    func signIn() {
+        isSignedIn = true
+        pending?()
+        pending = nil
+    }
+
+    /// Лист закрыли без входа.
+    func cancel() { pending = nil }
+}

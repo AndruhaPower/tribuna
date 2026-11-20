@@ -20,7 +20,8 @@ struct AppDependencies {
     let player: AudioPlayer
     /// Загрузки выпусков; одни и те же и для отладочных моков, кроме `-PodcastsMockData`.
     private(set) var downloads: EpisodeDownloads = Self.backgroundDownloads
-    /// Аккаунт для Профиля и ворот; настоящий, кроме `-ProfileMock`.
+    /// Аккаунт для Профиля и ворот; настоящий, кроме `-ProfileMock` и моков вёрстки «Сегодня», «Матча» и «Подкастов»
+    /// (там «вошедший» `MockAccount` — ворота пропускают, вкладки на данных макета).
     private(set) var account: Account = Self.account.account
 
     /// Единственная фоновая сессия загрузок: `Services.make` моки зовут несколько раз, поэтому не там.
@@ -38,6 +39,7 @@ struct AppDependencies {
             (_, _, _, _, _, podcasts, episodes, subscriptions, progress) = Self.services()
             // С `-RadioMockData` — ещё и мини-плеер со «Стадион FM», как на макете «Сегодня».
             player = Self.radioMock()?.player ?? RadioPlayer()
+            account = MockAccount()
             return
         }
         if let radio = Self.radioMock() {
@@ -53,6 +55,7 @@ struct AppDependencies {
         if let mock = Self.podcastsMock() {
             (matches, standings, bookmarks, reminders, stations, _, _, _, _) = Self.services()
             (podcasts, episodes, subscriptions, progress, player, downloads) = mock
+            account = MockAccount()
             return
         }
         #endif

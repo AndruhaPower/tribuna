@@ -19,9 +19,12 @@ public enum FeatureMatch {
     public struct Output {
         /// Уведомления запрещены — открыть настройки приложения.
         let openSettings: () -> Void
+        /// Ворота (D31): вошёл — сразу действие, иначе лист входа и действие после входа.
+        let requireSignIn: (SignInReason, @escaping @MainActor () -> Void) -> Void
 
-        public init(openSettings: @escaping () -> Void) {
+        public init(openSettings: @escaping () -> Void, requireSignIn: @escaping (SignInReason, @escaping @MainActor () -> Void) -> Void) {
             self.openSettings = openSettings
+            self.requireSignIn = requireSignIn
         }
     }
 
@@ -32,7 +35,8 @@ public enum FeatureMatch {
                 matches: dependencies.matches,
                 standings: dependencies.standings,
                 bookmarks: dependencies.bookmarks,
-                reminders: dependencies.reminders
+                reminders: dependencies.reminders,
+                requireSignIn: output.requireSignIn
             ),
             output: output
         )

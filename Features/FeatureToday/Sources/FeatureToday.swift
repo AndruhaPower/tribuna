@@ -14,9 +14,12 @@ public enum FeatureToday {
 
     public struct Output {
         let openMatch: (MatchID) -> Void
+        /// Ворота (D31): вошёл — сразу действие, иначе лист входа и действие после входа.
+        let requireSignIn: (SignInReason, @escaping @MainActor () -> Void) -> Void
 
-        public init(openMatch: @escaping (MatchID) -> Void) {
+        public init(openMatch: @escaping (MatchID) -> Void, requireSignIn: @escaping (SignInReason, @escaping @MainActor () -> Void) -> Void) {
             self.openMatch = openMatch
+            self.requireSignIn = requireSignIn
         }
     }
 
@@ -24,7 +27,8 @@ public enum FeatureToday {
         TodayViewController(viewModel: TodayViewModel(
             matches: dependencies.matches,
             bookmarks: dependencies.bookmarks,
-            onOpenMatch: output.openMatch
+            onOpenMatch: output.openMatch,
+            requireSignIn: output.requireSignIn
         ))
     }
 }
