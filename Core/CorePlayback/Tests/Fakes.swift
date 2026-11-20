@@ -7,9 +7,19 @@ import Foundation
 final class FakeEngine: PlaybackEngine {
     var onEvent: ((PlaybackEngineEvent) -> Void)?
     private(set) var played: [URL] = []
+    /// Позиции, с которых запускали потоки.
+    private(set) var startPositions: [TimeInterval] = []
     private(set) var stopCount = 0
-    func play(_ url: URL) { played.append(url) }
+    private(set) var pauseCount = 0
+    private(set) var resumeCount = 0
+    private(set) var seeks: [TimeInterval] = []
+    private(set) var rate: Float = 1
+    func play(_ url: URL, from position: TimeInterval) { played.append(url); startPositions.append(position) }
     func stop() { stopCount += 1 }
+    func pause() { pauseCount += 1 }
+    func resume() { resumeCount += 1 }
+    func seek(to position: TimeInterval) { seeks.append(position) }
+    func setRate(_ rate: Float) { self.rate = rate }
     func send(_ event: PlaybackEngineEvent) { onEvent?(event) }
 }
 
@@ -71,3 +81,32 @@ let sportFM = Station(
     id: "sportfm", name: "Спорт FM", streamURL: URL(string: "http://example.com/sport.aac")!, country: "RU",
     bitrate: nil, genres: [.sport], subtitle: "Спортивное радио", featuredOrder: nil
 )
+
+@MainActor
+final class FakeProgressStore: ListeningProgressStore {
+    let subject = CurrentValueSubject<[EpisodeID: ListeningProgress], Never>([:])
+    /// Все сохранения позиции по порядку.
+    private(set) var saved: [TimeInterval] = []
+    var progress: [EpisodeID: ListeningProgress] { subject.value }
+    var progressPublisher: AnyPublisher<[EpisodeID: ListeningProgress], Never> { subject.eraseToAnyPublisher() }
+
+    func setPosition(_ position: TimeInterval, for id: EpisodeID) {
+        saved.append(position)
+        subject.value[id, default: ListeningProgress(position: 0, isFinished: false)].position = position
+    }
+
+    func markFinished(_ id: EpisodeID) { subject.value[id] = ListeningProgress(position: 0, isFinished: true) }
+}
+
+let derby = Podcast(
+    id: "derby", title: "Дерби", author: "Редакция", feedURL: URL(string: "https://example.com/derby.rss")!,
+    artworkURL: URL(string: "https://example.com/derby.jpg")!, featuredOrder: 1
+)
+
+func episode(_ guid: String, duration: TimeInterval? = 1000) -> Episode {
+    Episode(
+        id: EpisodeID(podcastID: derby.id, guid: guid), podcastID: derby.id, title: "Выпуск \(guid)",
+        publishedAt: Date(timeIntervalSince1970: 0), duration: duration,
+        audioURL: URL(string: "https://example.com/\(guid).mp3")!, artworkURL: nil, link: nil
+    )
+}

@@ -3,9 +3,9 @@ import CoreUI
 import SnapKit
 import UIKit
 
-/// Плеер радио (лист) по макету «Плеер» (подкастный, без перемотки, скорости, «Скачан», «Поделиться» и «…»).
-/// Лист (large) с системным «язычком». Отступы — замер макета от верха и от карточки; карточка квадратная во всю ширину
-/// без полей 24 pt, на низких экранах (iPhone SE) сначала сжимается промежуток до play, затем карточка.
+/// Плеер (лист) по макету «Плеер». У выпуска — ползунок, время, скорость, −15/+30 и «Поделиться» («Скачан» и «…» — позже);
+/// у радио их нет. Лист (large) с системным «язычком». Отступы — замер макета от верха и от карточки; карточка квадратная
+/// во всю ширину без полей 24 pt, на низких экранах (iPhone SE) сначала сжимаются промежутки до play, затем карточка.
 final class PlayerViewController: UIViewController {
     /// 19 столбиков 8 pt, первые 9 — светлые (рисунок макета).
     private static let waveStyle = WaveView.Style(
@@ -25,6 +25,14 @@ final class PlayerViewController: UIViewController {
     private let sleepLabel = UILabel()
     private var subscription: AnyCancellable?
     private var timer: Timer?
+    // Выпуск.
+    private let slider = ProgressSlider()
+    private let elapsedLabel = UILabel()
+    private let remainingLabel = UILabel()
+    private let speedButton = UIButton(type: .system)
+    private lazy var skipBackButton = skipButton(seconds: -15, icon: "skip-back", label: "Назад на 15 секунд")
+    private lazy var skipForwardButton = skipButton(seconds: 30, icon: "skip-forward", label: "Вперёд на 30 секунд")
+    private let shareButton = UIButton(type: .system)
 
     init(viewModel: PlayerViewModel) {
         self.viewModel = viewModel
@@ -148,7 +156,122 @@ final class PlayerViewController: UIViewController {
             $0.bottom.lessThanOrEqualTo(safe).offset(-16)
         }
 
+        // Вариант экрана выбирается при открытии: пока лист открыт, сменить эфир на выпуск нельзя.
+        if viewModel.state?.progress != nil { setUpEpisodeControls(card: card) }
+
         subscription = viewModel.$state.sink { [weak self] in self?.render($0) }
+    }
+
+    /// Ниже карточки у выпуска: ползунок, время, скорость, −15 / play / +30 / сон, «Поделиться» (замер макета от низа карточки).
+    private func setUpEpisodeControls(card: UIView) {
+        let safe = view.safeAreaLayoutGuide
+        slider.addAction(UIAction { [weak self] _ in
+            // Слайдер iOS 26 шлёт последний `valueChanged` уже после отпускания — он не должен снова «взять» бегунок.
+            guard let self, slider.isTracking else { return }
+            viewModel.scrub(to: slider.value)
+        }, for: .valueChanged)
+        slider.addAction(UIAction { [weak self] _ in
+            guard let self else { return }
+            viewModel.endScrubbing(at: slider.value)
+        }, for: [.touchUpInside, .touchUpOutside])
+        slider.addAction(UIAction { [weak self] _ in self?.viewModel.cancelScrubbing() }, for: .touchCancel)
+        slider.onAccessibilityAdjust = { [weak self] in self?.viewModel.didAdjustAccessibility(forward: $0) }
+        slider.accessibilityLabel = "Позиция"
+        for label in [elapsedLabel, remainingLabel] {
+            label.font = Typography.digits(13, .medium)
+            label.textColor = Palette.textSecondary
+            // Время прочтёт ползунок.
+            label.isAccessibilityElement = false
+        }
+        speedButton.titleLabel?.font = Typography.text(13, .bold)
+        speedButton.setTitleColor(Palette.textPrimary, for: .normal)
+        speedButton.layer.cornerRadius = 13
+        speedButton.layer.borderWidth = 1
+        speedButton.layer.borderColor = Palette.track.cgColor
+        speedButton.addAction(UIAction { [weak self] _ in self?.viewModel.didTapSpeed() }, for: .touchUpInside)
+
+        var share = UIButton.Configuration.plain()
+        share.attributedTitle = AttributedString("Поделиться", attributes: AttributeContainer([.font: Typography.text(16, .semibold)]))
+        share.image = UIImage(named: "share", in: .module, compatibleWith: nil)
+        share.imagePadding = 11.5
+        share.baseForegroundColor = Palette.textPrimary
+        share.background.backgroundColor = Palette.surface
+        share.background.cornerRadius = 14
+        share.background.strokeColor = Palette.track
+        share.background.strokeWidth = 1
+        shareButton.configuration = share
+        shareButton.addAction(UIAction { [weak self] _ in self?.share() }, for: .touchUpInside)
+
+        [slider, elapsedLabel, remainingLabel, speedButton, skipBackButton, skipForwardButton, shareButton].forEach(view.addSubview)
+        slider.snp.makeConstraints {
+            $0.leading.trailing.equalToSuperview().inset(24)
+            $0.height.equalTo(44)
+            $0.centerY.equalTo(card.snp.bottom).offset(101)
+        }
+        elapsedLabel.snp.makeConstraints {
+            $0.leading.equalToSuperview().offset(24)
+            $0.firstBaseline.equalTo(card.snp.bottom).offset(123.5)
+        }
+        remainingLabel.snp.makeConstraints {
+            $0.trailing.equalToSuperview().inset(24)
+            $0.firstBaseline.equalTo(elapsedLabel)
+        }
+        playButton.snp.makeConstraints { $0.top.greaterThanOrEqualTo(elapsedLabel.snp.lastBaseline).offset(16) }
+        speedButton.snp.makeConstraints {
+            $0.width.equalTo(56)
+            $0.height.equalTo(44)
+            $0.leading.equalToSuperview().offset(24)
+            $0.centerY.equalTo(playButton)
+        }
+        for (button, offset) in [(skipBackButton, -76.5), (skipForwardButton, 76.5)] {
+            button.snp.makeConstraints {
+                $0.size.equalTo(44)
+                $0.centerY.equalTo(playButton)
+                $0.centerX.equalTo(playButton).offset(offset)
+            }
+        }
+        shareButton.snp.makeConstraints {
+            $0.leading.trailing.equalToSuperview().inset(24)
+            $0.height.equalTo(48)
+            $0.top.equalTo(card.snp.bottom).offset(273.5).priority(700)
+            $0.top.greaterThanOrEqualTo(sleepLabel.snp.bottom).offset(8)
+            $0.bottom.lessThanOrEqualTo(safe).offset(-16)
+        }
+    }
+
+    /// Круглая стрелка в стиле Lucide с числом секунд внутри (макет).
+    private func skipButton(seconds: TimeInterval, icon: String, label: String) -> UIButton {
+        let button = UIButton(type: .system)
+        button.setImage(UIImage(named: icon, in: .module, compatibleWith: nil), for: .normal)
+        button.tintColor = Palette.textPrimary
+        button.accessibilityLabel = label
+        button.addAction(UIAction { [weak self] _ in self?.viewModel.didTapSkip(by: seconds) }, for: .touchUpInside)
+        let number = UILabel()
+        number.text = "\(Int(abs(seconds)))"
+        number.font = Typography.text(10, .bold)
+        number.textColor = Palette.textPrimary
+        number.isUserInteractionEnabled = false
+        button.addSubview(number)
+        // Центр круга значка на 2 pt ниже центра кнопки (стрелка сверху).
+        number.snp.makeConstraints {
+            $0.centerX.equalToSuperview()
+            $0.centerY.equalToSuperview().offset(2)
+        }
+        return button
+    }
+
+    private func share() {
+        let activity = UIActivityViewController(activityItems: viewModel.shareItems(), applicationActivities: nil)
+        activity.popoverPresentationController?.sourceView = shareButton
+        present(activity, animated: true)
+    }
+
+    /// Сжатая карточка (iPhone SE) и название в две строки: волна сжимается по высоте между подписью и названием.
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        let room = min(wave.center.y - captionLabel.frame.maxY, cardNameLabel.frame.minY - wave.center.y) - 12
+        let scale = max(0, min(1, 2 * room / Self.waveStyle.height))
+        wave.transform = CGAffineTransform(scaleX: 1, y: scale)
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -188,6 +311,25 @@ final class PlayerViewController: UIViewController {
         sleepLabel.text = state.sleepTimer
         sleepButton.tintColor = state.sleepTimer == nil ? Palette.textPrimary : Palette.accent
         sleepButton.accessibilityValue = state.sleepTimer ?? "выключен"
+        subtitleLabel.numberOfLines = state.progress == nil ? 2 : 1
+        renderProgress(state.progress)
+    }
+
+    private func renderProgress(_ progress: PlayerState.Progress?) {
+        let views: [UIView] = [slider, elapsedLabel, remainingLabel, speedButton, skipBackButton, skipForwardButton, shareButton]
+        views.forEach { $0.isHidden = progress == nil }
+        guard let progress else { return }
+        // Пока палец на ползунке, модель отдаёт значение под пальцем — бегунок не дёргается.
+        if !slider.isTracking { slider.value = progress.fraction ?? 0 }
+        slider.isEnabled = progress.fraction != nil
+        slider.spokenValue = progress.accessibilityValue
+        elapsedLabel.text = progress.elapsed
+        remainingLabel.text = progress.remaining
+        UIView.performWithoutAnimation {
+            speedButton.setTitle(progress.speed, for: .normal)
+            speedButton.layoutIfNeeded()
+        }
+        speedButton.accessibilityLabel = progress.speedLabel
     }
 
     private func showSleepTimerOptions() {
@@ -206,4 +348,37 @@ final class PlayerViewController: UIViewController {
         sheet.popoverPresentationController?.sourceView = sleepButton
         present(sheet, animated: true)
     }
+}
+
+/// Ползунок позиции выпуска: дорожка 6 pt, бегунок 16 pt (макет); VoiceOver — ±15 с и «18 минут 42 секунды из 34 минут».
+private final class ProgressSlider: UISlider {
+    var onAccessibilityAdjust: ((Bool) -> Void)?
+    var spokenValue: String?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        minimumTrackTintColor = Palette.accent
+        maximumTrackTintColor = Palette.track
+        let thumb = UIGraphicsImageRenderer(size: CGSize(width: 16, height: 16)).image { _ in
+            Palette.accent.setFill()
+            UIBezierPath(ovalIn: CGRect(x: 0, y: 0, width: 16, height: 16)).fill()
+        }
+        setThumbImage(thumb, for: .normal)
+        setThumbImage(thumb, for: .highlighted)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) не используется") }
+
+    override func trackRect(forBounds bounds: CGRect) -> CGRect {
+        CGRect(x: bounds.minX, y: bounds.midY - 3, width: bounds.width, height: 6)
+    }
+
+    override var accessibilityValue: String? {
+        get { spokenValue }
+        set { spokenValue = newValue }
+    }
+
+    override func accessibilityIncrement() { onAccessibilityAdjust?(true) }
+    override func accessibilityDecrement() { onAccessibilityAdjust?(false) }
 }

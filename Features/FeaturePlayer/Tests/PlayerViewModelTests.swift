@@ -10,18 +10,24 @@ final class FakeAudioPlayer: AudioPlayer {
     private(set) var toggles = 0
     private(set) var stops = 0
     private(set) var sleepTimers: [Int?] = []
+    private(set) var seeks: [TimeInterval] = []
+    private(set) var skips: [TimeInterval] = []
+    private(set) var rates: [Float] = []
 
     var state: PlaybackState { subject.value }
     var statePublisher: AnyPublisher<PlaybackState, Never> { subject.eraseToAnyPublisher() }
 
     func set(_ item: Station?, _ status: PlaybackStatus, sleepTimerEndsAt: Date? = nil) {
-        subject.value = PlaybackState(item: item, status: status, sleepTimerEndsAt: sleepTimerEndsAt)
+        subject.value = PlaybackState(item: item.map(PlaybackItem.station), status: status, sleepTimerEndsAt: sleepTimerEndsAt)
     }
 
-    func play(_ station: Station) {}
+    func play(_ item: PlaybackItem) {}
     func togglePlayPause() { toggles += 1 }
     func stop() { stops += 1 }
     func setSleepTimer(minutes: Int?) { sleepTimers.append(minutes) }
+    func seek(to position: TimeInterval) { seeks.append(position) }
+    func skip(by seconds: TimeInterval) { skips.append(seconds) }
+    func setRate(_ rate: Float) { rates.append(rate) }
 }
 
 @MainActor
@@ -40,6 +46,9 @@ struct PlayerViewModelTests {
         player.set(stadion, .playing)
         let state = try #require(viewModel.state)
         #expect(state.name == "Стадион FM")
+        // У эфира нет позиции, скорости и обложки — плеер радио как прежде.
+        #expect(state.progress == nil)
+        #expect(state.artworkURL == nil)
         #expect(state.header == "Радио · Стадион FM")
         #expect(state.caption == "ФУТБОЛ · ЭФИР")
 
