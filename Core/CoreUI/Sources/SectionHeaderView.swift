@@ -44,8 +44,9 @@ public final class SectionHeaderView: UICollectionReusableView {
 
     /// `iconURL` — значок турнира перед названием; nil — без значка.
     public func configure(title: String, trailing: String?, iconURL: URL? = nil) {
-        iconView.setImage(url: iconURL)
-        titleLeading?.update(offset: iconURL == nil ? 0 : Self.iconSize + 6)
+        iconView.setImage(url: iconURL) { [weak self] visible in
+            self?.titleLeading?.update(offset: visible ? Self.iconSize + 6 : 0)
+        }
         titleLabel.attributedText = NSAttributedString(string: title, attributes: [
             .font: titleFont,
             .foregroundColor: Palette.textSecondary,

@@ -63,7 +63,7 @@ final class StandingsRowCell: UICollectionViewCell {
 
     func configureHeader() {
         logoView.setImage(url: nil)
-        nameLeading?.update(offset: 50.5)
+        nameLeading?.update(offset: 50.5 + 20 + 8)
         apply(["#", "Команда", "И", "О"], font: Typography.text(13), color: Palette.textSecondary)
         contentView.backgroundColor = Palette.surface
         contentView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]

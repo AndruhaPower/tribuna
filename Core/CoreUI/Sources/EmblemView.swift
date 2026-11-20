@@ -10,6 +10,7 @@ public final class EmblemView: UIView {
         super.init(frame: .zero)
         backgroundColor = UIColor(white: 1, alpha: 0.92)
         layer.cornerRadius = 5
+        isHidden = true
         imageView.contentMode = .scaleAspectFit
         addSubview(imageView)
         imageView.snp.makeConstraints { $0.edges.equalToSuperview().inset(2) }
@@ -19,9 +20,14 @@ public final class EmblemView: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) не используется") }
 
-    /// nil — значок скрыт.
-    public func setImage(url: URL?) {
-        isHidden = url == nil
-        imageView.setImage(url: url)
+    /// Значок скрыт, пока картинка не загрузилась (и если загрузка не удалась).
+    /// `onVisibilityChange` — чтобы владелец освободил или занял место под значок.
+    public func setImage(url: URL?, loader: ImageLoader = .shared, onVisibilityChange: ((Bool) -> Void)? = nil) {
+        isHidden = true
+        onVisibilityChange?(false)
+        imageView.setImage(url: url, loader: loader) { [weak self] in
+            self?.isHidden = false
+            onVisibilityChange?(true)
+        }
     }
 }

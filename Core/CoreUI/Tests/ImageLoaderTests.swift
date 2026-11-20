@@ -102,3 +102,26 @@ struct TeamBadgeReuseTests {
         #expect(view.image == nil)
     }
 }
+
+@MainActor
+struct EmblemViewTests {
+    private let url = URL(string: "https://example.com/e.png")!
+
+    @Test func hiddenUntilLoadedAndAfterFailure() async throws {
+        let ok = ImageLoader { _ in pngData() }
+        let view = EmblemView()
+        var changes: [Bool] = []
+        view.setImage(url: url, loader: ok) { changes.append($0) }
+        #expect(view.isHidden)
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(!view.isHidden && changes == [false, true])
+
+        view.setImage(url: nil, loader: ok)
+        #expect(view.isHidden)
+
+        let bad = ImageLoader { _ in throw URLError(.notConnectedToInternet) }
+        view.setImage(url: url, loader: bad)
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(view.isHidden)
+    }
+}
