@@ -52,6 +52,9 @@ public enum Services {
             headers: ["apikey": supabaseKey],
             localStorage: KeychainLocalStorage(),
             logger: nil,
+            // Своё замыкание вместо значения по умолчанию: замыкание из default-аргумента библиотеки
+            // падало при входе EXC_BAD_ACCESS в swift_task_dealloc (D31, грабли).
+            fetch: { try await URLSession.shared.data(for: $0) },
             // Сохранённая сессия сразу, даже просроченная: без сети остаёмся во входе, обновит библиотека.
             emitLocalSessionAsInitialSession: true
         ))
