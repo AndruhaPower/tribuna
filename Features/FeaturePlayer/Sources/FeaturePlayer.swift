@@ -9,8 +9,8 @@ public enum FeaturePlayer {
         MiniPlayerView(viewModel: PlayerViewModel(player: player), onOpen: onOpen)
     }
 
-    /// Плеер (лист).
-    public static func makePlayer(player: AudioPlayer) -> UIViewController {
-        PlayerViewController(viewModel: PlayerViewModel(player: player))
+    /// Плеер (лист); `downloads` — «Скачать» / «Скачан» у выпуска.
+    public static func makePlayer(player: AudioPlayer, downloads: EpisodeDownloads) -> UIViewController {
+        PlayerViewController(viewModel: PlayerViewModel(player: player, downloads: downloads))
     }
 }

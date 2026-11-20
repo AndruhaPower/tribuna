@@ -174,7 +174,7 @@ extension AppDependencies {
 #if DEBUG
 /// Вкладка «Подкасты» как в макете (`-PodcastsMockData`): подписки «Вне игры» (2 новых), «Шайба» (1 новый), «Разбор» (всё прослушано),
 /// начатый «Итоги 11 тура». Подписки и позиция — в отдельном наборе UserDefaults, плеер без звука. Только в отладке.
-/// `-PodcastPlayerMock` — в плеере «Превью 12 тура», 18:42 из 34:10, 1,25× (макет «Плеер»); `-OpenPlayer` — сразу открыть плеер.
+/// `-PodcastPlayerMock` — в плеере «Превью 12 тура», 18:42 из 34:10, 1,25×, скачан (макет «Плеер»); `-OpenPlayer` — сразу открыть плеер.
 /// `-PodcastsRealFeeds` — каталог из пяти подкастов миграции, ленты и плеер настоящие.
 private struct MockPodcastsRepository: PodcastsRepository {
     let podcasts: [Podcast]
@@ -269,10 +269,16 @@ extension AppDependencies {
             : MockAudioPlayer(playing: nil)
         // Загрузки как в макете: «Кто заберёт Кубок Стэнли» качается (60 %), «Итоги 11 тура» скачан.
         let cup = feeds["puck"]![0]
-        let downloads = MockEpisodeDownloads(items: [
+        var items = [
             DownloadedEpisode(episode: cup, podcast: catalog[1], addedAt: now, state: .downloading(progress: 0.6), artworkFile: nil),
             DownloadedEpisode(episode: results, podcast: catalog[0], addedAt: now.addingTimeInterval(-3600), state: .downloaded(bytes: 48_000_000), artworkFile: nil),
-        ])
+        ]
+        // Плеер макета — «Скачан».
+        if arguments.contains("-PodcastPlayerMock") {
+            items.append(DownloadedEpisode(episode: preview, podcast: catalog[0], addedAt: now.addingTimeInterval(-7200),
+                                           state: .downloaded(bytes: 33_000_000), artworkFile: nil))
+        }
+        let downloads = MockEpisodeDownloads(items: items)
         return (MockPodcastsRepository(podcasts: catalog), MockEpisodesRepository(feeds: feeds), services.subscriptions, services.progress, player, downloads)
     }
 

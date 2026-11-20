@@ -3,7 +3,7 @@ import CoreUI
 import SnapKit
 import UIKit
 
-/// Плеер (лист) по макету «Плеер». У выпуска — ползунок, время, скорость, −15/+30 и «Поделиться» («Скачан» и «…» — позже);
+/// Плеер (лист) по макету «Плеер». У выпуска — ползунок, время, скорость, −15/+30, «Скачать» и «Поделиться» («…» — позже);
 /// у радио их нет. Лист (large) с системным «язычком». Отступы — замер макета от верха и от карточки; карточка квадратная
 /// во всю ширину без полей 24 pt, на низких экранах (iPhone SE) сначала сжимаются промежутки до play, затем карточка.
 final class PlayerViewController: UIViewController {
@@ -33,6 +33,8 @@ final class PlayerViewController: UIViewController {
     private lazy var skipBackButton = skipButton(seconds: -15, icon: "skip-back", label: "Назад на 15 секунд")
     private lazy var skipForwardButton = skipButton(seconds: 30, icon: "skip-forward", label: "Вперёд на 30 секунд")
     private let shareButton = UIButton(type: .system)
+    private let downloadButton = UIButton(type: .system)
+    private var shownDownload: PlayerState.Download?
 
     init(viewModel: PlayerViewModel) {
         self.viewModel = viewModel
@@ -201,8 +203,9 @@ final class PlayerViewController: UIViewController {
         share.background.strokeWidth = 1
         shareButton.configuration = share
         shareButton.addAction(UIAction { [weak self] _ in self?.share() }, for: .touchUpInside)
+        downloadButton.addAction(UIAction { [weak self] _ in self?.didTapDownload() }, for: .touchUpInside)
 
-        [slider, elapsedLabel, remainingLabel, speedButton, skipBackButton, skipForwardButton, shareButton].forEach(view.addSubview)
+        [slider, elapsedLabel, remainingLabel, speedButton, skipBackButton, skipForwardButton, downloadButton, shareButton].forEach(view.addSubview)
         slider.snp.makeConstraints {
             $0.leading.trailing.equalToSuperview().inset(24)
             $0.height.equalTo(44)
@@ -230,8 +233,15 @@ final class PlayerViewController: UIViewController {
                 $0.centerX.equalTo(playButton).offset(offset)
             }
         }
+        // «Скачать» и «Поделиться» делят ширину, промежуток 10 pt (макет).
+        downloadButton.snp.makeConstraints {
+            $0.leading.equalToSuperview().offset(24)
+            $0.top.bottom.equalTo(shareButton)
+        }
         shareButton.snp.makeConstraints {
-            $0.leading.trailing.equalToSuperview().inset(24)
+            $0.leading.equalTo(downloadButton.snp.trailing).offset(10)
+            $0.width.equalTo(downloadButton)
+            $0.trailing.equalToSuperview().inset(24)
             $0.height.equalTo(48)
             $0.top.equalTo(card.snp.bottom).offset(273.5).priority(700)
             $0.top.greaterThanOrEqualTo(sleepLabel.snp.bottom).offset(8)
@@ -258,6 +268,41 @@ final class PlayerViewController: UIViewController {
             $0.centerY.equalToSuperview().offset(2)
         }
         return button
+    }
+
+    private func didTapDownload() {
+        guard viewModel.state?.progress?.download == .downloaded else { return viewModel.didTapDownload() }
+        let sheet = UIAlertController(title: "Удалить загрузку?", message: nil, preferredStyle: .actionSheet)
+        sheet.addAction(UIAlertAction(title: "Удалить", style: .destructive) { [weak self] _ in self?.viewModel.didConfirmRemoveDownload() })
+        sheet.addAction(UIAlertAction(title: "Отмена", style: .cancel))
+        sheet.popoverPresentationController?.sourceView = downloadButton
+        present(sheet, animated: true)
+    }
+
+    /// Контурная кнопка как «Поделиться»: «Скачать» со стрелкой, «45 %», «Скачан» с галочкой.
+    private func renderDownload(_ download: PlayerState.Download) {
+        // Прогресс приходит дважды в секунду — кнопку пересобираем, только когда текст сменился.
+        guard download != shownDownload else { return }
+        shownDownload = download
+        var config = shareButton.configuration ?? .plain()
+        // Цифры одной ширины — «45 %» не дрожит.
+        config.attributedTitle = AttributedString(download.title, attributes: AttributeContainer([.font: Typography.digits(16, .semibold)]))
+        switch download {
+        case .download: config.image = UIImage(named: "download", in: .module, compatibleWith: nil)
+        case .progress: config.image = nil
+        case .downloaded: config.image = UIImage(named: "check", in: .module, compatibleWith: nil)
+        }
+        config.imagePadding = 9.5
+        UIView.performWithoutAnimation {
+            downloadButton.configuration = config
+            downloadButton.layoutIfNeeded()
+        }
+        // Идущую загрузку из плеера не трогаем — отменить можно в списке выпусков.
+        let isLoading = if case .progress = download { true } else { false }
+        downloadButton.isUserInteractionEnabled = !isLoading
+        downloadButton.accessibilityLabel = download.accessibilityLabel
+        downloadButton.accessibilityHint = download == .downloaded ? "Удалить загрузку" : nil
+        downloadButton.accessibilityTraits = isLoading ? [.staticText, .updatesFrequently] : .button
     }
 
     private func share() {
@@ -316,7 +361,7 @@ final class PlayerViewController: UIViewController {
     }
 
     private func renderProgress(_ progress: PlayerState.Progress?) {
-        let views: [UIView] = [slider, elapsedLabel, remainingLabel, speedButton, skipBackButton, skipForwardButton, shareButton]
+        let views: [UIView] = [slider, elapsedLabel, remainingLabel, speedButton, skipBackButton, skipForwardButton, downloadButton, shareButton]
         views.forEach { $0.isHidden = progress == nil }
         guard let progress else { return }
         // Пока палец на ползунке, модель отдаёт значение под пальцем — бегунок не дёргается.
@@ -330,6 +375,7 @@ final class PlayerViewController: UIViewController {
             speedButton.layoutIfNeeded()
         }
         speedButton.accessibilityLabel = progress.speedLabel
+        renderDownload(progress.download)
     }
 
     private func showSleepTimerOptions() {
