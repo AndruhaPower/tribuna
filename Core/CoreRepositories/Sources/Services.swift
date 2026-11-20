@@ -6,7 +6,10 @@ import UserNotifications
 
 /// Сборка источников данных для приложения.
 public enum Services {
-    @MainActor public static func make(supabaseURL: URL, supabaseKey: String, defaults: UserDefaults = .standard)
+    /// Закладки, подписки и позиция — пользователя `account`, синхронизируются через `userClient` (D31);
+    /// `userClient` nil — только локально (отладочные моки).
+    @MainActor public static func make(supabaseURL: URL, supabaseKey: String, account: Account, userClient: PostgrestClient?,
+                                       defaults: UserDefaults = .standard)
         -> (matches: MatchesRepository, standings: StandingsRepository, bookmarks: BookmarksStore, reminders: RemindersStore, stations: StationsRepository,
             podcasts: PodcastsRepository, episodes: EpisodesRepository, subscriptions: SubscriptionsStore, progress: ListeningProgressStore) {
         // Каталоги — без входа: publishable-ключ идёт заголовком apikey.
@@ -22,13 +25,13 @@ public enum Services {
         return (
             matches,
             football, // таблицы только у футбола; для НХЛ запрос вернёт пусто
-            UserDefaultsBookmarksStore(defaults: defaults),
+            SyncedBookmarksStore(defaults: defaults, account: account, remote: userClient.map(PostgrestUserDataRemote<BookmarkRow>.init)),
             LocalRemindersStore(center: UNUserNotificationCenter.current()),
             SupabaseStationsRepository(client: postgrest),
             SupabasePodcastsRepository(client: postgrest, cacheFile: caches.appendingPathComponent("podcasts.json")),
             FeedRepository(directory: caches.appendingPathComponent("feeds"), fetch: FeedRepository.fetch(session: .shared)),
-            UserDefaultsSubscriptionsStore(defaults: defaults),
-            UserDefaultsListeningProgressStore(defaults: defaults)
+            SyncedSubscriptionsStore(defaults: defaults, account: account, remote: userClient.map(PostgrestUserDataRemote<SubscriptionRow>.init)),
+            SyncedListeningProgressStore(defaults: defaults, account: account, remote: userClient.map(PostgrestUserDataRemote<ProgressRow>.init))
         )
     }
 

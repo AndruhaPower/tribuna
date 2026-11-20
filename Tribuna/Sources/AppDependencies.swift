@@ -33,26 +33,52 @@ struct AppDependencies {
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-TodayMockData") || arguments.contains("-MatchMockData") {
             (matches, standings, bookmarks, reminders, stations) = Self.todayMockData()
-            (_, _, _, _, _, podcasts, episodes, subscriptions, progress) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
+            (_, _, _, _, _, podcasts, episodes, subscriptions, progress) = Self.services()
             // С `-RadioMockData` — ещё и мини-плеер со «Стадион FM», как на макете «Сегодня».
             player = Self.radioMock()?.player ?? RadioPlayer()
             return
         }
         if let radio = Self.radioMock() {
-            (matches, standings, bookmarks, reminders, _, podcasts, episodes, subscriptions, progress) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
+            (matches, standings, bookmarks, reminders, _, podcasts, episodes, subscriptions, progress) = Self.services()
             (stations, player) = radio
             return
         }
         if let mock = Self.podcastsMock() {
-            (matches, standings, bookmarks, reminders, stations, _, _, _, _) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
+            (matches, standings, bookmarks, reminders, stations, _, _, _, _) = Self.services()
             (podcasts, episodes, subscriptions, progress, player, downloads) = mock
             return
         }
         #endif
-        (matches, standings, bookmarks, reminders, stations, podcasts, episodes, subscriptions, progress) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
-        player = RadioPlayer(progress: progress, localFile: { Self.backgroundDownloads.localFile(for: $0) })
+        (matches, standings, bookmarks, reminders, stations, podcasts, episodes, subscriptions, progress) = Self.services()
+        player = RadioPlayer(progress: progress, localFile: { Self.backgroundDownloads.localFile(for: $0) },
+                             onProgressCheckpoint: { [progress] in (progress as? SyncedListeningProgressStore)?.flushProgress() })
+    }
+
+    /// Источники с настоящим аккаунтом: закладки, подписки и позиция — его, с синхронизацией (D31).
+    private static func services() -> (matches: MatchesRepository, standings: StandingsRepository, bookmarks: BookmarksStore, reminders: RemindersStore,
+                                       stations: StationsRepository, podcasts: PodcastsRepository, episodes: EpisodesRepository,
+                                       subscriptions: SubscriptionsStore, progress: ListeningProgressStore) {
+        Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey, account: account.account, userClient: account.userClient)
     }
 }
+
+#if DEBUG
+/// «Вошедший» аккаунт для моков вёрстки: закладки, подписки и позиция видны, хранятся только локально (`userClient: nil`).
+@MainActor
+private final class MockAccount: Account {
+    let state = AccountState.signedIn(UserProfile(id: "mock", name: "Болельщик", email: "mock@example.com"))
+    var statePublisher: AnyPublisher<AccountState, Never> { Just(state).eraseToAnyPublisher() }
+    var userID: String? { "mock" }
+    func signUp(name: String, email: String, password: String) async throws {}
+    func confirmSignUp(email: String, code: String) async throws {}
+    func resendSignUpCode(email: String) async throws {}
+    func signIn(email: String, password: String) async throws {}
+    func requestPasswordReset(email: String) async throws {}
+    func resetPassword(email: String, code: String, newPassword: String) async throws {}
+    func signOut() async {}
+    func deleteAccount() async throws {}
+}
+#endif
 
 #if DEBUG
 /// Данные как в макетах «Сегодня» и «Карточка матча» — для сверки вёрстки. Только в отладке.
@@ -102,7 +128,7 @@ extension AppDependencies {
         ]
         // Закладки — в отдельном наборе UserDefaults, чтобы не трогать настоящие.
         let defaults = UserDefaults(suiteName: "TodayMockData") ?? .standard
-        let services = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey, defaults: defaults)
+        let services = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey, account: MockAccount(), userClient: nil, defaults: defaults)
         if !services.bookmarks.bookmarks.contains(liverpool) { services.bookmarks.toggle(liverpool) }
         return (MockMatchesRepository(matches: matches), MockStandingsRepository(), services.bookmarks, services.reminders, services.stations)
     }
@@ -233,7 +259,7 @@ extension AppDependencies {
         guard arguments.contains("-PodcastsMockData") else { return nil }
         let defaults = UserDefaults(suiteName: "PodcastsMockData") ?? .standard
         defaults.removePersistentDomain(forName: "PodcastsMockData")
-        let services = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey, defaults: defaults)
+        let services = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey, account: MockAccount(), userClient: nil, defaults: defaults)
         // Обложки нет — плитки и строки остаются плашками `surfaceRaised`, как в макете.
         func podcast(_ id: String, _ title: String, _ author: String, _ order: Int) -> Podcast {
             Podcast(id: id, title: title, author: author, feedURL: URL(string: "https://example.com/\(id).xml")!,
@@ -305,7 +331,7 @@ extension AppDependencies {
     private static func realFeedsMock()
         -> (PodcastsRepository, EpisodesRepository, SubscriptionsStore, ListeningProgressStore, AudioPlayer, EpisodeDownloads) {
         let defaults = UserDefaults(suiteName: "PodcastsRealFeeds") ?? .standard
-        let services = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey, defaults: defaults)
+        let services = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey, account: MockAccount(), userClient: nil, defaults: defaults)
         return (MockPodcastsRepository(podcasts: realCatalog), services.episodes, services.subscriptions, services.progress,
                 RadioPlayer(progress: services.progress, localFile: { backgroundDownloads.localFile(for: $0) }), backgroundDownloads)
     }

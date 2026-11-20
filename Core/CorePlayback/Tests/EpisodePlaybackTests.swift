@@ -293,4 +293,21 @@ struct EpisodePlaybackTests {
         #expect(player.state.position == 600)
         #expect(nowPlaying.info?.elapsed == 600)
     }
+
+    @Test func checkpointOnPauseSwitchStopAndBackground() {
+        var checkpoints = 0
+        let player = RadioPlayer(engine: engine, session: session, nowPlaying: nowPlaying, clock: clock, progress: store, notifications: notifications,
+                                 onProgressCheckpoint: { checkpoints += 1 })
+        player.play(.episode(first, podcast: derby))
+        engine.send(.playing)
+        #expect(checkpoints == 1) // play — смена выпуска (предыдущего нет, но вызов безвреден)
+        player.togglePlayPause()
+        #expect(checkpoints == 2)
+        player.play(.episode(second, podcast: derby))
+        #expect(checkpoints == 3)
+        notifications.post(name: UIApplication.didEnterBackgroundNotification, object: nil)
+        #expect(checkpoints == 4)
+        player.stop()
+        #expect(checkpoints == 5)
+    }
 }

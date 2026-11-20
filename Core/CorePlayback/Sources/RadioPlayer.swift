@@ -21,6 +21,7 @@ public final class RadioPlayer: AudioPlayer {
     private let clock: PlaybackClock
     private let progress: ListeningProgressStore?
     private let localFile: @MainActor (EpisodeID) -> URL?
+    private let onProgressCheckpoint: @MainActor () -> Void
     private let subject = CurrentValueSubject<PlaybackState, Never>(PlaybackState(item: nil, status: .idle, sleepTimerEndsAt: nil))
     private var connectTimeout: AnyCancellable?
     /// Номер попытки подключения: таймаут прошлой попытки ничего не делает, даже если снятие опоздало.
@@ -38,13 +39,18 @@ public final class RadioPlayer: AudioPlayer {
 
     /// nil — позиция выпусков не сохраняется (отладочные сборки только с эфиром).
     /// `localFile` — скачанный файл выпуска (D30); nil — играем по сети.
-    public convenience init(progress: ListeningProgressStore? = nil, localFile: @escaping @MainActor (EpisodeID) -> URL? = { _ in nil }) {
-        self.init(engine: AVPlayerEngine(), session: SystemAudioSession(), nowPlaying: SystemNowPlaying(), clock: SystemClock(), progress: progress, notifications: .default, localFile: localFile)
+    /// `onProgressCheckpoint` — позиция сохранена на паузе, смене выпуска, стопе, ошибке или уходе в фон: пора отправить её на сервер (D31).
+    public convenience init(progress: ListeningProgressStore? = nil, localFile: @escaping @MainActor (EpisodeID) -> URL? = { _ in nil },
+                            onProgressCheckpoint: @escaping @MainActor () -> Void = {}) {
+        self.init(engine: AVPlayerEngine(), session: SystemAudioSession(), nowPlaying: SystemNowPlaying(), clock: SystemClock(), progress: progress,
+                  notifications: .default, localFile: localFile, onProgressCheckpoint: onProgressCheckpoint)
     }
 
     init(engine: PlaybackEngine, session: AudioSessionControlling, nowPlaying: NowPlayingControlling, clock: PlaybackClock,
-         progress: ListeningProgressStore?, notifications: NotificationCenter, localFile: @escaping @MainActor (EpisodeID) -> URL? = { _ in nil }) {
+         progress: ListeningProgressStore?, notifications: NotificationCenter, localFile: @escaping @MainActor (EpisodeID) -> URL? = { _ in nil },
+         onProgressCheckpoint: @escaping @MainActor () -> Void = {}) {
         self.localFile = localFile
+        self.onProgressCheckpoint = onProgressCheckpoint
         self.engine = engine
         self.session = session
         self.nowPlaying = nowPlaying
@@ -57,12 +63,12 @@ public final class RadioPlayer: AudioPlayer {
         // Из фона приложение могут выгрузить — позицию сохраняем сразу.
         backgroundObservation = notifications.publisher(for: UIApplication.didEnterBackgroundNotification)
             .sink { [weak self] _ in
-                MainActor.assumeIsolated { self?.savePosition() }
+                MainActor.assumeIsolated { self?.checkpoint() }
             }
     }
 
     public func play(_ item: PlaybackItem) {
-        savePosition()
+        checkpoint()
         resumeAfterInterruption = false
         // Без активной сессии звук может не пойти в фоне, но играть всё равно пробуем.
         try? session.activate()
@@ -101,7 +107,7 @@ public final class RadioPlayer: AudioPlayer {
     }
 
     public func stop() {
-        savePosition()
+        checkpoint()
         engine.stop()
         connectTimeout = nil
         sleepTimer = nil
@@ -154,7 +160,7 @@ public final class RadioPlayer: AudioPlayer {
         if state.item?.isLive == false { engine.pause() } else { engine.stop() }
         connectTimeout = nil
         update { $0.status = .paused }
-        savePosition()
+        checkpoint()
     }
 
     private func resume() {
@@ -176,7 +182,7 @@ public final class RadioPlayer: AudioPlayer {
         engine.stop()
         connectTimeout = nil
         update { $0.status = .failed(Self.failureMessage) }
-        savePosition()
+        checkpoint()
     }
 
     /// Выпуск доиграл: прослушан, пауза на начале; следующий сам не запускается.
@@ -186,6 +192,11 @@ public final class RadioPlayer: AudioPlayer {
         connectTimeout = nil
         update { $0.status = .paused; $0.position = 0 }
         if let episode = state.item?.episode { progress?.markFinished(episode.id) }
+    }
+
+    private func checkpoint() {
+        savePosition()
+        onProgressCheckpoint()
     }
 
     private func savePosition() {
