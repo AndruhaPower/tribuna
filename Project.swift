@@ -27,7 +27,7 @@ let coreDomain = module("CoreDomain", path: "Core/CoreDomain", dependencies: [])
 let coreRepositories = module(
     "CoreRepositories",
     path: "Core/CoreRepositories",
-    dependencies: [.target(name: "CoreDomain"), .external(name: "PostgREST")]
+    dependencies: [.target(name: "CoreDomain"), .external(name: "PostgREST"), .external(name: "Auth")]
 )
 
 let corePlayback = module("CorePlayback", path: "Core/CorePlayback", dependencies: [.target(name: "CoreDomain")])

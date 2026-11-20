@@ -2,8 +2,39 @@ import Combine
 import CoreDomain
 import Foundation
 
+/// Карточка аккаунта: «Алексей», почта, буква в кружке. Без имени — «Болельщик», «Б».
+struct AccountCard: Equatable {
+    let name: String
+    let email: String
+    let initial: String
+
+    init(name: String, email: String, initial: String) {
+        self.name = name
+        self.email = email
+        self.initial = initial
+    }
+
+    init(_ user: UserProfile) {
+        let trimmed = user.name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        name = trimmed.isEmpty ? "Болельщик" : trimmed
+        email = user.email
+        initial = name.prefix(1).uppercased()
+    }
+}
+
+enum ProfileTexts {
+    static let signOutConfirm = "Выйти из профиля? Загрузки будут удалены с телефона"
+    static let deleteConfirm = "Удалить аккаунт? Закладки, подписки и история прослушивания удалятся навсегда"
+}
+
 /// Готовое к показу состояние Профиля.
 struct ProfileState: Equatable {
+    /// nil — без входа: только карточка мотивации.
+    var account: AccountCard?
+    /// Сессия ещё читается (`unknown`): ни мотивации, ни карточки аккаунта — без мигания при запуске.
+    var isResolving = false
+    /// Идёт выход или удаление — кнопки аккаунта неактивны.
+    var isBusy = false
     /// Плитки-счётчики: «4», «3».
     let bookmarks: String
     let subscriptions: String
@@ -27,7 +58,7 @@ enum ProfileFormatter {
             fraction = available.map { Double(bytes) / Double(max(1, bytes + $0)) } ?? 0
         }
         return ProfileState(
-            bookmarks: String(bookmarks), subscriptions: String(subscriptions), wifiOnly: downloads.wifiOnly,
+            account: nil, bookmarks: String(bookmarks), subscriptions: String(subscriptions), wifiOnly: downloads.wifiOnly,
             usage: usage, usageFraction: fraction, canClear: !downloads.items.isEmpty
         )
     }
@@ -52,20 +83,28 @@ final class ProfileViewModel {
     @Published private(set) var state: ProfileState
 
     private let dependencies: FeatureProfile.Dependencies
+    private let output: FeatureProfile.Output
+    /// Сколько ждать отправки перед выходом.
+    private let flushTimeout: TimeInterval
+    private var isBusy = false
     private var subscriptions: Set<AnyCancellable> = []
     /// Свободное место спрашиваем у системы не на каждый тик прогресса: при запуске, возврате из фона,
     /// смене занятого места и после «Очистить».
     private var available: Int64?
     private var availableForBytes: Int64
 
-    init(dependencies: FeatureProfile.Dependencies) {
+    init(dependencies: FeatureProfile.Dependencies, output: FeatureProfile.Output, flushTimeout: TimeInterval = 3) {
         self.dependencies = dependencies
+        self.output = output
+        self.flushTimeout = flushTimeout
         available = dependencies.downloads.availableCapacity()
         availableForBytes = dependencies.downloads.usage().bytes
         state = ProfileFormatter.state(bookmarks: dependencies.bookmarks.bookmarks.count,
                                        subscriptions: dependencies.subscriptions.subscriptions.count,
                                        downloads: dependencies.downloads, available: available)
-        Publishers.Merge3(
+        Self.apply(dependencies.account.state, to: &state)
+        Publishers.Merge4(
+            dependencies.account.statePublisher.map { _ in () },
             dependencies.bookmarks.bookmarksPublisher.map { _ in () },
             dependencies.subscriptions.subscriptionsPublisher.map { _ in () },
             dependencies.downloads.itemsPublisher.map { _ in () }
@@ -85,9 +124,57 @@ final class ProfileViewModel {
         refresh(reloadCapacity: true)
     }
 
+    /// «Выйти» подтверждено: сначала отправить неотправленное (не дольше 3 с — выход важнее, D31), затем выйти.
+    func didConfirmSignOut() async {
+        setBusy(true)
+        let flush = Task { await output.flushUserData() }
+        let timeout = flushTimeout
+        // Гонка: кто первый — отправка или таймер. Отправка, не слышащая отмены, выход не держит.
+        let gate = Gate()
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            gate.continuation = continuation
+            Task { await flush.value; gate.open() }
+            Task { try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000)); gate.open() }
+        }
+        flush.cancel()
+        await dependencies.account.signOut()
+        setBusy(false)
+    }
+
+    /// Продолжение, которое возобновляется один раз — первым из гонки.
+    @MainActor private final class Gate {
+        var continuation: CheckedContinuation<Void, Never>?
+        func open() {
+            continuation?.resume()
+            continuation = nil
+        }
+    }
+
+    /// «Удалить аккаунт» подтверждено. Ошибка — текст для показа, остаёмся во входе.
+    func didConfirmDelete() async -> String? {
+        setBusy(true)
+        defer { setBusy(false) }
+        do {
+            try await dependencies.account.deleteAccount()
+            return nil
+        } catch {
+            return SignInTexts.message(error as? AccountError ?? .unknown)
+        }
+    }
+
     /// Свободное место меняется и без наших загрузок.
     func didEnterForeground() {
         refresh(reloadCapacity: true)
+    }
+
+    private static func apply(_ account: AccountState, to state: inout ProfileState) {
+        state.isResolving = account == .unknown
+        if case let .signedIn(user) = account { state.account = AccountCard(user) }
+    }
+
+    private func setBusy(_ busy: Bool) {
+        isBusy = busy
+        refresh()
     }
 
     private func refresh(reloadCapacity: Bool = false) {
@@ -96,9 +183,11 @@ final class ProfileViewModel {
             available = dependencies.downloads.availableCapacity()
             availableForBytes = bytes
         }
-        let state = ProfileFormatter.state(bookmarks: dependencies.bookmarks.bookmarks.count,
+        var state = ProfileFormatter.state(bookmarks: dependencies.bookmarks.bookmarks.count,
                                            subscriptions: dependencies.subscriptions.subscriptions.count,
                                            downloads: dependencies.downloads, available: available)
+        Self.apply(dependencies.account.state, to: &state)
+        state.isBusy = isBusy
         if state != self.state { self.state = state }
     }
 }

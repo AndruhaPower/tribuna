@@ -18,6 +18,8 @@ final class PodcastsViewModel {
     private let progressStore: ListeningProgressStore
     private let player: AudioPlayer
     private let downloads: EpisodeDownloads
+    private let account: Account
+    private let requireSignIn: (SignInReason, @escaping @MainActor () -> Void) -> Void
     private let onOpenPodcast: (Podcast) -> Void
     private let onOpenPlayer: () -> Void
     private let now: () -> Date
@@ -34,6 +36,9 @@ final class PodcastsViewModel {
     private var playback: PlaybackState
     private var downloadItems: [DownloadedEpisode]
     private var hasAppeared = false
+    private var accountState: AccountState
+    /// Сегмент выбрали руками — по умолчанию больше не пересчитываем.
+    private var segmentChosen = false
     private var cancellables = Set<AnyCancellable>()
 
     init(
@@ -43,8 +48,10 @@ final class PodcastsViewModel {
         progress: ListeningProgressStore,
         player: AudioPlayer,
         downloads: EpisodeDownloads,
+        account: Account,
         onOpenPodcast: @escaping (Podcast) -> Void,
         onOpenPlayer: @escaping () -> Void,
+        requireSignIn: @escaping (SignInReason, @escaping @MainActor () -> Void) -> Void,
         now: @escaping () -> Date = Date.init,
         calendar: Calendar = .autoupdatingCurrent
     ) {
@@ -54,6 +61,8 @@ final class PodcastsViewModel {
         progressStore = progress
         self.player = player
         self.downloads = downloads
+        self.account = account
+        self.requireSignIn = requireSignIn
         self.onOpenPodcast = onOpenPodcast
         self.onOpenPlayer = onOpenPlayer
         self.now = now
@@ -62,8 +71,14 @@ final class PodcastsViewModel {
         self.progress = progress.progress
         playback = player.state
         downloadItems = downloads.items
-        // Подписки на телефоне известны сразу: есть — открываем их, нет — «Подборку».
-        state = PodcastsState(segment: subscriptions.subscriptions.isEmpty ? .catalog : .subscriptions, badge: nil, content: .status(.loading))
+        accountState = account.state
+        state = PodcastsState(
+            segment: Self.defaultSegment(account.state, subscriptions: subscriptions.subscriptions), badge: nil, content: .status(.loading)
+        )
+
+        account.statePublisher.dropFirst().sink { [weak self] value in
+            MainActor.assumeIsolated { self?.accountChanged(value) }
+        }.store(in: &cancellables)
 
         subscriptions.subscriptionsPublisher.dropFirst().sink { [weak self] value in
             MainActor.assumeIsolated { self?.subscriptionsChanged(value) }
@@ -111,16 +126,27 @@ final class PodcastsViewModel {
     }
 
     func didSelectSegment(_ segment: PodcastsState.Segment) {
+        segmentChosen = true
         state.segment = segment
         render()
+    }
+
+    /// «Войти» в приглашении «Подписок» / «Загрузок»; после входа экран перерисует `statePublisher`.
+    func didTapSignIn() {
+        requireSignIn(state.segment == .downloads ? .download : .subscription) {}
     }
 
     func didTapPodcast(_ id: String) {
         if let podcast = catalog?.first(where: { $0.id == id }) { onOpenPodcast(podcast) }
     }
 
+    /// Ворота (D31): без входа — лист входа, подписка — после входа; пришедшую за это время с сервера не снимаем.
     func didTapSubscribe(_ id: String) {
-        subscriptionsStore.toggle(id)
+        let wasOn = subscriptions[id] != nil
+        requireSignIn(.subscription) { [weak self] in
+            guard let self, (subscriptionsStore.subscriptions[id] != nil) == wasOn else { return }
+            subscriptionsStore.toggle(id)
+        }
     }
 
     /// Кнопка строки: выпуск в плеере — пауза/продолжение, другой — запуск.
@@ -137,8 +163,13 @@ final class PodcastsViewModel {
 
     /// Пилюля «Скачать» и меню долгого нажатия: «Скачать» (нет записи или `.failed`), иначе отменить или удалить.
     /// `shown` — действие, которое видел пользователь (меню долгого нажатия); состояние уже другое — нажатие не в счёт.
+    /// Ворота (D31): без входа — лист входа, действие — после входа, если состояние загрузки не сменилось.
     func didTapDownloadAction(_ id: EpisodeID, shown: EpisodeRow.DownloadAction? = nil) {
-        downloads.perform(id, entry: entry(id), shown: shown)
+        let shown = shown ?? downloads.action(id)
+        requireSignIn(.download) { [weak self] in
+            guard let self else { return }
+            downloads.perform(id, entry: entry(id), shown: shown)
+        }
     }
 
     /// «Удалить» свайпом в «Загрузках».
@@ -198,6 +229,24 @@ final class PodcastsViewModel {
         feedTask = Task { [weak self] in await self?.loadFeeds(missing, force: false) }
     }
 
+    /// Сессия прочиталась при запуске, а сегмент ещё не трогали — выбираем по умолчанию заново.
+    private func accountChanged(_ value: AccountState) {
+        let wasUnknown = accountState == .unknown
+        accountState = value
+        if wasUnknown, !segmentChosen { state.segment = Self.defaultSegment(value, subscriptions: subscriptions) }
+        render()
+    }
+
+    private var isSignedIn: Bool {
+        if case .signedIn = accountState { true } else { false }
+    }
+
+    /// «Подписки», если вошёл и подписки есть, иначе «Подборка»; `unknown` — как без входа.
+    private static func defaultSegment(_ account: AccountState, subscriptions: [String: Date]) -> PodcastsState.Segment {
+        if case .signedIn = account, !subscriptions.isEmpty { return .subscriptions }
+        return .catalog
+    }
+
     private func playerChanged(_ value: PlaybackState) {
         // Позиция меняется дважды в секунду — перерисовываем только при смене выпуска или статуса.
         let changed = value.item != playback.item || value.status != playback.status
@@ -220,6 +269,11 @@ final class PodcastsViewModel {
     // MARK: - Состояние
 
     private func render() {
+        if !isSignedIn, state.segment != .catalog {
+            state.badge = nil
+            state.content = .signIn(title: state.segment == .downloads ? "Войдите, чтобы скачивать" : "Войдите, чтобы подписываться")
+            return
+        }
         if state.segment == .downloads {
             // Бейдж без каталога не посчитать — оставляем прежний.
             if let catalog { state.badge = badge(catalog) }
@@ -301,17 +355,20 @@ extension AudioPlayer {
 }
 
 extension EpisodeDownloads {
-    /// «Скачать», если записи нет или она `.failed`; иначе отменить или удалить (`remove` делает и то, и другое).
-    /// `shown` не nil и не совпадает с текущим состоянием — ничего не делаем: иначе «Отменить» после конца загрузки удалила бы файл.
-    func perform(_ id: EpisodeID, entry: (Episode, Podcast)?, shown: EpisodeRow.DownloadAction? = nil) {
-        let state = item(id)?.state
-        let current: EpisodeRow.DownloadAction = switch state {
+    /// Что сделает нажатие сейчас: «Скачать» (нет записи или `.failed`), «Отменить» или «Удалить».
+    func action(_ id: EpisodeID) -> EpisodeRow.DownloadAction {
+        switch item(id)?.state {
         case nil, .failed: .download
         case .waiting, .downloading: .cancel
         case .downloaded: .remove
         }
-        if let shown, shown != current { return }
-        switch state {
+    }
+
+    /// «Скачать», если записи нет или она `.failed`; иначе отменить или удалить (`remove` делает и то, и другое).
+    /// `shown` не nil и не совпадает с текущим состоянием — ничего не делаем: иначе «Отменить» после конца загрузки удалила бы файл.
+    func perform(_ id: EpisodeID, entry: (Episode, Podcast)?, shown: EpisodeRow.DownloadAction? = nil) {
+        if let shown, shown != action(id) { return }
+        switch item(id)?.state {
         case nil, .failed:
             if let (episode, podcast) = entry { download(episode, podcast: podcast) }
         default:

@@ -9,11 +9,12 @@ struct TodayViewModelTests {
         _ repository: FakeMatchesRepository,
         bookmarks: FakeBookmarksStore = FakeBookmarksStore(),
         timeZone: TimeZone = moscow,
+        signIn: FakeSignIn = FakeSignIn(),
         onOpenMatch: @escaping (MatchID) -> Void = { _ in }
     ) -> TodayViewModel {
         TodayViewModel(
             matches: repository, bookmarks: bookmarks, now: { now }, calendar: calendar(timeZone),
-            onOpenMatch: onOpenMatch
+            onOpenMatch: onOpenMatch, requireSignIn: signIn.require
         )
     }
 
@@ -338,7 +339,7 @@ struct TodayViewModelTests {
     func makeViewModel(_ repository: FakeMatchesRepository, clock: Clock) -> TodayViewModel {
         TodayViewModel(
             matches: repository, bookmarks: FakeBookmarksStore(), now: { clock.date }, calendar: calendar(),
-            onOpenMatch: { _ in }
+            onOpenMatch: { _ in }, requireSignIn: { $1() }
         )
     }
 
@@ -393,5 +394,46 @@ struct TodayViewModelTests {
 
         #expect(loaded(viewModel) != nil)
         #expect(repository.calls == 1)
+    }
+
+    // MARK: - Ворота (D31)
+
+    @Test func bookmarkGatedActionRunsAfterSignIn() async throws {
+        let bookmarks = FakeBookmarksStore()
+        let signIn = FakeSignIn()
+        signIn.isSignedIn = false
+        let viewModel = makeViewModel(FakeMatchesRepository([match("pl1", at: "2026-11-18 22:00")]), bookmarks: bookmarks, signIn: signIn)
+        await appear(viewModel)
+
+        viewModel.didToggleBookmark(MatchID(rawValue: "pl1"))
+        #expect(signIn.reasons == [.bookmark])
+        #expect(bookmarks.bookmarks.isEmpty)
+
+        signIn.signIn()
+        #expect(bookmarks.bookmarks == [MatchID(rawValue: "pl1")])
+        #expect(try #require(loaded(viewModel)).events.map(\.id.rawValue) == ["pl1"])
+    }
+
+    @Test func bookmarkGatedActionDroppedOnCancel() async {
+        let bookmarks = FakeBookmarksStore()
+        let signIn = FakeSignIn()
+        signIn.isSignedIn = false
+        let viewModel = makeViewModel(FakeMatchesRepository([match("pl1", at: "2026-11-18 22:00")]), bookmarks: bookmarks, signIn: signIn)
+        await appear(viewModel)
+
+        viewModel.didToggleBookmark(MatchID(rawValue: "pl1"))
+        signIn.cancel()
+        signIn.signIn()
+        #expect(bookmarks.bookmarks.isEmpty)
+    }
+
+    /// Без входа хранилище закладок пустое (D31) — секции «Мои события» нет совсем, а не пустая.
+    @Test func todayHidesMyEventsWhenSignedOut() async throws {
+        let viewModel = makeViewModel(FakeMatchesRepository([match("pl1", at: "2026-11-18 22:00")]), bookmarks: FakeBookmarksStore())
+        await appear(viewModel)
+
+        let content = try #require(loaded(viewModel))
+        #expect(content.events.isEmpty)
+        #expect(content.sections.count == 1)
     }
 }

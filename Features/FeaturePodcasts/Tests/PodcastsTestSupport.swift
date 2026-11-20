@@ -166,3 +166,52 @@ final class FakeDownloads: EpisodeDownloads {
 func download(_ episode: Episode, _ podcast: Podcast, _ state: DownloadState, ago: TimeInterval = days(1), artwork: URL? = nil) -> DownloadedEpisode {
     DownloadedEpisode(episode: episode, podcast: podcast, addedAt: testNow.addingTimeInterval(-ago), state: state, artworkFile: artwork)
 }
+
+let testUser = UserProfile(id: "user", name: nil, email: "user@example.com")
+
+/// Аккаунт для ворот (D31): только состояние; операции входа фичам не нужны.
+@MainActor
+final class FakeAccount: Account {
+    let subject: CurrentValueSubject<AccountState, Never>
+
+    init(_ state: AccountState = .signedIn(testUser)) { subject = CurrentValueSubject(state) }
+
+    var state: AccountState { subject.value }
+    var statePublisher: AnyPublisher<AccountState, Never> { subject.eraseToAnyPublisher() }
+    var userID: String? { if case let .signedIn(user) = state { user.id } else { nil } }
+
+    func signUp(name: String, email: String, password: String) async throws {}
+    func confirmSignUp(email: String, code: String) async throws {}
+    func resendSignUpCode(email: String) async throws {}
+    func signIn(email: String, password: String) async throws {}
+    func requestPasswordReset(email: String) async throws {}
+    func resetPassword(email: String, code: String, newPassword: String) async throws {}
+    func signOut() async {}
+    func deleteAccount() async throws {}
+}
+
+/// Фейковые ворота (D31): вошёл — действие сразу, как у приложения; иначе запоминает повод и ждёт `signIn()` / `cancel()`.
+@MainActor
+final class FakeSignIn {
+    let account: FakeAccount
+    private(set) var reasons: [SignInReason] = []
+    private var pending: (@MainActor () -> Void)?
+
+    init(_ account: FakeAccount = FakeAccount()) { self.account = account }
+
+    func require(_ reason: SignInReason, then action: @escaping @MainActor () -> Void) {
+        if case .signedIn = account.state { return action() }
+        reasons.append(reason)
+        pending = action
+    }
+
+    /// Вход удался: аккаунт во входе, затем действие.
+    func signIn() {
+        account.subject.send(.signedIn(testUser))
+        pending?()
+        pending = nil
+    }
+
+    /// Лист закрыли без входа.
+    func cancel() { pending = nil }
+}

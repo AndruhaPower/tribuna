@@ -1,12 +1,21 @@
 import Combine
+import CoreDomain
 import CoreUI
 import SnapKit
 import UIKit
 
-/// Профиль по макету «Профиль» без карточки аккаунта и уведомлений: плитки-счётчики сразу под заголовком, секция «ЗАГРУЗКИ».
-/// Отступы — замер макета от верха безопасной зоны и от низа плиток.
+/// Профиль по макету «Профиль» без уведомлений. Со входом: карточка аккаунта, плитки-счётчики, «ЗАГРУЗКИ», «Удалить аккаунт».
+/// Без входа: заголовок и карточка мотивации. Отступы — замер макета от верха безопасной зоны и от низа плиток.
 final class ProfileViewController: UIViewController {
     private let viewModel: ProfileViewModel
+    private let account: Account
+    private let signedInContent = UIView()
+    private let motivationCard = UIView()
+    private let avatarLabel = UILabel()
+    private let nameLabel = UILabel()
+    private let emailLabel = UILabel()
+    private let signOutButton = WidePillButton("Выйти", style: .outline, height: 34, font: Typography.text(14, .semibold))
+    private let deleteButton = textButton("Удалить аккаунт", color: Palette.destructive)
     private let bookmarksTile = CounterTile(title: "Мои закладки")
     private let subscriptionsTile = CounterTile(title: "Мои подписки")
     private let wifiSwitch = UISwitch()
@@ -19,8 +28,9 @@ final class ProfileViewController: UIViewController {
     private let clearButton = UIButton(type: .system)
     private var cancellables: Set<AnyCancellable> = []
 
-    init(viewModel: ProfileViewModel) {
+    init(viewModel: ProfileViewModel, account: Account) {
         self.viewModel = viewModel
+        self.account = account
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -30,7 +40,21 @@ final class ProfileViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = Palette.background
-        let safe = view.safeAreaLayoutGuide
+        let scroll = UIScrollView()
+        scroll.alwaysBounceVertical = true
+        view.addSubview(scroll)
+        scroll.snp.makeConstraints {
+            $0.top.leading.trailing.equalTo(view.safeAreaLayoutGuide)
+            $0.bottom.equalToSuperview()
+        }
+        let safe = UIView()
+        scroll.addSubview(safe)
+        safe.snp.makeConstraints {
+            $0.edges.equalTo(scroll.contentLayoutGuide)
+            $0.width.equalTo(scroll.frameLayoutGuide)
+        }
+        let accountCard = makeAccountCard()
+        setUpMotivationCard()
 
         let titleFont = Typography.screenTitle
         let titleLabel = UILabel()
@@ -86,7 +110,10 @@ final class ProfileViewController: UIViewController {
         }
         clearButton.addAction(UIAction { [weak self] _ in self?.confirmClear() }, for: .touchUpInside)
 
-        [titleLabel, bookmarksTile, subscriptionsTile, section, card].forEach(view.addSubview)
+        deleteButton.addAction(UIAction { [weak self] _ in self?.confirmDelete() }, for: .touchUpInside)
+
+        [titleLabel, signedInContent, motivationCard].forEach(safe.addSubview)
+        [accountCard, bookmarksTile, subscriptionsTile, section, card, deleteButton].forEach(signedInContent.addSubview)
         [wifiRow, usageRow, clearButton].forEach(card.addSubview)
         [wifiLabel, wifiSwitch].forEach(wifiRow.addSubview)
         [usageTitle, usageLabel, usageTrack].forEach(usageRow.addSubview)
@@ -101,8 +128,22 @@ final class ProfileViewController: UIViewController {
             $0.leading.equalToSuperview().offset(20)
             $0.firstBaseline.equalTo(safe.snp.top).offset(15.5 + titleFont.capHeight)
         }
+        signedInContent.snp.makeConstraints {
+            $0.top.equalToSuperview().offset(63)
+            $0.leading.trailing.bottom.equalToSuperview()
+        }
+        motivationCard.snp.makeConstraints {
+            $0.top.equalToSuperview().offset(63)
+            $0.leading.trailing.equalToSuperview().inset(20)
+            $0.bottom.lessThanOrEqualToSuperview().inset(24)
+        }
+        accountCard.snp.makeConstraints {
+            $0.top.equalToSuperview()
+            $0.leading.trailing.equalToSuperview().inset(20)
+            $0.height.equalTo(79)
+        }
         bookmarksTile.snp.makeConstraints {
-            $0.top.equalTo(safe).offset(63)
+            $0.top.equalTo(accountCard.snp.bottom).offset(20)
             $0.leading.equalToSuperview().offset(20)
             $0.height.equalTo(79)
         }
@@ -118,6 +159,11 @@ final class ProfileViewController: UIViewController {
         card.snp.makeConstraints {
             $0.top.equalTo(bookmarksTile.snp.bottom).offset(44)
             $0.leading.trailing.equalToSuperview().inset(20)
+        }
+        deleteButton.snp.makeConstraints {
+            $0.top.equalTo(card.snp.bottom).offset(20)
+            $0.leading.equalToSuperview().offset(20)
+            $0.bottom.equalToSuperview().inset(16)
         }
         wifiRow.snp.makeConstraints {
             $0.top.leading.trailing.equalToSuperview()
@@ -189,7 +235,81 @@ final class ProfileViewController: UIViewController {
         return label
     }
 
+    /// Карточка аккаунта (замер макета): высота 79, кружок 52 с полем 16, имя SF 18 semibold, почта SF 14, «Выйти» 34 pt.
+    private func makeAccountCard() -> UIView {
+        let card = UIView()
+        card.backgroundColor = Palette.surface
+        card.layer.cornerRadius = 18
+        let avatar = UIView()
+        avatar.backgroundColor = Palette.surfaceHigh
+        avatar.layer.cornerRadius = 26
+        avatarLabel.font = Typography.display(20)
+        avatarLabel.textColor = Palette.textPrimary
+        avatarLabel.textAlignment = .center
+        avatar.isAccessibilityElement = false
+        nameLabel.font = Typography.text(18, .semibold)
+        nameLabel.textColor = Palette.textPrimary
+        emailLabel.font = Typography.text(14)
+        emailLabel.textColor = Palette.textSecondary
+        [nameLabel, emailLabel].forEach { $0.lineBreakMode = .byTruncatingTail }
+        signOutButton.addAction(UIAction { [weak self] _ in self?.confirmSignOut() }, for: .touchUpInside)
+        [avatar, nameLabel, emailLabel, signOutButton].forEach(card.addSubview)
+        avatar.addSubview(avatarLabel)
+        avatar.snp.makeConstraints {
+            $0.leading.equalToSuperview().offset(16)
+            $0.centerY.equalToSuperview()
+            $0.size.equalTo(52)
+        }
+        avatarLabel.snp.makeConstraints { $0.center.equalToSuperview() }
+        nameLabel.snp.makeConstraints {
+            $0.leading.equalTo(avatar.snp.trailing).offset(14.5)
+            $0.trailing.lessThanOrEqualTo(signOutButton.snp.leading).offset(-10)
+            $0.firstBaseline.equalTo(card.snp.top).offset(36.25)
+        }
+        emailLabel.snp.makeConstraints {
+            $0.leading.equalTo(nameLabel)
+            $0.trailing.lessThanOrEqualTo(signOutButton.snp.leading).offset(-10)
+            $0.firstBaseline.equalTo(card.snp.top).offset(54.75)
+        }
+        signOutButton.snp.makeConstraints {
+            $0.trailing.equalToSuperview().inset(16)
+            $0.centerY.equalToSuperview()
+        }
+        signOutButton.setContentCompressionResistancePriority(.required, for: .horizontal)
+        return card
+    }
+
+    /// Без входа: три пункта пользы и «Создать профиль» / «У меня есть профиль» — открывают лист на своём шаге.
+    private func setUpMotivationCard() {
+        motivationCard.backgroundColor = Palette.surface
+        motivationCard.layer.cornerRadius = 18
+        let create = WidePillButton("Создать профиль", style: .accent)
+        create.addAction(UIAction { [weak self] _ in self?.openSignIn(.signUp) }, for: .touchUpInside)
+        let signIn = WidePillButton("У меня есть профиль", style: .outline)
+        signIn.addAction(UIAction { [weak self] _ in self?.openSignIn(.signIn) }, for: .touchUpInside)
+        let stack = UIStackView(arrangedSubviews: [benefitsView(), create, signIn])
+        stack.axis = .vertical
+        stack.spacing = 12
+        stack.setCustomSpacing(24, after: stack.arrangedSubviews[0])
+        motivationCard.addSubview(stack)
+        stack.snp.makeConstraints { $0.edges.equalToSuperview().inset(UIEdgeInsets(top: 20, left: 16, bottom: 16, right: 16)) }
+    }
+
+    private func openSignIn(_ start: SignInStart) {
+        guard presentedViewController == nil else { return }
+        present(FeatureProfile.makeSignIn(account: account, reason: .profile, startAt: start) { _ in }, animated: true)
+    }
+
     private func render(_ state: ProfileState) {
+        signedInContent.isHidden = state.account == nil
+        motivationCard.isHidden = state.account != nil || state.isResolving
+        if let card = state.account {
+            avatarLabel.text = card.initial
+            nameLabel.text = card.name
+            emailLabel.text = card.email
+        }
+        signOutButton.isEnabled = !state.isBusy
+        deleteButton.isEnabled = !state.isBusy
         bookmarksTile.value = state.bookmarks
         subscriptionsTile.value = state.subscriptions
         if wifiSwitch.isOn != state.wifiOnly { wifiSwitch.setOn(state.wifiOnly, animated: false) }
@@ -212,6 +332,31 @@ final class ProfileViewController: UIViewController {
         let alert = UIAlertController(title: "Удалить все загрузки?", message: nil, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "Отмена", style: .cancel))
         alert.addAction(UIAlertAction(title: "Удалить", style: .destructive) { [weak self] _ in self?.viewModel.didConfirmClear() })
+        present(alert, animated: true)
+    }
+
+    private func confirmSignOut() {
+        let alert = UIAlertController(title: ProfileTexts.signOutConfirm, message: nil, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Отмена", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Выйти", style: .destructive) { [weak self] _ in
+            guard let self else { return }
+            Task { await self.viewModel.didConfirmSignOut() }
+        })
+        present(alert, animated: true)
+    }
+
+    private func confirmDelete() {
+        let alert = UIAlertController(title: ProfileTexts.deleteConfirm, message: nil, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Отмена", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Удалить", style: .destructive) { [weak self] _ in
+            guard let self else { return }
+            Task {
+                guard let message = await self.viewModel.didConfirmDelete() else { return }
+                let error = UIAlertController(title: "Не удалось удалить аккаунт", message: message, preferredStyle: .alert)
+                error.addAction(UIAlertAction(title: "OK", style: .cancel))
+                self.present(error, animated: true)
+            }
+        })
         present(alert, animated: true)
     }
 }

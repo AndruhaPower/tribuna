@@ -14,6 +14,7 @@ final class TodayViewModel {
     private let now: () -> Date
     private let calendar: Calendar
     private let onOpenMatch: (MatchID) -> Void
+    private let requireSignIn: (SignInReason, @escaping @MainActor () -> Void) -> Void
 
     private var selectedDay: Date
     /// Выбранный день был «сегодня» в момент выбора — при смене суток переезжает на новое «сегодня».
@@ -29,13 +30,15 @@ final class TodayViewModel {
         bookmarks: BookmarksStore,
         now: @escaping () -> Date = Date.init,
         calendar: Calendar = .autoupdatingCurrent,
-        onOpenMatch: @escaping (MatchID) -> Void
+        onOpenMatch: @escaping (MatchID) -> Void,
+        requireSignIn: @escaping (SignInReason, @escaping @MainActor () -> Void) -> Void
     ) {
         matchesRepository = matches
         bookmarksStore = bookmarks
         self.now = now
         self.calendar = calendar
         self.onOpenMatch = onOpenMatch
+        self.requireSignIn = requireSignIn
         self.bookmarks = bookmarks.bookmarks
         let today = calendar.startOfDay(for: now())
         selectedDay = today
@@ -88,8 +91,13 @@ final class TodayViewModel {
         load(cancellingCurrent: false)
     }
 
+    /// Ворота (D31): без входа — лист входа, закладка — после входа; пришедшую за это время с сервера не снимаем.
     func didToggleBookmark(_ id: MatchID) {
-        bookmarksStore.toggle(id)
+        let wasOn = bookmarks.contains(id)
+        requireSignIn(.bookmark) { [weak self] in
+            guard let self, bookmarksStore.bookmarks.contains(id) == wasOn else { return }
+            bookmarksStore.toggle(id)
+        }
     }
 
     func didTapMatch(_ id: MatchID) {

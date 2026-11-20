@@ -9,6 +9,8 @@ public enum FeaturePodcasts {
         let progress: ListeningProgressStore
         let player: AudioPlayer
         let downloads: EpisodeDownloads
+        /// Без входа «Подписки» и «Загрузки» — приглашение войти; вход и выход перерисовывают вкладку (D31).
+        let account: Account
 
         public init(
             podcasts: PodcastsRepository,
@@ -16,7 +18,8 @@ public enum FeaturePodcasts {
             subscriptions: SubscriptionsStore,
             progress: ListeningProgressStore,
             player: AudioPlayer,
-            downloads: EpisodeDownloads
+            downloads: EpisodeDownloads,
+            account: Account
         ) {
             self.podcasts = podcasts
             self.episodes = episodes
@@ -24,14 +27,18 @@ public enum FeaturePodcasts {
             self.progress = progress
             self.player = player
             self.downloads = downloads
+            self.account = account
         }
     }
 
     public struct Output {
         let openPlayer: () -> Void
+        /// Ворота (D31): вошёл — сразу действие, иначе лист входа и действие после входа.
+        let requireSignIn: (SignInReason, @escaping @MainActor () -> Void) -> Void
 
-        public init(openPlayer: @escaping () -> Void) {
+        public init(openPlayer: @escaping () -> Void, requireSignIn: @escaping (SignInReason, @escaping @MainActor () -> Void) -> Void) {
             self.openPlayer = openPlayer
+            self.requireSignIn = requireSignIn
         }
     }
 

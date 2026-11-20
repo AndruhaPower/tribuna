@@ -16,6 +16,7 @@ final class PodcastViewModel {
     private let player: AudioPlayer
     private let downloads: EpisodeDownloads
     private let onOpenPlayer: () -> Void
+    private let requireSignIn: (SignInReason, @escaping @MainActor () -> Void) -> Void
     private let now: () -> Date
     private let calendar: Calendar
 
@@ -37,6 +38,7 @@ final class PodcastViewModel {
         player: AudioPlayer,
         downloads: EpisodeDownloads,
         onOpenPlayer: @escaping () -> Void,
+        requireSignIn: @escaping (SignInReason, @escaping @MainActor () -> Void) -> Void,
         now: @escaping () -> Date = Date.init,
         calendar: Calendar = .autoupdatingCurrent
     ) {
@@ -46,6 +48,7 @@ final class PodcastViewModel {
         self.player = player
         self.downloads = downloads
         self.onOpenPlayer = onOpenPlayer
+        self.requireSignIn = requireSignIn
         self.now = now
         self.calendar = calendar
         self.subscriptions = subscriptions.subscriptions
@@ -106,8 +109,13 @@ final class PodcastViewModel {
         load(force: false)
     }
 
+    /// Ворота (D31): без входа — лист входа, подписка — после входа; пришедшую за это время с сервера не снимаем.
     func didTapSubscribe() {
-        subscriptionsStore.toggle(podcast.id)
+        let wasOn = subscriptions[podcast.id] != nil
+        requireSignIn(.subscription) { [weak self] in
+            guard let self, (subscriptionsStore.subscriptions[podcast.id] != nil) == wasOn else { return }
+            subscriptionsStore.toggle(podcast.id)
+        }
     }
 
     func didTapEpisodeButton(_ id: EpisodeID) {
@@ -121,8 +129,13 @@ final class PodcastViewModel {
         if playback.item?.episode?.id == id { onOpenPlayer() } else { player.play(.episode(episode, podcast: podcast)) }
     }
 
+    /// Ворота (D31): без входа — лист входа, действие — после входа, если состояние загрузки не сменилось.
     func didTapDownloadAction(_ id: EpisodeID, shown: EpisodeRow.DownloadAction? = nil) {
-        downloads.perform(id, entry: episodes?.first { $0.id == id }.map { ($0, podcast) }, shown: shown)
+        let shown = shown ?? downloads.action(id)
+        requireSignIn(.download) { [weak self] in
+            guard let self else { return }
+            downloads.perform(id, entry: episodes?.first { $0.id == id }.map { ($0, podcast) }, shown: shown)
+        }
     }
 
     private func load(force: Bool) {

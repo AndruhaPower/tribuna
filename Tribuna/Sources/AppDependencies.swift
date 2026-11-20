@@ -20,36 +20,110 @@ struct AppDependencies {
     let player: AudioPlayer
     /// Загрузки выпусков; одни и те же и для отладочных моков, кроме `-PodcastsMockData`.
     private(set) var downloads: EpisodeDownloads = Self.backgroundDownloads
+    /// Аккаунт для Профиля и ворот; настоящий, кроме `-ProfileMock` и моков вёрстки «Сегодня», «Матча» и «Подкастов»
+    /// (там «вошедший» `MockAccount` — ворота пропускают, вкладки на данных макета).
+    private(set) var account: Account = Self.account.account
 
     /// Единственная фоновая сессия загрузок: `Services.make` моки зовут несколько раз, поэтому не там.
     /// Статическая — `AppDelegate` передаёт ей события сессии и при запуске в фоне, без сцены.
     static let backgroundDownloads = BackgroundEpisodeDownloads.make()
+
+    /// Единственный аккаунт и PostgREST таблиц пользователя (D31): по той же причине, что и загрузки, — не в `Services.make`.
+    static let account = Services.makeAccount(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
 
     init() {
         #if DEBUG
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-TodayMockData") || arguments.contains("-MatchMockData") {
             (matches, standings, bookmarks, reminders, stations) = Self.todayMockData()
-            (_, _, _, _, _, podcasts, episodes, subscriptions, progress) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
+            (_, _, _, _, _, podcasts, episodes, subscriptions, progress) = Self.services()
             // С `-RadioMockData` — ещё и мини-плеер со «Стадион FM», как на макете «Сегодня».
             player = Self.radioMock()?.player ?? RadioPlayer()
+            account = MockAccount()
             return
         }
         if let radio = Self.radioMock() {
-            (matches, standings, bookmarks, reminders, _, podcasts, episodes, subscriptions, progress) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
+            (matches, standings, bookmarks, reminders, _, podcasts, episodes, subscriptions, progress) = Self.services()
             (stations, player) = radio
             return
         }
+        if let mock = Self.profileMock() {
+            (matches, standings, bookmarks, reminders, stations, podcasts, episodes, subscriptions, progress, account, downloads) = mock
+            player = MockAudioPlayer(playing: nil)
+            return
+        }
         if let mock = Self.podcastsMock() {
-            (matches, standings, bookmarks, reminders, stations, _, _, _, _) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
+            (matches, standings, bookmarks, reminders, stations, _, _, _, _) = Self.services()
             (podcasts, episodes, subscriptions, progress, player, downloads) = mock
+            account = MockAccount()
             return
         }
         #endif
-        (matches, standings, bookmarks, reminders, stations, podcasts, episodes, subscriptions, progress) = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
-        player = RadioPlayer(progress: progress, localFile: { Self.backgroundDownloads.localFile(for: $0) })
+        (matches, standings, bookmarks, reminders, stations, podcasts, episodes, subscriptions, progress) = Self.services()
+        player = RadioPlayer(progress: progress, localFile: { Self.backgroundDownloads.localFile(for: $0) },
+                             onProgressCheckpoint: { [progress] in (progress as? SyncedListeningProgressStore)?.flushProgress() })
+    }
+
+    /// Источники с настоящим аккаунтом: закладки, подписки и позиция — его, с синхронизацией (D31).
+    private static func services() -> (matches: MatchesRepository, standings: StandingsRepository, bookmarks: BookmarksStore, reminders: RemindersStore,
+                                       stations: StationsRepository, podcasts: PodcastsRepository, episodes: EpisodesRepository,
+                                       subscriptions: SubscriptionsStore, progress: ListeningProgressStore) {
+        Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey, account: account.account, userClient: account.userClient)
     }
 }
+
+#if DEBUG
+/// Фейковый аккаунт: для моков вёрстки — «вошедший» `mock` (закладки, подписки и позиция только локально, `userClient: nil`);
+/// для `-ProfileMock` — переключаемый вход и выход. Код из письма — «123456»; почта с «taken» занята, с «new» не подтверждена;
+/// пароль «wrongpass» — неверный; почта с «offline» — нет сети (в т.ч. при удалении аккаунта).
+@MainActor
+final class MockAccount: Account {
+    static let user = UserProfile(id: "mock", name: "Алексей", email: "alexey@example.com")
+    private let subject: CurrentValueSubject<AccountState, Never>
+    private var pendingName: String?
+
+    init(state: AccountState = .signedIn(MockAccount.user)) { subject = CurrentValueSubject(state) }
+
+    var state: AccountState { subject.value }
+    var statePublisher: AnyPublisher<AccountState, Never> { subject.eraseToAnyPublisher() }
+    var userID: String? { if case let .signedIn(user) = state { user.id } else { nil } }
+
+    private func pause() async { try? await Task.sleep(nanoseconds: 400_000_000) }
+    private func signIn(_ email: String, name: String?) { subject.send(.signedIn(UserProfile(id: "mock", name: name, email: email))) }
+
+    func signUp(name: String, email: String, password: String) async throws {
+        await pause()
+        if email.contains("offline") { throw AccountError.network }
+        if email.contains("taken") { throw AccountError.emailTaken }
+        pendingName = name
+    }
+    func confirmSignUp(email: String, code: String) async throws {
+        await pause()
+        guard code == "123456" else { throw AccountError.invalidCode }
+        signIn(email, name: pendingName)
+    }
+    func resendSignUpCode(email: String) async throws { await pause() }
+    func signIn(email: String, password: String) async throws {
+        await pause()
+        if email.contains("offline") { throw AccountError.network }
+        if password == "wrongpass" { throw AccountError.invalidCredentials }
+        if email.contains("new") { throw AccountError.emailNotConfirmed }
+        signIn(email, name: "Алексей")
+    }
+    func requestPasswordReset(email: String) async throws { await pause() }
+    func resetPassword(email: String, code: String, newPassword: String) async throws {
+        await pause()
+        guard code == "123456" else { throw AccountError.invalidCode }
+        signIn(email, name: "Алексей")
+    }
+    func signOut() async { subject.send(.signedOut) }
+    func deleteAccount() async throws {
+        await pause()
+        if case let .signedIn(user) = state, user.email.contains("offline") { throw AccountError.network }
+        subject.send(.signedOut)
+    }
+}
+#endif
 
 #if DEBUG
 /// Данные как в макетах «Сегодня» и «Карточка матча» — для сверки вёрстки. Только в отладке.
@@ -99,7 +173,7 @@ extension AppDependencies {
         ]
         // Закладки — в отдельном наборе UserDefaults, чтобы не трогать настоящие.
         let defaults = UserDefaults(suiteName: "TodayMockData") ?? .standard
-        let services = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey, defaults: defaults)
+        let services = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey, account: MockAccount(), userClient: nil, defaults: defaults)
         if !services.bookmarks.bookmarks.contains(liverpool) { services.bookmarks.toggle(liverpool) }
         return (MockMatchesRepository(matches: matches), MockStandingsRepository(), services.bookmarks, services.reminders, services.stations)
     }
@@ -230,7 +304,7 @@ extension AppDependencies {
         guard arguments.contains("-PodcastsMockData") else { return nil }
         let defaults = UserDefaults(suiteName: "PodcastsMockData") ?? .standard
         defaults.removePersistentDomain(forName: "PodcastsMockData")
-        let services = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey, defaults: defaults)
+        let services = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey, account: MockAccount(), userClient: nil, defaults: defaults)
         // Обложки нет — плитки и строки остаются плашками `surfaceRaised`, как в макете.
         func podcast(_ id: String, _ title: String, _ author: String, _ order: Int) -> Podcast {
             Podcast(id: id, title: title, author: author, feedURL: URL(string: "https://example.com/\(id).xml")!,
@@ -302,9 +376,44 @@ extension AppDependencies {
     private static func realFeedsMock()
         -> (PodcastsRepository, EpisodesRepository, SubscriptionsStore, ListeningProgressStore, AudioPlayer, EpisodeDownloads) {
         let defaults = UserDefaults(suiteName: "PodcastsRealFeeds") ?? .standard
-        let services = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey, defaults: defaults)
+        let services = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey, account: MockAccount(), userClient: nil, defaults: defaults)
         return (MockPodcastsRepository(podcasts: realCatalog), services.episodes, services.subscriptions, services.progress,
                 RadioPlayer(progress: services.progress, localFile: { backgroundDownloads.localFile(for: $0) }), backgroundDownloads)
+    }
+}
+#endif
+
+#if DEBUG
+/// `-ProfileMock`: Профиль на фейковом аккаунте (`MockAccount`), без входа; `-ProfileMockSignedIn` — сразу во входе,
+/// с данными макета «Профиль» (4 закладки, 3 подписки, 412 МБ · 6 выпусков). Данные — в наборе UserDefaults `ProfileMock`.
+extension AppDependencies {
+    static var isProfileMock: Bool { ProcessInfo.processInfo.arguments.contains("-ProfileMock") }
+    static var profileMockDefaults: UserDefaults { UserDefaults(suiteName: "ProfileMock") ?? .standard }
+
+    fileprivate static func profileMock() -> (MatchesRepository, StandingsRepository, BookmarksStore, RemindersStore, StationsRepository,
+                                              PodcastsRepository, EpisodesRepository, SubscriptionsStore, ListeningProgressStore,
+                                              Account, EpisodeDownloads)? {
+        guard isProfileMock else { return nil }
+        let defaults = profileMockDefaults
+        defaults.removePersistentDomain(forName: "ProfileMock")
+        let signedIn = ProcessInfo.processInfo.arguments.contains("-ProfileMockSignedIn")
+        let account = MockAccount(state: signedIn ? .signedIn(MockAccount.user) : .signedOut)
+        let services = Services.make(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey, account: account, userClient: nil, defaults: defaults)
+        var items: [DownloadedEpisode] = []
+        if signedIn {
+            for id in 1...4 { services.bookmarks.toggle(MatchID(rawValue: "football:mock-\(id)")) }
+            for id in ["out", "puck", "review"] { services.subscriptions.toggle(id) }
+            let podcast = Podcast(id: "out", title: "Вне игры", author: "Tribuna", feedURL: URL(string: "https://example.com/out.xml")!,
+                                  artworkURL: URL(string: "https://example.invalid/out.jpg")!, featuredOrder: nil)
+            items = (1...6).map { index in
+                let episode = Episode(id: EpisodeID(podcastID: "out", guid: "e\(index)"), podcastID: "out", title: "Выпуск \(index)",
+                                      publishedAt: Date(), duration: 1800, audioURL: URL(string: "https://example.com/e\(index).mp3")!,
+                                      artworkURL: nil, link: nil)
+                return DownloadedEpisode(episode: episode, podcast: podcast, addedAt: Date(), state: .downloaded(bytes: 412_000_000 / 6), artworkFile: nil)
+            }
+        }
+        return (MockMatchesRepository(matches: []), MockStandingsRepository(), services.bookmarks, services.reminders, services.stations,
+                services.podcasts, services.episodes, services.subscriptions, services.progress, account, MockEpisodeDownloads(items: items))
     }
 }
 #endif
