@@ -210,10 +210,13 @@ final class SignInModel {
         update()
     }
 
+    /// Длина кода из письма задаётся в Supabase (Email OTP Length, 6–10; по умолчанию 8) — принимаем любую.
+    static let codeLengths = 6...10
+
     private func update() {
         let hasEmail = trimmedEmail.contains("@")
         let strongPassword = password.count >= Self.minPasswordLength
-        let hasCode = code.count == 6 && code.allSatisfy(\.isNumber)
+        let hasCode = Self.codeLengths.contains(code.count) && code.allSatisfy(\.isNumber)
         var next = state
         let filled = switch step {
         case .motivation: false

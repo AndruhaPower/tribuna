@@ -251,7 +251,7 @@ final class FormViewController: UIViewController, UITextFieldDelegate {
     }
 
     private func codeField() -> FormField {
-        let field = FormField(placeholder: "Код из 6 цифр")
+        let field = FormField(placeholder: "Код из письма")
         field.textContentType = .oneTimeCode
         field.keyboardType = .numberPad
         field.font = Typography.digits(20, .semibold)
@@ -271,7 +271,7 @@ final class FormViewController: UIViewController, UITextFieldDelegate {
     func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
         guard (textField as? FormField)?.textContentType == .oneTimeCode else { return true }
         let text = ((textField.text ?? "") as NSString).replacingCharacters(in: range, with: string)
-        return text.count <= 6 && text.allSatisfy(\.isNumber)
+        return text.count <= SignInModel.codeLengths.upperBound && text.allSatisfy(\.isNumber)
     }
 }
 

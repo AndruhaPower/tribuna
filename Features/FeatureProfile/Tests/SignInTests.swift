@@ -95,6 +95,10 @@ struct SignInTests {
         #expect(model.codeHint == "Мы отправили код на a@b.ru")
         model.code = "12345"
         #expect(!model.state.canSubmit)
+        model.code = "12345678901"
+        #expect(!model.state.canSubmit)
+        model.code = "90680000"
+        #expect(model.state.canSubmit)
         model.code = "123456"
         #expect(model.state.canSubmit)
         await model.submit()
