@@ -25,6 +25,7 @@ struct NHLClientTests {
         #expect(first.id.rawValue.hasPrefix("hockey:"))
         #expect(first.home?.abbreviation != nil)
         #expect(first.round == nil)
+        #expect(first.home?.logoURL == nil && first.competition.emblemURL == nil)
     }
 
     @Test(arguments: [

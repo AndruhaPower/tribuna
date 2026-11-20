@@ -25,20 +25,26 @@ public struct Team: Sendable, Equatable {
     /// Уже выбрано: name_ru ?? short_name_ru ?? short_name ?? name.
     public let name: String
     public let abbreviation: String?
+    /// Герб (PNG, https); nil — показываем аббревиатуру.
+    public let logoURL: URL?
 
-    public init(name: String, abbreviation: String?) {
+    public init(name: String, abbreviation: String?, logoURL: URL? = nil) {
         self.name = name
         self.abbreviation = abbreviation
+        self.logoURL = logoURL
     }
 }
 
 public struct Competition: Sendable, Equatable {
     public let code: String
     public let name: String
+    /// Эмблема турнира (PNG, https).
+    public let emblemURL: URL?
 
-    public init(code: String, name: String) {
+    public init(code: String, name: String, emblemURL: URL? = nil) {
         self.code = code
         self.name = name
+        self.emblemURL = emblemURL
     }
 }
 

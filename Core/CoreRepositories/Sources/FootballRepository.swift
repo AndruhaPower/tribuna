@@ -9,9 +9,11 @@ struct FootballRow: Decodable, Sendable {
         let name: String
         let nameRu: String?
         let enabled: Bool
+        var emblemURL: String? = nil
 
         enum CodingKeys: String, CodingKey {
             case code, name, enabled
+            case emblemURL = "emblem_url"
             case nameRu = "name_ru"
         }
     }
@@ -22,9 +24,11 @@ struct FootballRow: Decodable, Sendable {
         let tla: String?
         let nameRu: String?
         let shortNameRu: String?
+        var crestURL: String? = nil
 
         enum CodingKeys: String, CodingKey {
             case name, tla
+            case crestURL = "crest_url"
             case shortName = "short_name"
             case nameRu = "name_ru"
             case shortNameRu = "short_name_ru"
@@ -76,7 +80,7 @@ enum FootballMapping {
         Match(
             id: MatchID(sport: .football, sourceID: String(row.id)),
             sport: .football,
-            competition: Competition(code: row.competition.code, name: row.competition.nameRu ?? row.competition.name),
+            competition: Competition(code: row.competition.code, name: row.competition.nameRu ?? row.competition.name, emblemURL: row.competition.emblemURL.flatMap(URL.init(string:))),
             kickoff: row.utcDate,
             status: status(row.status),
             home: row.home.map(team),
@@ -110,7 +114,7 @@ enum FootballMapping {
     }
 
     private static func team(_ row: FootballRow.TeamRow) -> Team {
-        Team(name: row.nameRu ?? row.shortNameRu ?? row.shortName ?? row.name, abbreviation: row.tla)
+        Team(name: row.nameRu ?? row.shortNameRu ?? row.shortName ?? row.name, abbreviation: row.tla, logoURL: row.crestURL.flatMap(URL.init(string:)))
     }
 }
 
@@ -118,9 +122,9 @@ enum FootballMapping {
 struct FootballRepository: MatchesRepository, StandingsRepository {
     static let columns = """
         id,utc_date,status,matchday,home_score,away_score,home_team_id,away_team_id,\
-        competition:competitions!inner(code,name,name_ru,enabled),\
-        home:teams!home_team_id(name,short_name,tla,name_ru,short_name_ru),\
-        away:teams!away_team_id(name,short_name,tla,name_ru,short_name_ru)
+        competition:competitions!inner(code,name,name_ru,enabled,emblem_url),\
+        home:teams!home_team_id(name,short_name,tla,name_ru,short_name_ru,crest_url),\
+        away:teams!away_team_id(name,short_name,tla,name_ru,short_name_ru,crest_url)
         """
 
     /// PostgREST отдаёт timestamptz как "2026-11-20T19:30:00+00:00", иногда с долями секунды.
@@ -169,7 +173,7 @@ struct FootballRepository: MatchesRepository, StandingsRepository {
             .from("standings")
             .select("""
                 stage,group_name,position,team_id,played,points,\
-                team:teams!team_id(name,short_name,tla,name_ru,short_name_ru),\
+                team:teams!team_id(name,short_name,tla,name_ru,short_name_ru,crest_url),\
                 competition:competitions!inner(code)
                 """)
             .eq("competition.code", value: competitionCode)
