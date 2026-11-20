@@ -5,20 +5,25 @@ import Foundation
 
 /// Нужное аккаунту от Supabase Auth — за протоколом ради тестов.
 @MainActor protocol AuthBackend {
-    /// Профиль при каждой смене сессии (nil — сессии нет); первым — сохранённая сессия.
-    func sessionChanges() -> AsyncStream<UserProfile?>
+    /// Сигнал «сессия изменилась»; первым — при чтении сохранённой сессии. Само событие не несёт состояния:
+    /// оно приходит с задержкой, верное — то, что лежит в хранилище сейчас (`currentUser`).
+    func sessionChanges() -> AsyncStream<Void>
+    /// Пользователь сохранённой сессии (nil — её нет).
+    var currentUser: UserProfile? { get }
     func signUp(email: String, password: String, data: [String: AnyJSON]) async throws
-    func verifyOTP(email: String, token: String, type: EmailOTPType) async throws -> UserProfile
+    func verifyOTP(email: String, token: String, type: EmailOTPType) async throws
     func resendSignUp(email: String) async throws
-    func signIn(email: String, password: String) async throws -> UserProfile
+    func signIn(email: String, password: String) async throws
     func resetPasswordForEmail(_ email: String) async throws
-    func updatePassword(_ password: String) async throws -> UserProfile
+    func updatePassword(_ password: String) async throws
     func signOut() async throws
     /// Действующий токен (обновляет просроченный).
     func accessToken() async throws -> String
 }
 
 /// Аккаунт на Supabase Auth (D31): почта + пароль, коды из письма, сессия в Keychain (по умолчанию библиотеки).
+/// Состояние — всегда из сохранённой сессии; пока идёт операция, события сессии не публикуются (её промежуточные
+/// шаги, например сессия восстановления до смены пароля, — не вход), итог публикуется по её окончании.
 @MainActor
 public final class SupabaseAccount: Account {
     private let subject = CurrentValueSubject<AccountState, Never>(.unknown)
@@ -26,6 +31,7 @@ public final class SupabaseAccount: Account {
     private let deleteURL: URL
     private let apiKey: String
     private let fetch: @MainActor (URLRequest) async throws -> (Data, URLResponse)
+    private var operations = 0
 
     init(auth: AuthBackend, functionsURL: URL, apiKey: String,
          fetch: @escaping @MainActor (URLRequest) async throws -> (Data, URLResponse)) {
@@ -35,8 +41,9 @@ public final class SupabaseAccount: Account {
         self.fetch = fetch
         // Сюда же приходит окончательный сбой обновления сессии (аккаунт удалён на другом телефоне) — signedOut.
         Task { [weak self] in
-            for await profile in auth.sessionChanges() {
-                self?.subject.send(profile.map(AccountState.signedIn) ?? .signedOut)
+            for await _ in auth.sessionChanges() {
+                guard let self, operations == 0 else { continue }
+                publishStoredSession()
             }
         }
     }
@@ -50,65 +57,83 @@ public final class SupabaseAccount: Account {
     // С включённым «Confirm email» signUp на уже подтверждённую почту отвечает успехом без письма —
     // считаем «код отправлен», а confirmSignUp затем падает с invalidCode (D31).
     public func signUp(name: String, email: String, password: String) async throws {
-        try await mapped { try await auth.signUp(email: email, password: password, data: ["full_name": .string(name)]) }
+        try await operation { try await auth.signUp(email: email, password: password, data: ["full_name": .string(name)]) }
     }
 
     public func confirmSignUp(email: String, code: String) async throws {
-        let user = try await mapped { try await auth.verifyOTP(email: email, token: code, type: .signup) }
-        subject.send(.signedIn(user))
+        try await operation { try await verify(email: email, code: code, type: .signup) }
     }
 
     public func resendSignUpCode(email: String) async throws {
-        try await mapped { try await auth.resendSignUp(email: email) }
+        try await operation { try await auth.resendSignUp(email: email) }
     }
 
     public func signIn(email: String, password: String) async throws {
-        do {
-            let user = try await mapped { try await auth.signIn(email: email, password: password) }
-            subject.send(.signedIn(user))
-        } catch AccountError.emailNotConfirmed {
-            // Дальше — шаг кода; не ушло письмо — там есть «Отправить ещё раз».
-            try? await auth.resendSignUp(email: email)
-            throw AccountError.emailNotConfirmed
+        try await operation {
+            do {
+                try await auth.signIn(email: email, password: password)
+            } catch where Self.accountError(error) == .emailNotConfirmed {
+                // Дальше — шаг кода; не ушло письмо — там есть «Отправить ещё раз».
+                try? await auth.resendSignUp(email: email)
+                throw AccountError.emailNotConfirmed
+            }
         }
     }
 
     public func requestPasswordReset(email: String) async throws {
-        try await mapped { try await auth.resetPasswordForEmail(email) }
+        try await operation { try await auth.resetPasswordForEmail(email) }
     }
 
     public func resetPassword(email: String, code: String, newPassword: String) async throws {
-        _ = try await mapped { try await auth.verifyOTP(email: email, token: code, type: .recovery) }
-        do {
-            let user = try await mapped { try await auth.updatePassword(newPassword) }
-            subject.send(.signedIn(user))
-        } catch {
-            // Код потрачен, пароль прежний: сессию восстановления не оставляем входом.
-            await signOut()
-            throw error
+        try await operation {
+            try await verify(email: email, code: code, type: .recovery)
+            do {
+                try await auth.updatePassword(newPassword)
+            } catch {
+                // Код потрачен, пароль прежний: сессию восстановления не оставляем входом.
+                try? await auth.signOut()
+                throw error
+            }
         }
     }
 
     public func signOut() async {
         // Библиотека удаляет сессию до запроса к серверу, сбой запроса (нет сети) неважен.
-        try? await auth.signOut()
-        subject.send(.signedOut)
+        try? await operation { try await auth.signOut() }
     }
 
     public func deleteAccount() async throws {
-        try await mapped {
+        try await operation {
             var request = URLRequest(url: deleteURL)
             request.httpMethod = "POST"
             request.setValue("Bearer \(try await auth.accessToken())", forHTTPHeaderField: "Authorization")
             request.setValue(apiKey, forHTTPHeaderField: "apikey")
             let (_, response) = try await fetch(request)
             guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw AccountError.unknown }
+            try? await auth.signOut()
         }
-        await signOut()
     }
 
-    private func mapped<T>(_ body: () async throws -> T) async throws -> T {
-        do { return try await body() } catch { throw Self.accountError(error) }
+    private func verify(email: String, code: String, type: EmailOTPType) async throws {
+        do {
+            try await auth.verifyOTP(email: email, token: code, type: type)
+        } catch let error as AuthError where error.errorCode == .validationFailed {
+            throw AccountError.invalidCode // код не той длины / не цифры
+        }
+    }
+
+    private func publishStoredSession() {
+        subject.send(auth.currentUser.map(AccountState.signedIn) ?? .signedOut)
+    }
+
+    /// События сессии во время операции не публикуются; по окончании (успех или ошибка) — сохранённая сессия.
+    private func operation(_ body: () async throws -> Void) async throws {
+        operations += 1
+        defer {
+            operations -= 1
+            if operations == 0 { publishStoredSession() }
+        }
+        do { try await body() } catch { throw Self.accountError(error) }
     }
 
     static func accountError(_ error: any Error) -> AccountError {
@@ -133,11 +158,13 @@ public final class SupabaseAccount: Account {
 struct LiveAuthBackend: AuthBackend {
     let client: AuthClient
 
-    func sessionChanges() -> AsyncStream<UserProfile?> {
+    var currentUser: UserProfile? { client.currentSession.map { UserProfile($0.user) } }
+
+    func sessionChanges() -> AsyncStream<Void> {
         let changes = client.authStateChanges
         return AsyncStream { continuation in
             let task = Task {
-                for await (_, session) in changes { continuation.yield(session.map { UserProfile($0.user) }) }
+                for await _ in changes { continuation.yield() }
                 continuation.finish()
             }
             continuation.onTermination = { _ in task.cancel() }
@@ -148,23 +175,20 @@ struct LiveAuthBackend: AuthBackend {
         try await client.signUp(email: email, password: password, data: data)
     }
 
-    func verifyOTP(email: String, token: String, type: EmailOTPType) async throws -> UserProfile {
-        guard case let .session(session) = try await client.verifyOTP(email: email, token: token, type: type) else {
-            throw AccountError.unknown
-        }
-        return UserProfile(session.user)
+    func verifyOTP(email: String, token: String, type: EmailOTPType) async throws {
+        try await client.verifyOTP(email: email, token: token, type: type)
     }
 
     func resendSignUp(email: String) async throws { try await client.resend(email: email, type: .signup) }
 
-    func signIn(email: String, password: String) async throws -> UserProfile {
-        UserProfile(try await client.signIn(email: email, password: password).user)
+    func signIn(email: String, password: String) async throws {
+        try await client.signIn(email: email, password: password)
     }
 
     func resetPasswordForEmail(_ email: String) async throws { try await client.resetPasswordForEmail(email) }
 
-    func updatePassword(_ password: String) async throws -> UserProfile {
-        UserProfile(try await client.update(user: UserAttributes(password: password)))
+    func updatePassword(_ password: String) async throws {
+        _ = try await client.update(user: UserAttributes(password: password))
     }
 
     func signOut() async throws { try await client.signOut() }

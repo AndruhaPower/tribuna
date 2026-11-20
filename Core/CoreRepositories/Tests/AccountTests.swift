@@ -4,45 +4,59 @@ import Foundation
 import Testing
 @testable import CoreRepositories
 
-/// Фейк Supabase Auth: записывает вызовы, бросает заданные ошибки, сессию шлёт тест.
+/// Фейк Supabase Auth: хранилище сессии — `currentUser`, записывает вызовы, бросает заданные ошибки.
 @MainActor
 final class FakeAuth: AuthBackend {
     var calls: [String] = []
     var errors: [String: any Error] = [:]
     var signUpData: [String: AnyJSON]?
     let profile = UserProfile(id: "u1", name: "Алексей", email: "a@b.ru")
-    let (sessions, session) = AsyncStream<UserProfile?>.makeStream()
+    var currentUser: UserProfile?
+    /// Вызывается посреди вызова (после записи, до ошибки) — для гонок с событиями сессии.
+    var during: [String: () async -> Void] = [:]
+    let (sessions, session) = AsyncStream<Void>.makeStream()
 
-    private func call(_ name: String) throws {
-        calls.append(name)
-        if let error = errors[name.components(separatedBy: "(")[0]] { throw error }
+    /// Как библиотека: поменять хранилище и прислать событие.
+    func store(_ user: UserProfile?) {
+        currentUser = user
+        session.yield()
     }
 
-    func sessionChanges() -> AsyncStream<UserProfile?> { sessions }
+    private func call(_ name: String) async throws {
+        calls.append(name)
+        let key = name.components(separatedBy: "(")[0]
+        await during[key]?()
+        if let error = errors[key] { throw error }
+    }
+
+    func sessionChanges() -> AsyncStream<Void> { sessions }
     func signUp(email: String, password: String, data: [String: AnyJSON]) async throws {
         signUpData = data
-        try call("signUp(\(email))")
+        try await call("signUp(\(email))")
     }
-    func verifyOTP(email: String, token: String, type: EmailOTPType) async throws -> UserProfile {
-        try call("verifyOTP(\(email),\(token),\(type.rawValue))")
-        return profile
+    func verifyOTP(email: String, token: String, type: EmailOTPType) async throws {
+        try await call("verifyOTP(\(email),\(token),\(type.rawValue))")
+        store(profile)
     }
-    func resendSignUp(email: String) async throws { try call("resend(\(email))") }
-    func signIn(email: String, password: String) async throws -> UserProfile {
-        try call("signIn(\(email))")
-        return profile
+    func resendSignUp(email: String) async throws { try await call("resend(\(email))") }
+    func signIn(email: String, password: String) async throws {
+        try await call("signIn(\(email))")
+        store(profile)
     }
-    func resetPasswordForEmail(_ email: String) async throws { try call("recover(\(email))") }
-    func updatePassword(_ password: String) async throws -> UserProfile {
-        try call("updatePassword(\(password))")
-        return profile
+    func resetPasswordForEmail(_ email: String) async throws { try await call("recover(\(email))") }
+    func updatePassword(_ password: String) async throws { try await call("updatePassword(\(password))") }
+    func signOut() async throws {
+        store(nil) // библиотека удаляет сессию до запроса к серверу
+        try await call("signOut")
     }
-    func signOut() async throws { try call("signOut") }
     func accessToken() async throws -> String {
-        try call("accessToken")
+        try await call("accessToken")
         return "jwt-1"
     }
 }
+
+/// Даёт слушателю событий сессии время их обработать.
+private func settle() async { try? await Task.sleep(for: .milliseconds(20)) }
 
 private func apiError(_ code: ErrorCode, status: Int = 400) -> AuthError {
     .api(message: "", errorCode: code, underlyingData: Data(),
@@ -50,6 +64,7 @@ private func apiError(_ code: ErrorCode, status: Int = 400) -> AuthError {
 }
 
 @MainActor
+@Suite(.timeLimit(.minutes(1)))
 struct AccountTests {
     let auth = FakeAuth()
     let functionsURL = URL(string: "https://x.test/functions/v1")!
@@ -71,13 +86,13 @@ struct AccountTests {
         let account = makeAccount()
         #expect(account.state == .unknown)
         #expect(account.userID == nil)
-        auth.session.yield(auth.profile)
+        auth.store(auth.profile)
         await wait(account, for: .signedIn(auth.profile))
         #expect(account.userID == "u1")
 
         let other = FakeAuth()
         let signedOut = SupabaseAccount(auth: other, functionsURL: functionsURL, apiKey: "key", fetch: { _ in throw URLError(.badURL) })
-        other.session.yield(nil)
+        other.store(nil)
         await wait(signedOut, for: .signedOut)
     }
 
@@ -85,10 +100,12 @@ struct AccountTests {
         let account = makeAccount()
         try await account.signUp(name: "Алексей", email: "a@b.ru", password: "12345678")
         #expect(auth.signUpData == ["full_name": .string("Алексей")])
-        #expect(account.state == .unknown)
+        #expect(account.state == .signedOut) // сессии нет — итог операции
 
         auth.errors["verifyOTP"] = apiError(.otpExpired, status: 403)
         #expect(await error { try await account.confirmSignUp(email: "a@b.ru", code: "000000") } == .invalidCode)
+        auth.errors["verifyOTP"] = apiError(.validationFailed, status: 400)
+        #expect(await error { try await account.confirmSignUp(email: "a@b.ru", code: "12") } == .invalidCode)
         auth.errors = [:]
         try await account.confirmSignUp(email: "a@b.ru", code: "123456")
         #expect(auth.calls.last == "verifyOTP(a@b.ru,123456,signup)")
@@ -121,7 +138,7 @@ struct AccountTests {
 
         auth.errors["signIn"] = apiError(ErrorCode("something_new"), status: 500)
         #expect(await error { try await account.signIn(email: "a@b.ru", password: "x") } == .unknown)
-        #expect(account.state == .unknown)
+        #expect(account.state == .signedOut)
 
         auth.errors = [:]
         try await account.signIn(email: "a@b.ru", password: "x")
@@ -179,9 +196,43 @@ struct AccountTests {
 
     @Test func refreshFailureSignsOut() async {
         let account = makeAccount()
-        auth.session.yield(auth.profile)
+        auth.store(auth.profile)
         await wait(account, for: .signedIn(auth.profile))
-        auth.session.yield(nil) // библиотека шлёт signedOut, когда обновить сессию окончательно не удалось
+        auth.store(nil) // библиотека удаляет сессию и шлёт signedOut, когда обновить её окончательно не удалось
         await wait(account, for: .signedOut)
+    }
+
+    @Test func resetFailureNeverPublishesSignedIn() async {
+        let account = makeAccount()
+        auth.store(nil)
+        await wait(account, for: .signedOut)
+        var states: [AccountState] = []
+        let cancellable = account.statePublisher.sink { states.append($0) }
+        defer { cancellable.cancel() }
+        // Сессия восстановления появляется посреди операции, событие о ней успевает дойти до слушателя.
+        auth.during["updatePassword"] = { await settle() }
+        auth.errors["updatePassword"] = AuthError.weakPassword(message: "", reasons: [])
+
+        #expect(await error { try await account.resetPassword(email: "a@b.ru", code: "1", newPassword: "x") } == .weakPassword)
+        await settle() // запоздалые события тоже не дают входа
+        #expect(states == [.signedOut])
+    }
+
+    @Test func streamEventDuringOperationIgnored() async throws {
+        let account = makeAccount()
+        auth.store(auth.profile)
+        await wait(account, for: .signedIn(auth.profile))
+        var states: [AccountState] = []
+        let cancellable = account.statePublisher.sink { states.append($0) }
+        defer { cancellable.cancel() }
+        // Посреди входа хранилище на миг пустое и событие доходит — выхода (и чистки данных) быть не должно.
+        auth.during["signIn"] = { [auth] in
+            auth.store(nil)
+            await settle()
+        }
+
+        try await account.signIn(email: "a@b.ru", password: "x")
+        await settle()
+        #expect(states == [.signedIn(auth.profile)])
     }
 }
