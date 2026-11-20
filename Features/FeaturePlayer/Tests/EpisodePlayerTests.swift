@@ -45,7 +45,7 @@ struct EpisodePlayerTests {
         #expect(progress.remaining == "−15:28")
         #expect(abs((progress.fraction ?? 0) - Float(1122.0 / 2050)) < 0.0001)
         #expect(progress.speed == "1,25×")
-        #expect(progress.speedLabel == "Скорость 1,25×")
+        #expect(progress.speedLabel == "Скорость 1,25")
         #expect(progress.accessibilityValue == "18 минут 42 секунды из 34 минут")
         #expect(state.summaryLabel == "Превью 12 тура: дерби на Энфилде, Вне игры, 18 минут 42 секунды из 34 минут")
     }
@@ -181,6 +181,19 @@ struct EpisodePlayerTests {
         player.subject.value = playback(duration: nil)
         viewModel.scrub(to: 0.5)
         viewModel.endScrubbing(at: 0.5)
+        #expect(player.seeks.isEmpty)
+        #expect(viewModel.state?.progress?.elapsed == "18:42")
+    }
+
+    /// Жест отменили системой — перемотки нет, показ снова ведёт плеер.
+    @Test func cancelScrubbingDoesNotSeek() {
+        let player = FakeAudioPlayer()
+        let viewModel = PlayerViewModel(player: player)
+        player.subject.value = playback()
+        viewModel.scrub(to: 0.5)
+        #expect(viewModel.state?.progress?.elapsed == "17:05")
+
+        viewModel.cancelScrubbing()
         #expect(player.seeks.isEmpty)
         #expect(viewModel.state?.progress?.elapsed == "18:42")
     }

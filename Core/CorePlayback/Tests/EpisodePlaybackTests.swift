@@ -60,6 +60,29 @@ struct EpisodePlaybackTests {
         #expect(store.isFinished(first.id))
     }
 
+    @Test func failureBeforePlayingDoesNotCreateProgress() {
+        player.play(.episode(first, podcast: derby))
+        clock.advance(by: RadioPlayer.connectTimeout)
+        #expect(player.state.status == .failed("Не удалось подключиться"))
+        #expect(store.position(for: first.id) == nil)
+    }
+
+    @Test func switchingBeforeConnectDoesNotCreateProgress() {
+        player.play(.episode(first, podcast: derby))
+        player.play(.episode(second, podcast: derby))
+        player.stop()
+        #expect(store.position(for: first.id) == nil)
+        #expect(store.position(for: second.id) == nil)
+    }
+
+    @Test func finishedWithUnknownDurationRestartsFromBeginning() {
+        let open = episode("x", duration: nil)
+        store.markFinished(open.id)
+        store.setPosition(500, for: open.id)
+        player.play(.episode(open, podcast: derby))
+        #expect(engine.startPositions == [0])
+    }
+
     @Test func rateIgnoresNonPositiveAndClamps() {
         playing()
         player.setRate(0)

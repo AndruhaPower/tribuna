@@ -262,7 +262,8 @@ extension ListRowCell.Content {
             title: row.title,
             subtitle: row.subtitle,
             button: row.button.map { $0 == .pause ? ("Пауза", "pause", .accent) : ("Слушать", "play", .accent) },
-            accessibilityLabel: row.accessibilityLabel
+            accessibilityLabel: row.accessibilityLabel,
+            buttonAccessibilityLabel: row.buttonAccessibilityLabel
         )
     }
 

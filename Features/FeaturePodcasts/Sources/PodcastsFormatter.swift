@@ -76,6 +76,7 @@ enum PodcastsFormatter {
         let isActive = isCurrent && (playback.status == .playing || playback.status == .loading)
         let caption = isNew ? "● Новый · \(podcast.title)" : podcast.title
         let subtitle = subtitle(episode, progress: progress[episode.id], now: now, calendar: calendar)
+        let button: EpisodeRow.Button? = isFirst || isCurrent ? (isActive ? .pause : .listen) : nil
         return EpisodeRow(
             id: episode.id,
             artworkURL: episode.artworkURL ?? podcast.artworkURL,
@@ -83,7 +84,8 @@ enum PodcastsFormatter {
             isNew: isNew,
             title: episode.title,
             subtitle: subtitle,
-            button: isFirst || isCurrent ? (isActive ? .pause : .listen) : nil,
+            button: button,
+            buttonAccessibilityLabel: button.map { ($0 == .pause ? "Пауза" : "Слушать") + ", \(episode.title)" },
             accessibilityLabel: [episode.title, isNew ? "Новый, \(podcast.title)" : podcast.title, subtitle].joined(separator: ", ")
         )
     }

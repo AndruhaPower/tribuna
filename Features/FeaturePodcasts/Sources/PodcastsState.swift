@@ -19,6 +19,8 @@ struct EpisodeRow: Hashable, Identifiable {
     let subtitle: String
     /// nil — без кнопки (она у первой строки и у выпуска в плеере).
     let button: Button?
+    /// VoiceOver для пилюли: «Слушать, <выпуск>» / «Пауза, <выпуск>»; nil — без кнопки.
+    let buttonAccessibilityLabel: String?
     /// VoiceOver: «<выпуск>, <подпись>, <дата и длительность>».
     let accessibilityLabel: String
 }

@@ -101,7 +101,11 @@ final class RadioViewModel {
     }
 
     private func playerChanged(_ playback: PlaybackState) {
+        // Позиция и скорость меняются дважды в секунду — перерисовываем только при смене станции, статуса или таймера.
+        let changed = playback.item != self.playback.item || playback.status != self.playback.status
+            || playback.sleepTimerEndsAt != self.playback.sleepTimerEndsAt
         self.playback = playback
+        guard changed else { return }
         state.nowPlaying = RadioFormatter.nowPlaying(playback)
         render()
     }

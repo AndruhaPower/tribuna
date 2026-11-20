@@ -173,7 +173,8 @@ final class PlayerViewController: UIViewController {
         slider.addAction(UIAction { [weak self] _ in
             guard let self else { return }
             viewModel.endScrubbing(at: slider.value)
-        }, for: [.touchUpInside, .touchUpOutside, .touchCancel])
+        }, for: [.touchUpInside, .touchUpOutside])
+        slider.addAction(UIAction { [weak self] _ in self?.viewModel.cancelScrubbing() }, for: .touchCancel)
         slider.onAccessibilityAdjust = { [weak self] in self?.viewModel.didAdjustAccessibility(forward: $0) }
         slider.accessibilityLabel = "Позиция"
         for label in [elapsedLabel, remainingLabel] {

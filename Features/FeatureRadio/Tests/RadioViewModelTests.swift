@@ -1,3 +1,4 @@
+import Combine
 import CoreDomain
 import Foundation
 import Testing
@@ -286,5 +287,25 @@ struct RadioViewModelTests {
     ])
     func initials(_ name: String, _ expected: String) {
         #expect(RadioFormatter.initials(name) == expected)
+    }
+
+    /// Плеер эпизода шлёт позицию дважды в секунду — экран перерисовывается только при смене станции, статуса или таймера.
+    @Test func positionOnlyPlayerUpdateDoesNotChangeState() {
+        let player = FakeAudioPlayer()
+        let viewModel = makeViewModel(FakeStationsRepository(), player: player)
+        player.set(golos, .playing)
+        var emissions = 0
+        let subscription = viewModel.$state.dropFirst().sink { _ in emissions += 1 }
+        defer { subscription.cancel() }
+
+        var tick = player.state
+        tick.position = 12
+        tick.duration = 100
+        tick.rate = 1.5
+        player.subject.value = tick
+        #expect(emissions == 0)
+
+        player.set(golos, .paused)
+        #expect(emissions == 1)
     }
 }

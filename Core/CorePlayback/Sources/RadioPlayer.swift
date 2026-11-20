@@ -71,7 +71,8 @@ public final class RadioPlayer: AudioPlayer {
         case let .episode(episode, _):
             // Прослушанный — с начала, если позиция в хвосте (≥95 %); недослушанный повтор продолжается. «Прослушано» не снимаем (D27).
             let stored = progress?.position(for: episode.id) ?? 0
-            let atEnd = episode.duration.map { stored >= $0 * Self.finishedFraction } ?? false
+            // Длительность неизвестна — прослушанный начинаем с нуля.
+            let atEnd = episode.duration.map { stored >= $0 * Self.finishedFraction } ?? true
             start = progress?.isFinished(episode.id) == true && atEnd ? 0 : stored
             url = episode.audioURL
         }
@@ -186,6 +187,8 @@ public final class RadioPlayer: AudioPlayer {
 
     private func savePosition() {
         guard let episode = state.item?.episode, let position = state.position else { return }
+        // Не начатый выпуск (позиция 0, записи нет) не помечаем начатым: сбой или смена до подключения.
+        guard position > 0 || progress?.position(for: episode.id) != nil else { return }
         lastSavedAt = clock.now
         progress?.setPosition(position, for: episode.id)
     }

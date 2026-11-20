@@ -187,6 +187,16 @@ struct PodcastsViewModelTests {
         #expect(rows(setup.viewModel).map(\.button) == [.pause, nil, nil, nil])
     }
 
+    @Test func buttonAccessibilityLabelNamesEpisode() async {
+        let setup = make()
+        await appear(setup.viewModel)
+        let first = rows(setup.viewModel)[0]
+        #expect(first.buttonAccessibilityLabel == "Слушать, \(first.title)")
+        #expect(rows(setup.viewModel)[1].buttonAccessibilityLabel == nil)
+        setup.player.set(feeds["out"]![0], outOfPlay, .playing)
+        #expect(rows(setup.viewModel)[0].buttonAccessibilityLabel == "Пауза, \(first.title)")
+    }
+
     @Test func buttonTogglesCurrentAndPlaysOther() async {
         var opened = 0
         let setup = make(onOpenPlayer: { opened += 1 })

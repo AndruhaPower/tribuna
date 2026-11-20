@@ -118,7 +118,7 @@ enum PlayerFormatter {
         let remaining = duration.map { "−" + time(floor($0) - floor(position)) } ?? ""
         let progress = PlayerState.Progress(
             elapsed: elapsed, remaining: remaining, fraction: duration.map { Float(position / $0) },
-            accessibilityValue: spokenProgress, speed: speed, speedLabel: "Скорость \(speed)"
+            accessibilityValue: spokenProgress, speed: speed, speedLabel: "Скорость \(speed.dropLast())"
         )
         return PlayerState(
             name: name, header: "Подкаст · \(podcast.title)", caption: podcast.title.uppercased(),

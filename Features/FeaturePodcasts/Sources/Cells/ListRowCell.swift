@@ -14,6 +14,8 @@ final class ListRowCell: UICollectionViewCell {
         let subtitle: String
         let button: (title: String, icon: String?, style: PillButton.Style)?
         let accessibilityLabel: String
+        /// VoiceOver для пилюли; nil — по её названию.
+        var buttonAccessibilityLabel: String?
     }
 
     static let estimatedHeight: CGFloat = 85
@@ -130,6 +132,7 @@ final class ListRowCell: UICollectionViewCell {
         subtitleLabel.text = content.subtitle
         if let value = content.button {
             button.configure(title: value.title, icon: value.icon, style: value.style)
+            button.accessibilityLabel = content.buttonAccessibilityLabel ?? value.title
             button.isHidden = false
             separatorBelowButton?.activate()
         } else {

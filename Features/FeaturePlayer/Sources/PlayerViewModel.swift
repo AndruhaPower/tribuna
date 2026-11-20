@@ -58,6 +58,12 @@ final class PlayerViewModel {
         player.seek(to: Double(fraction) * duration)
     }
 
+    /// Жест отменила система (звонок, жест «домой») — без перемотки, снова следуем за плеером.
+    func cancelScrubbing() {
+        scrubPosition = nil
+        refresh()
+    }
+
     /// −15 / +30.
     func didTapSkip(by seconds: TimeInterval) {
         player.skip(by: seconds)
