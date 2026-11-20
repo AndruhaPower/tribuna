@@ -77,7 +77,7 @@ public struct PlaybackState: Equatable, Sendable {
 public protocol AudioPlayer: AnyObject {
     var state: PlaybackState { get }
     var statePublisher: AnyPublisher<PlaybackState, Never> { get }
-    /// Выпуск: прослушанный — с начала, если позиция в последних 5 %; иначе с сохранённого места.
+    /// Выпуск: прослушанный — с начала, если позиция в последних 5 % или длительность неизвестна; иначе с сохранённого места.
     func play(_ item: PlaybackItem)
     /// Пауза или продолжение; после ошибки — повторное подключение.
     func togglePlayPause()
