@@ -19,27 +19,38 @@ final class FakeAccount: Account {
     var statePublisher: AnyPublisher<AccountState, Never> { subject.eraseToAnyPublisher() }
     var userID: String? { if case let .signedIn(user) = state { user.id } else { nil } }
 
-    private func call(_ name: String, _ detail: String = "", signsIn: Bool = false) throws {
+    /// Задержать ответы до `release()` — запрос «в полёте».
+    var holding = false
+    private var held: [CheckedContinuation<Void, Never>] = []
+    var isHeld: Bool { !held.isEmpty }
+    func release() {
+        holding = false
+        held.forEach { $0.resume() }
+        held = []
+    }
+
+    private func call(_ name: String, _ detail: String = "", signsIn: Bool = false) async throws {
         calls.append(detail.isEmpty ? name : "\(name) \(detail)")
         log(name)
+        if holding { await withCheckedContinuation { held.append($0) } }
         if let error = errors[name] { throw error }
         if signsIn { subject.send(.signedIn(UserProfile(id: "u", name: nil, email: "a@b.ru"))) }
     }
 
-    func signUp(name: String, email: String, password: String) async throws { try call("signUp", "\(name) \(email)") }
-    func confirmSignUp(email: String, code: String) async throws { try call("confirmSignUp", "\(email) \(code)", signsIn: true) }
-    func resendSignUpCode(email: String) async throws { try call("resendSignUpCode", email) }
-    func signIn(email: String, password: String) async throws { try call("signIn", email, signsIn: true) }
-    func requestPasswordReset(email: String) async throws { try call("requestPasswordReset", email) }
+    func signUp(name: String, email: String, password: String) async throws { try await call("signUp", "\(name) \(email)") }
+    func confirmSignUp(email: String, code: String) async throws { try await call("confirmSignUp", "\(email) \(code)", signsIn: true) }
+    func resendSignUpCode(email: String) async throws { try await call("resendSignUpCode", email) }
+    func signIn(email: String, password: String) async throws { try await call("signIn", email, signsIn: true) }
+    func requestPasswordReset(email: String) async throws { try await call("requestPasswordReset", email) }
     func resetPassword(email: String, code: String, newPassword: String) async throws {
-        try call("resetPassword", "\(email) \(code)", signsIn: true)
+        try await call("resetPassword", "\(email) \(code)", signsIn: true)
     }
     func signOut() async {
-        try? call("signOut")
+        try? await call("signOut")
         subject.send(.signedOut)
     }
     func deleteAccount() async throws {
-        try call("deleteAccount")
+        try await call("deleteAccount")
         subject.send(.signedOut)
     }
 }
@@ -224,6 +235,69 @@ struct SignInTests {
         let model = makeModel()
         model.dismissed()
         #expect(finished.value == [false])
+    }
+
+    /// Запрос в полёте: запустить `submit`, дождаться, пока аккаунт его держит.
+    func startHeld(_ model: SignInModel) async -> Task<Void, Never> {
+        account.holding = true
+        let task = Task { await model.submit() }
+        while !account.isHeld { await Task.yield() }
+        return task
+    }
+
+    @Test func dismissDuringLoadingKeepsSuccessfulSignIn() async {
+        let model = makeModel(start: .signIn)
+        model.email = "a@b.ru"
+        model.password = "secret12"
+        let task = await startHeld(model)
+        #expect(model.state.isLoading)
+        model.dismissed()
+        #expect(finished.value.isEmpty) // ждём итога запроса
+        account.release()
+        await task.value
+        #expect(finished.value == [true])
+        model.dismissed()
+        #expect(finished.value == [true])
+    }
+
+    @Test func dismissDuringLoadingThenFailureIsFalseOnce() async {
+        account.errors["signIn"] = .network
+        let model = makeModel(start: .signIn)
+        model.email = "a@b.ru"
+        model.password = "secret12"
+        let task = await startHeld(model)
+        model.dismissed()
+        account.release()
+        await task.value
+        #expect(finished.value == [false])
+    }
+
+    @Test func codeStepNotPushedAfterLeavingStep() async {
+        let model = makeModel()
+        model.createProfile()
+        model.email = "a@b.ru"
+        model.password = "12345678"
+        let task = await startHeld(model)
+        model.didPop(toDepth: 1)
+        account.release()
+        await task.value
+        #expect(model.state.path == [.motivation])
+    }
+
+    @Test func emailTakenOffersSignIn() async {
+        account.errors["signUp"] = .emailTaken
+        let model = makeModel()
+        model.createProfile()
+        model.email = "a@b.ru"
+        model.password = "12345678"
+        await model.submit()
+        #expect(model.state.error == "Эта почта уже зарегистрирована — войдите")
+        #expect(model.state.offersSignIn)
+        model.signInInstead()
+        #expect(model.state.path == [.motivation, .signUp, .signIn])
+        #expect(model.email == "a@b.ru")
+        #expect(!model.state.offersSignIn)
+        #expect(model.state.canSubmit)
     }
 
     @Test func backTruncatesPath() {

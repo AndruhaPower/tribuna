@@ -59,6 +59,9 @@ final class FormViewController: UIViewController, UITextFieldDelegate {
     /// Поля разных шагов делят значения модели (почта, пароль) — при возврате на шаг берём текущие.
     private var bindings: [(FormField, ReferenceWritableKeyPath<SignInModel, String>)] = []
     private let errorLabel = UILabel()
+    /// «Войти» под «Эта почта уже зарегистрирована».
+    private let signInLink = textButton("Войти", color: Palette.accent)
+    private let errorGroup = UIStackView()
     private var submitButton: WidePillButton!
     private var resendButton: UIButton?
     private var timer: Timer?
@@ -115,11 +118,18 @@ final class FormViewController: UIViewController, UITextFieldDelegate {
         errorLabel.font = Typography.text(14, .medium)
         errorLabel.textColor = Palette.destructive
         errorLabel.numberOfLines = 0
-        stack.addArrangedSubview(errorLabel)
+        signInLink.contentHorizontalAlignment = .leading
+        signInLink.addAction(UIAction { [weak self] _ in self?.model.signInInstead() }, for: .touchUpInside)
+        signInLink.isHidden = true
+        errorGroup.axis = .vertical
+        errorGroup.alignment = .leading
+        errorGroup.isHidden = true
+        [errorLabel, signInLink].forEach(errorGroup.addArrangedSubview)
+        stack.addArrangedSubview(errorGroup)
 
         submitButton = WidePillButton(texts.button, style: .accent)
         submitButton.addAction(UIAction { [weak self] _ in self?.submit() }, for: .touchUpInside)
-        stack.setCustomSpacing(20, after: errorLabel)
+        stack.setCustomSpacing(20, after: errorGroup)
         stack.addArrangedSubview(submitButton)
         if step == .signIn {
             let forgot = textButton("Забыли пароль?")
@@ -182,7 +192,8 @@ final class FormViewController: UIViewController, UITextFieldDelegate {
         submitButton.isLoading = state.isLoading
         resendButton?.isEnabled = state.canResend
         errorLabel.text = state.error
-        errorLabel.isHidden = state.error == nil
+        errorGroup.isHidden = state.error == nil
+        signInLink.isHidden = !state.offersSignIn
         fields.forEach { $0.isEnabled = !state.isLoading }
     }
 

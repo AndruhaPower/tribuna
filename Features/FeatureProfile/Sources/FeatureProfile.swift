@@ -32,6 +32,9 @@ public enum FeatureProfile {
     }
 
     /// Лист входа (`.pageSheet`, навигация внутри). `completion(true)` — вошёл, `false` — закрыли.
+    /// Это лист входа (ворота не открывают второй поверх первого).
+    public static func isSignIn(_ controller: UIViewController) -> Bool { controller is SignInCoordinator }
+
     public static func makeSignIn(account: Account, reason: SignInReason, startAt: SignInStart,
                                   completion: @escaping @MainActor (Bool) -> Void) -> UIViewController {
         SignInCoordinator(model: SignInModel(account: account, reason: reason, start: startAt), completion: completion)

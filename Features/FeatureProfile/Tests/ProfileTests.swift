@@ -81,9 +81,26 @@ struct ProfileTests {
     @Test func signedOutShowsMotivationOnly() {
         account.subject.send(.unknown)
         let viewModel = makeViewModel()
+        // Сессия читается — ни мотивации, ни карточки.
         #expect(viewModel.state.account == nil)
+        #expect(viewModel.state.isResolving)
         account.subject.send(.signedOut)
         #expect(viewModel.state.account == nil)
+        #expect(!viewModel.state.isResolving)
+    }
+
+    /// Отправка не слышит отмены и висит — выход всё равно через таймаут.
+    @Test func signOutDoesNotWaitForHangingFlush() async {
+        let hang = Box<CheckedContinuation<Void, Never>?>(nil)
+        let viewModel = ProfileViewModel(
+            dependencies: .init(account: account, bookmarks: bookmarks, subscriptions: subscriptions, downloads: downloads),
+            output: .init(flushUserData: { await withCheckedContinuation { hang.value = $0 } }),
+            flushTimeout: 0.05
+        )
+        await viewModel.didConfirmSignOut()
+        #expect(account.calls == ["signOut"])
+        #expect(viewModel.state.account == nil)
+        hang.value?.resume()
     }
 
     @Test func signedInShowsAccountCard() {

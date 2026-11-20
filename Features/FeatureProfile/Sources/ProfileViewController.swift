@@ -302,7 +302,7 @@ final class ProfileViewController: UIViewController {
 
     private func render(_ state: ProfileState) {
         signedInContent.isHidden = state.account == nil
-        motivationCard.isHidden = state.account != nil
+        motivationCard.isHidden = state.account != nil || state.isResolving
         if let card = state.account {
             avatarLabel.text = card.initial
             nameLabel.text = card.name

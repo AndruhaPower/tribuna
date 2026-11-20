@@ -117,6 +117,12 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         if case .signedIn = dependencies.account.state { return action() }
         guard var top = window?.rootViewController else { return }
         while let presented = top.presentedViewController { top = presented }
+        if FeatureProfile.isSignIn(top) { return }
+        // Верхний экран уходит (например, меню или алерт, из которого нажали) — покажем лист, когда уйдёт.
+        if top.isBeingDismissed, let transition = top.transitionCoordinator {
+            transition.animate(alongsideTransition: nil) { [weak self] _ in self?.requireSignIn(reason, then: action) }
+            return
+        }
         let sheet = FeatureProfile.makeSignIn(account: dependencies.account, reason: reason, startAt: .motivation) { signedIn in
             if signedIn { action() }
         }

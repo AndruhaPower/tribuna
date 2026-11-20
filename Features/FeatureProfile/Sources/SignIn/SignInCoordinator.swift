@@ -35,6 +35,19 @@ final class SignInCoordinator: UINavigationController, UINavigationControllerDel
         model.$state.map(\.path).removeDuplicates()
             .sink { [weak self] in self?.follow($0) }
             .store(in: &cancellables)
+        // Пока идёт запрос, лист не закрыть и назад не уйти: итог запроса не должен потеряться.
+        model.$state.map(\.isLoading).removeDuplicates()
+            .sink { [weak self] in self?.lock($0) }
+            .store(in: &cancellables)
+    }
+
+    private func lock(_ isLoading: Bool) {
+        isModalInPresentation = isLoading
+        interactivePopGestureRecognizer?.isEnabled = !isLoading
+        for controller in viewControllers {
+            controller.navigationItem.setHidesBackButton(isLoading, animated: false)
+            controller.navigationItem.rightBarButtonItem?.isEnabled = !isLoading
+        }
     }
 
     private func follow(_ path: [SignInStep]) {
@@ -46,6 +59,12 @@ final class SignInCoordinator: UINavigationController, UINavigationControllerDel
     private func screen(_ step: SignInStep) -> UIViewController {
         let controller: UIViewController = step == .motivation ? MotivationViewController(model: model) : FormViewController(model: model, step: step)
         controller.navigationItem.backButtonDisplayMode = .minimal
+        // На мотивации есть «Не сейчас»; на остальных шагах — «Закрыть» (и для VoiceOver, где жест вниз неочевиден).
+        if step != .motivation {
+            let close = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { [weak self] _ in self?.model.dismissed() })
+            close.accessibilityLabel = "Закрыть"
+            controller.navigationItem.rightBarButtonItem = close
+        }
         return controller
     }
 

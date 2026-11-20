@@ -20,6 +20,8 @@ struct SignInState: Equatable {
     var error: String?
     var canSubmit = false
     var canResend = false
+    /// Почта занята — под ошибкой ссылка «Войти» (`signInInstead()`).
+    var offersSignIn = false
 }
 
 enum SignInTexts {
@@ -68,6 +70,8 @@ final class SignInModel {
     private let now: () -> Date
     private var codeSentAt: Date?
     private var isFinished = false
+    /// Лист закрыли, пока шёл запрос: итог — по его результату (вход не теряется).
+    private var dismissedWhileLoading = false
 
     init(account: Account, reason: SignInReason, start: SignInStart, now: @escaping () -> Date = Date.init) {
         self.account = account
@@ -92,14 +96,20 @@ final class SignInModel {
     func forgotPassword() { push(.forgot) }
     func notNow() { finish(false) }
 
-    /// Лист закрыли жестом.
-    func dismissed() { finish(false) }
+    /// Лист закрыли (жест, «Закрыть»). Во время запроса итог сообщим, когда он закончится.
+    func dismissed() {
+        if state.isLoading { dismissedWhileLoading = true } else { finish(false) }
+    }
+
+    /// «Войти» под ошибкой «почта занята»: шаг входа с той же почтой.
+    func signInInstead() { push(.signIn) }
 
     /// Навигация листа вернулась назад («‹» или свайп).
     func didPop(toDepth depth: Int) {
         guard depth < state.path.count, depth > 0 else { return }
         state.path.removeLast(state.path.count - depth)
         state.error = nil
+        state.offersSignIn = false
         update()
     }
 
@@ -109,13 +119,14 @@ final class SignInModel {
     func submit() async {
         guard state.canSubmit, !state.isLoading else { return }
         let email = trimmedEmail
+        let origin = state.path
         await perform {
             switch step {
             case .motivation:
                 break
             case .signUp:
                 try await account.signUp(name: name.trimmingCharacters(in: .whitespacesAndNewlines), email: email, password: password)
-                codeSent(next: .code)
+                codeSent(next: .code, from: origin)
             case .code:
                 try await account.confirmSignUp(email: email, code: code)
                 finish(true)
@@ -125,12 +136,12 @@ final class SignInModel {
                     finish(true)
                 } catch AccountError.emailNotConfirmed {
                     // Код подтверждения уже отправлен заново.
-                    codeSent(next: .code)
+                    codeSent(next: .code, from: origin)
                 }
             case .forgot:
                 try await account.requestPasswordReset(email: email)
                 password = ""
-                codeSent(next: .resetCode)
+                codeSent(next: .resetCode, from: origin)
             case .resetCode:
                 try await account.resetPassword(email: email, code: code, newPassword: password)
                 finish(true)
@@ -158,25 +169,32 @@ final class SignInModel {
     private func perform(_ operation: () async throws -> Void) async {
         state.isLoading = true
         state.error = nil
+        state.offersSignIn = false
         update()
         do {
             try await operation()
         } catch {
-            state.error = SignInTexts.message(error as? AccountError ?? .unknown)
+            let accountError = error as? AccountError ?? .unknown
+            state.error = SignInTexts.message(accountError)
+            state.offersSignIn = accountError == .emailTaken
         }
         state.isLoading = false
         update()
+        if dismissedWhileLoading { finish(false) } // успех уже сообщил `finish(true)`
     }
 
-    private func codeSent(next: SignInStep) {
+    /// Код отправлен — следующий шаг, если человек всё ещё на шаге, с которого отправлял, и лист не закрыт.
+    private func codeSent(next: SignInStep, from origin: [SignInStep]) {
         codeSentAt = now()
         code = ""
+        guard state.path == origin, !dismissedWhileLoading else { return }
         push(next)
     }
 
     private func push(_ step: SignInStep) {
         state.path.append(step)
         state.error = nil
+        state.offersSignIn = false
         update()
     }
 
@@ -188,6 +206,7 @@ final class SignInModel {
 
     private func edited() {
         state.error = nil
+        state.offersSignIn = false
         update()
     }
 
