@@ -1,0 +1,56 @@
+#!/bin/sh
+# Собирает Tribuna и ставит на подключённый iPhone под твоей командой Apple.
+# Запуск: ./install-iphone            — если в связке ключей одна команда разработчика
+#         TEAM=ABCDE12345 ./install-iphone
+# Необязательно: DEVICE=<UDID> — какой телефон, если подключено несколько;
+#                BUNDLE_ID=...   — свой Bundle ID (по умолчанию com.tribuna.app.<TEAM>).
+set -eu
+cd "$(dirname "$0")"
+
+command -v mise >/dev/null || { echo "Нужен mise: brew install mise"; exit 1; }
+
+# Команда: Team ID из действующих сертификатов «Apple Development».
+if [ -z "${TEAM:-}" ]; then
+    tmp=$(mktemp -d)
+    security find-certificate -a -c "Apple Development" -p | (cd "$tmp" && awk '/BEGIN CERT/{n++} {print > ("c" n ".pem")}')
+    teams=$(for f in "$tmp"/c*.pem; do
+        [ -f "$f" ] && openssl x509 -in "$f" -checkend 0 >/dev/null 2>&1 &&
+            openssl x509 -in "$f" -noout -subject -nameopt sep_multiline,sname |
+            awk -F= '/ OU=/{ou=$2} / O=/{o=$2} END{print ou "  " o}'
+    done | sort -u)
+    rm -rf "$tmp"
+    if [ "$(printf '%s\n' "$teams" | grep -c .)" != 1 ]; then
+        echo "Не понял, под какой командой подписывать. Найдено:"
+        printf '%s\n' "${teams:-  (ничего — войди в Apple ID: Xcode → Settings → Accounts)}"
+        echo "Запусти так: TEAM=<ID из первой колонки> ./install-iphone"
+        exit 1
+    fi
+    TEAM=${teams%% *}
+fi
+
+# Телефон: доступный iPhone из devicectl.
+if [ -z "${DEVICE:-}" ]; then
+    json=$(mktemp)
+    xcrun devicectl list devices --json-output "$json" >/dev/null
+    DEVICE=$(python3 -c '
+import json, sys
+ds = [d for d in json.load(open(sys.argv[1]))["result"]["devices"]
+      if d["hardwareProperties"].get("platform") == "iOS"
+      and d["connectionProperties"].get("tunnelState") != "unavailable"]
+for d in ds: print(d["hardwareProperties"]["udid"], d["deviceProperties"]["name"], file=sys.stderr)
+print(ds[0]["hardwareProperties"]["udid"] if len(ds) == 1 else "")
+' "$json")
+    rm -f "$json"
+    [ -n "$DEVICE" ] || { echo "Нужен ровно один подключённый iPhone (кабель или та же Wi-Fi, режим разработчика включён). Список выше; выбери: DEVICE=<UDID> ./install-iphone"; exit 1; }
+fi
+
+export TUIST_BUNDLE_ID="${BUNDLE_ID:-com.tribuna.app.$TEAM}"
+echo "Команда $TEAM, телефон $DEVICE, Bundle ID $TUIST_BUNDLE_ID"
+
+./generate
+xcodebuild build -workspace Tribuna.xcworkspace -scheme Tribuna -configuration Debug \
+    -destination "id=$DEVICE" -derivedDataPath build \
+    -allowProvisioningUpdates -allowProvisioningDeviceRegistration DEVELOPMENT_TEAM="$TEAM" CODE_SIGN_STYLE=Automatic -quiet
+xcrun devicectl device install app --device "$DEVICE" build/Build/Products/Debug-iphoneos/Tribuna.app
+
+echo "Готово. Если не открывается: на iPhone «Настройки → Основные → VPN и управление устройством» → доверять разработчику."

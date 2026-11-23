@@ -1,6 +1,7 @@
 import ProjectDescription
 
-let bundleId = "com.tribuna.app"
+// TUIST_BUNDLE_ID — свой ID для установки коллегами на телефон (./install-iphone), D32.
+let bundleId = Environment.bundleId.getString(default: "com.tribuna.app")
 let deployment: DeploymentTargets = .iOS("16.0")
 let settings: Settings = .settings(base: ["SWIFT_VERSION": "6.0"])
 

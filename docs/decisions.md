@@ -240,6 +240,10 @@ xcodebuild test -workspace Tribuna.xcworkspace -scheme CoreRepositories -destina
 - Моки вёрстки `-TodayMockData`, `-MatchMockData`, `-PodcastsMockData`, `-PodcastsRealFeeds`: `AppDependencies.account` — «вошедший» `MockAccount` (ворота пропускают сразу); `AccountCleanup` для них не создаётся — владелец «mock» в обычном наборе UserDefaults стёр бы загрузки и напоминания при следующем обычном запуске.
 - **Вход падал EXC_BAD_ACCESS** (`swift_task_dealloc` в «closure #1 in default argument 7 of AuthClient.Configuration.init», 2026-11-21): в `AuthClient.Configuration` передаём свой `fetch`, а не замыкание из default-аргумента библиотеки. Локально (юнит-тест, свой сервер) падение не воспроизвелось — это обход по стеку, проверять на устройстве/симуляторе с настоящим входом.
 
+### D32. Установка коллегам на iPhone — 2026-11-23
+Сборка для команды — из репозитория скриптом `./install-iphone`, без TestFlight и Ad Hoc. Подпись — команда самого коллеги (`TEAM`, бесплатный Apple ID подходит: профиль на 7 дней, потом запустить скрипт ещё раз). Bundle ID — `com.tribuna.app.<TEAM>` через `TUIST_BUNDLE_ID` в `Project.swift`: `com.tribuna.app` (D10) занят нашей командой, чужая под ним не подпишет. Без переменной `./generate` даёт прежний `com.tribuna.app`.
+- Xcode должен поддерживать iOS телефона: бета iOS 27 с Xcode 26.5 падает на «The developer disk image could not be mounted».
+
 ## Грабли
 
 - **«swap-monorepo» в окружении** — это название сессии в приложении, а не репозиторий. Репозиторий проекта — только `AndruhaPower/tribuna`.
