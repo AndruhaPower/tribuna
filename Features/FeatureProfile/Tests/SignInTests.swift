@@ -41,6 +41,9 @@ final class FakeAccount: Account {
     func confirmSignUp(email: String, code: String) async throws { try await call("confirmSignUp", "\(email) \(code)", signsIn: true) }
     func resendSignUpCode(email: String) async throws { try await call("resendSignUpCode", email) }
     func signIn(email: String, password: String) async throws { try await call("signIn", email, signsIn: true) }
+    func signInWithApple(idToken: String, nonce: String, name: String?) async throws {
+        try await call("signInWithApple", "\(idToken) \(name ?? "-")", signsIn: true)
+    }
     func requestPasswordReset(email: String) async throws { try await call("requestPasswordReset", email) }
     func resetPassword(email: String, code: String, newPassword: String) async throws {
         try await call("resetPassword", "\(email) \(code)", signsIn: true)
@@ -103,6 +106,21 @@ struct SignInTests {
         #expect(model.state.canSubmit)
         await model.submit()
         #expect(account.calls.last == "confirmSignUp a@b.ru 123456")
+        #expect(finished.value == [true])
+    }
+
+    @Test func appleSignIn() async {
+        let model = makeModel()
+        await model.signInWithApple { nil } // закрыли лист Apple
+        #expect(account.calls.isEmpty)
+        #expect(model.state.error == nil)
+        #expect(finished.value.isEmpty)
+
+        await model.signInWithApple { throw AccountError.appleUnavailable }
+        #expect(model.state.error == "Вход через Apple пока недоступен")
+
+        await model.signInWithApple { AppleCredential(idToken: "tok", nonce: "n", name: "Алексей") }
+        #expect(account.calls == ["signInWithApple tok Алексей"])
         #expect(finished.value == [true])
     }
 

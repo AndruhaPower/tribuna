@@ -14,6 +14,8 @@ import Foundation
     func verifyOTP(email: String, token: String, type: EmailOTPType) async throws
     func resendSignUp(email: String) async throws
     func signIn(email: String, password: String) async throws
+    func signInWithApple(idToken: String, nonce: String) async throws
+    func updateName(_ name: String) async throws
     func resetPasswordForEmail(_ email: String) async throws
     func updatePassword(_ password: String) async throws
     func signOut() async throws
@@ -77,6 +79,14 @@ public final class SupabaseAccount: Account {
                 try? await auth.resendSignUp(email: email)
                 throw AccountError.emailNotConfirmed
             }
+        }
+    }
+
+    public func signInWithApple(idToken: String, nonce: String, name: String?) async throws {
+        try await operation {
+            try await auth.signInWithApple(idToken: idToken, nonce: nonce)
+            // Имя — только при первом входе; не сохранилось — профиль останется «Болельщик», вход важнее.
+            if let name, !name.isEmpty, auth.currentUser?.name == nil { try? await auth.updateName(name) }
         }
     }
 
@@ -147,6 +157,7 @@ public final class SupabaseAccount: Account {
         case .otpExpired: return .invalidCode // Supabase так отвечает и на неверный код
         case .weakPassword: return .weakPassword
         case .overEmailSendRateLimit, .overRequestRateLimit: return .rateLimited
+        case .providerDisabled: return .appleUnavailable // id token — только у Apple
         default: break
         }
         if case let .api(_, _, _, response) = error, response.statusCode == 429 { return .rateLimited }
@@ -183,6 +194,14 @@ struct LiveAuthBackend: AuthBackend {
 
     func signIn(email: String, password: String) async throws {
         try await client.signIn(email: email, password: password)
+    }
+
+    func signInWithApple(idToken: String, nonce: String) async throws {
+        try await client.signInWithIdToken(credentials: OpenIDConnectCredentials(provider: .apple, idToken: idToken, nonce: nonce))
+    }
+
+    func updateName(_ name: String) async throws {
+        _ = try await client.update(user: UserAttributes(data: ["full_name": .string(name)]))
     }
 
     func resetPasswordForEmail(_ email: String) async throws { try await client.resetPasswordForEmail(email) }

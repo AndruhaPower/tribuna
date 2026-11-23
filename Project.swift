@@ -153,10 +153,14 @@ let app: Target = .target(
     deploymentTargets: deployment,
     infoPlist: .extendingDefault(with: [
         "CFBundleDisplayName": "Tribuna",
+        // Системные элементы (кнопка Apple, системные листы) — по-русски, как всё приложение.
+        "CFBundleDevelopmentRegion": "ru",
         "UIUserInterfaceStyle": "Dark",
         "UIAppFonts": ["Unbounded.ttf"],
         "UILaunchScreen": ["UIColorName": ""],
         "UIBackgroundModes": ["audio"],
+        // Текст запроса трекинга (D33).
+        "NSUserTrackingUsageDescription": "Так мы точнее подберём матчи, эфиры и подкасты под ваши интересы",
         // Макеты только портретные.
         "UISupportedInterfaceOrientations": ["UIInterfaceOrientationPortrait"],
         "UIApplicationSceneManifest": [

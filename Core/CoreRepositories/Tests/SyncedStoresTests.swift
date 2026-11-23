@@ -16,6 +16,7 @@ final class FakeAccount: Account {
     func confirmSignUp(email: String, code: String) async throws {}
     func resendSignUpCode(email: String) async throws {}
     func signIn(email: String, password: String) async throws {}
+    func signInWithApple(idToken: String, nonce: String, name: String?) async throws {}
     func requestPasswordReset(email: String) async throws {}
     func resetPassword(email: String, code: String, newPassword: String) async throws {}
     func signOut() async { subject.send(.signedOut) }

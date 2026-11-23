@@ -22,6 +22,8 @@ public enum AccountState: Sendable, Equatable {
 
 public enum AccountError: Error, Equatable, Sendable {
     case invalidCredentials, emailNotConfirmed, emailTaken, invalidCode, weakPassword, rateLimited, network, unknown
+    /// Apple не дал вход (нет capability «Sign in with Apple» у подписи, провайдер выключен в Supabase).
+    case appleUnavailable
 }
 
 /// Повод показать лист входа — от него зависит строка мотивации.
@@ -42,6 +44,8 @@ public enum SignInReason: Sendable, Equatable {
     func resendSignUpCode(email: String) async throws
     /// `emailNotConfirmed` — код подтверждения уже отправлен заново.
     func signIn(email: String, password: String) async throws
+    /// Вход через Apple: `idToken` и исходный (не хешированный) `nonce` запроса; имя Apple отдаёт только при первом входе. Успех — `signedIn`.
+    func signInWithApple(idToken: String, nonce: String, name: String?) async throws
     func requestPasswordReset(email: String) async throws
     /// Успех — `signedIn` с новым паролем.
     func resetPassword(email: String, code: String, newPassword: String) async throws

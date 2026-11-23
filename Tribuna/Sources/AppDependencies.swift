@@ -110,6 +110,10 @@ final class MockAccount: Account {
         if email.contains("new") { throw AccountError.emailNotConfirmed }
         signIn(email, name: "Алексей")
     }
+    func signInWithApple(idToken: String, nonce: String, name: String?) async throws {
+        await pause()
+        signIn("apple@privaterelay.appleid.com", name: name ?? "Алексей")
+    }
     func requestPasswordReset(email: String) async throws { await pause() }
     func resetPassword(email: String, code: String, newPassword: String) async throws {
         await pause()

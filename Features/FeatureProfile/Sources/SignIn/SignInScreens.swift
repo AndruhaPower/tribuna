@@ -6,6 +6,9 @@ import UIKit
 /// Шаг «Мотивация»: «Сохраните своё», строка по поводу, три пункта, «Создать профиль» / «У меня есть профиль» / «Не сейчас».
 final class MotivationViewController: UIViewController {
     private let model: SignInModel
+    private let errorLabel = UILabel()
+    private var buttons: [UIControl] = []
+    private var cancellables: Set<AnyCancellable> = []
 
     init(model: SignInModel) {
         self.model = model
@@ -34,9 +37,16 @@ final class MotivationViewController: UIViewController {
         signIn.addAction(UIAction { [weak self] _ in self?.model.haveProfile() }, for: .touchUpInside)
         let notNow = textButton("Не сейчас")
         notNow.addAction(UIAction { [weak self] _ in self?.model.notNow() }, for: .touchUpInside)
-        let buttons = UIStackView(arrangedSubviews: [create, signIn, notNow])
+        let apple = appleButton { [weak self] window in self?.signInWithApple(from: window) }
+        errorLabel.font = Typography.text(14, .medium)
+        errorLabel.textColor = Palette.destructive
+        errorLabel.numberOfLines = 0
+        errorLabel.isHidden = true
+        self.buttons = [apple, create, signIn, notNow]
+        let buttons = UIStackView(arrangedSubviews: [errorLabel] + self.buttons)
         buttons.axis = .vertical
         buttons.spacing = 12
+        model.$state.sink { [weak self] in self?.render($0) }.store(in: &cancellables)
 
         [stack, buttons].forEach(view.addSubview)
         stack.snp.makeConstraints {
@@ -48,6 +58,20 @@ final class MotivationViewController: UIViewController {
             $0.leading.trailing.equalToSuperview().inset(20)
             $0.bottom.equalTo(view.safeAreaLayoutGuide).inset(8)
         }
+    }
+
+    private func render(_ state: SignInState) {
+        guard state.path.last == .motivation else { return }
+        if let error = state.error, error != errorLabel.text {
+            UIAccessibility.post(notification: .announcement, argument: error)
+        }
+        errorLabel.text = state.error
+        errorLabel.isHidden = state.error == nil
+        buttons.forEach { $0.isEnabled = !state.isLoading }
+    }
+
+    private func signInWithApple(from window: UIWindow) {
+        Task { await model.signInWithApple { try await AppleSignIn.authorize(from: window) } }
     }
 }
 
@@ -64,6 +88,7 @@ final class FormViewController: UIViewController, UITextFieldDelegate {
     private let errorGroup = UIStackView()
     private var submitButton: WidePillButton!
     private var resendButton: UIButton?
+    private var appleControl: UIControl?
     private var timer: Timer?
     private var cancellables: Set<AnyCancellable> = []
 
@@ -145,6 +170,16 @@ final class FormViewController: UIViewController, UITextFieldDelegate {
             stack.addArrangedSubview(resend)
             resendButton = resend
         }
+        if step == .signUp || step == .signIn {
+            let apple = appleButton { [weak self] window in
+                guard let self else { return }
+                view.endEditing(true)
+                Task { await self.model.signInWithApple { try await AppleSignIn.authorize(from: window) } }
+            }
+            stack.setCustomSpacing(20, after: stack.arrangedSubviews.last!)
+            stack.addArrangedSubview(apple)
+            appleControl = apple
+        }
 
         let scroll = UIScrollView()
         scroll.keyboardDismissMode = .interactive
@@ -191,6 +226,7 @@ final class FormViewController: UIViewController, UITextFieldDelegate {
         submitButton.isEnabled = state.canSubmit
         submitButton.isLoading = state.isLoading
         resendButton?.isEnabled = state.canResend
+        appleControl?.isEnabled = !state.isLoading
         if let error = state.error, error != errorLabel.text {
             UIAccessibility.post(notification: .announcement, argument: error)
         }

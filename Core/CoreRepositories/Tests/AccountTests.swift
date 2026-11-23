@@ -43,6 +43,16 @@ final class FakeAuth: AuthBackend {
         try await call("signIn(\(email))")
         store(profile)
     }
+    func signInWithApple(idToken: String, nonce: String) async throws {
+        try await call("apple(\(idToken),\(nonce))")
+        store(appleUser)
+    }
+    /// Кого вернёт вход через Apple (имени у нового пользователя нет).
+    var appleUser = UserProfile(id: "u2", name: nil, email: "x@privaterelay.appleid.com")
+    func updateName(_ name: String) async throws {
+        try await call("updateName(\(name))")
+        if let user = currentUser { store(UserProfile(id: user.id, name: name, email: user.email)) }
+    }
     func resetPasswordForEmail(_ email: String) async throws { try await call("recover(\(email))") }
     func updatePassword(_ password: String) async throws { try await call("updatePassword(\(password))") }
     func signOut() async throws {
@@ -117,6 +127,21 @@ struct AccountTests {
         #expect(await error { try await account.signUp(name: "", email: "a@b.ru", password: "1") } == .weakPassword)
         try await account.resendSignUpCode(email: "a@b.ru")
         #expect(auth.calls.last == "resend(a@b.ru)")
+    }
+
+    @Test func appleSignInSavesFirstName() async throws {
+        let account = makeAccount()
+        try await account.signInWithApple(idToken: "tok", nonce: "n", name: "Алексей")
+        #expect(auth.calls == ["apple(tok,n)", "updateName(Алексей)"])
+        #expect(account.state == .signedIn(UserProfile(id: "u2", name: "Алексей", email: "x@privaterelay.appleid.com")))
+
+        // Повторный вход: имени у Apple нет, у пользователя оно уже есть — не трогаем.
+        auth.calls = []
+        try await account.signInWithApple(idToken: "tok", nonce: "n", name: nil)
+        #expect(auth.calls == ["apple(tok,n)"])
+
+        auth.errors["apple"] = apiError(.providerDisabled)
+        #expect(await error { try await account.signInWithApple(idToken: "tok", nonce: "n", name: nil) } == .appleUnavailable)
     }
 
     @Test func signInMapsErrors() async throws {

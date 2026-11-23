@@ -45,6 +45,7 @@ enum SignInTexts {
         case .weakPassword: "Пароль — от 8 символов"
         case .rateLimited: "Слишком часто. Попробуйте через минуту"
         case .network: "Нет соединения"
+        case .appleUnavailable: "Вход через Apple пока недоступен"
         // `emailNotConfirmed` ведёт на шаг кода и сюда не доходит.
         case .emailNotConfirmed, .unknown: "Что-то пошло не так. Попробуйте ещё раз"
         }
@@ -146,6 +147,16 @@ final class SignInModel {
                 try await account.resetPassword(email: email, code: code, newPassword: password)
                 finish(true)
             }
+        }
+    }
+
+    /// «Войти с Apple»: `authorize` показывает системный лист Apple, nil — человек его закрыл.
+    func signInWithApple(_ authorize: () async throws -> AppleCredential?) async {
+        guard !state.isLoading else { return }
+        await perform {
+            guard let credential = try await authorize() else { return }
+            try await account.signInWithApple(idToken: credential.idToken, nonce: credential.nonce, name: credential.name)
+            finish(true)
         }
     }
 

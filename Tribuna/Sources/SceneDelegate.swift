@@ -1,3 +1,4 @@
+import AppTrackingTransparency
 import Combine
 import CoreDomain
 import CoreRepositories
@@ -38,6 +39,16 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         launchReconcile = dependencies.reminders.scheduledPublisher
             .first { !$0.isEmpty }
             .sink { [weak self] in self?.reconcileReminders($0) }
+    }
+
+    func sceneDidBecomeActive(_ scene: UIScene) {
+        // Трекинг (D33): спрашиваем один раз и только в активном приложении — иначе iOS молча отвечает «нет».
+        // Сразу после активации iOS пропускает запрос без окна — ждём секунду.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            guard UIApplication.shared.applicationState == .active,
+                  ATTrackingManager.trackingAuthorizationStatus == .notDetermined else { return }
+            ATTrackingManager.requestTrackingAuthorization { _ in }
+        }
     }
 
     func sceneWillEnterForeground(_ scene: UIScene) {

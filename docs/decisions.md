@@ -244,6 +244,13 @@ xcodebuild test -workspace Tribuna.xcworkspace -scheme CoreRepositories -destina
 Сборка для команды — из репозитория скриптом `./install-iphone`, без TestFlight и Ad Hoc. Подпись — команда самого коллеги (`TEAM`, бесплатный Apple ID подходит: профиль на 7 дней, потом запустить скрипт ещё раз). Bundle ID — `com.tribuna.app.<TEAM>` через `TUIST_BUNDLE_ID` в `Project.swift`: `com.tribuna.app` (D10) занят нашей командой, чужая под ним не подпишет. Без переменной `./generate` даёт прежний `com.tribuna.app`.
 - Xcode должен поддерживать iOS телефона: бета iOS 27 с Xcode 26.5 падает на «The developer disk image could not be mounted».
 
+### D33. Capabilities: ATS, трекинг, вход через Apple — 2026-11-23
+По списку продукта.
+- **ATS**: `NSAppTransportSecurity` в Info.plist нет — ни чужих доменов, ни `NSAllowsArbitraryLoads` (потоки только https, см. «Грабли»). Так и оставляем.
+- **Трекинг (ATT)**: `NSUserTrackingUsageDescription` — «Так мы точнее подберём матчи, эфиры и подкасты под ваши интересы». Запрос один раз, в `SceneDelegate.sceneDidBecomeActive` через 1 с: сразу после активации iOS пропускает запрос без окна. Ответ пока ни на что не влияет — трекеров в приложении нет.
+- **Язык разработки — `ru`** (`CFBundleDevelopmentRegion`): иначе системные элементы (кнопка Apple, окно трекинга) по-английски.
+- **Вход через Apple** (пересмотр «Apple — позже» из D31): системная кнопка «Продолжить с Apple» на мотивации, «Вход» и «Создать профиль»; `AppleSignIn` (nonce: SHA-256 в запрос Apple, исходный — в Supabase) → `Account.signInWithApple` → `signInWithIdToken(provider: .apple)`; имя Apple отдаёт только при первом входе — пишем в `full_name`, если его ещё нет. Capability `com.apple.developer.applesignin` не включена (нужна платная команда), поэтому Apple отвечает ошибкой — подпись «Вход через Apple пока недоступен» (`AccountError.appleUnavailable`, так же `provider_disabled` от Supabase). Чтобы заработало: entitlement в `Project.swift`, провайдер Apple в Supabase (Client ID = Bundle ID), отзыв токена Apple при удалении аккаунта.
+
 ## Грабли
 
 - **«swap-monorepo» в окружении** — это название сессии в приложении, а не репозиторий. Репозиторий проекта — только `AndruhaPower/tribuna`.
