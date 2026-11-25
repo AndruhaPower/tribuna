@@ -4,6 +4,9 @@ import ProjectDescription
 let bundleId = Environment.bundleId.getString(default: "com.tribuna.app")
 let deployment: DeploymentTargets = .iOS("16.0")
 let settings: Settings = .settings(base: ["SWIFT_VERSION": "6.0"])
+// Сборка для App Store — под командой D53MGF5HR8 с платными capabilities (D35).
+// У коллег через ./install-iphone свой Bundle ID и, возможно, бесплатный Apple ID — им этих capabilities не даём.
+let isStoreBuild = bundleId == "com.tribuna.app"
 
 let features = ["Today", "Match", "Bookmarks", "Radio", "Podcasts", "Player", "Profile"].map { "Feature\($0)" }
 
@@ -158,7 +161,9 @@ let app: Target = .target(
         "UIUserInterfaceStyle": "Dark",
         "UIAppFonts": ["Unbounded.ttf"],
         "UILaunchScreen": ["UIColorName": ""],
-        "UIBackgroundModes": ["audio"],
+        // fetch — обновление лент подписок в фоне (D35); загрузкам выпусков фоновый режим не нужен (фоновая URLSession).
+        "UIBackgroundModes": ["audio", "fetch"],
+        "BGTaskSchedulerPermittedIdentifiers": ["$(PRODUCT_BUNDLE_IDENTIFIER).refresh"],
         // Текст запроса трекинга (D33).
         "NSUserTrackingUsageDescription": "Так мы точнее подберём матчи, эфиры и подкасты под ваши интересы",
         // Макеты только портретные.
@@ -175,8 +180,14 @@ let app: Target = .target(
     ]),
     sources: ["Tribuna/Sources/**"],
     resources: ["Tribuna/Resources/**"],
+    entitlements: isStoreBuild ? .dictionary([
+        // Первая группа — прежняя группа приложения: сессия Supabase в Keychain остаётся на месте.
+        // Вторая — общая с будущими расширениями (пуши Mindbox).
+        "keychain-access-groups": ["$(AppIdentifierPrefix)$(CFBundleIdentifier)", "$(AppIdentifierPrefix)com.tribuna.app.shared"],
+        "com.apple.developer.ubiquity-kvstore-identifier": "$(TeamIdentifierPrefix)$(CFBundleIdentifier)",
+    ]) : nil,
     dependencies: [.target(name: "CoreUI"), .target(name: "CoreDomain"), .target(name: "CoreRepositories"), .target(name: "CorePlayback")] + features.map { .target(name: $0) },
-    settings: settings
+    settings: isStoreBuild ? .settings(base: ["SWIFT_VERSION": "6.0", "DEVELOPMENT_TEAM": "D53MGF5HR8", "CODE_SIGN_STYLE": "Automatic"]) : settings
 )
 
 let project = Project(

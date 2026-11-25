@@ -163,7 +163,6 @@ extension AppDependencies {
         func team(_ name: String, _ abbreviation: String) -> Team { Team(name: name, abbreviation: abbreviation) }
         let pl = Competition(code: "PL", name: "АПЛ")
         let cl = Competition(code: "CL", name: "Лига чемпионов")
-        let nhl = Competition(code: "NHL", name: "НХЛ")
         let liverpool = mockMatchID
         let matches = [
             Match(id: liverpool, sport: .football, competition: pl, kickoff: at(20), status: .live,
@@ -172,8 +171,6 @@ extension AppDependencies {
                   home: team("Реал Мадрид", "RMA"), away: team("Бавария", "BAY"), homeScore: nil, awayScore: nil, round: nil, homeTeamID: nil, awayTeamID: nil),
             Match(id: MatchID(rawValue: "football:mock-3"), sport: .football, competition: cl, kickoff: at(22), status: .scheduled,
                   home: team("Интер", "INT"), away: team("ПСЖ", "PSG"), homeScore: nil, awayScore: nil, round: nil, homeTeamID: nil, awayTeamID: nil),
-            Match(id: MatchID(rawValue: "hockey:mock-4"), sport: .hockey, competition: nhl, kickoff: at(3), status: .scheduled,
-                  home: team("Rangers", "NYR"), away: team("Bruins", "BOS"), homeScore: nil, awayScore: nil, round: nil, homeTeamID: nil, awayTeamID: nil),
         ]
         // Закладки — в отдельном наборе UserDefaults, чтобы не трогать настоящие.
         let defaults = UserDefaults(suiteName: "TodayMockData") ?? .standard

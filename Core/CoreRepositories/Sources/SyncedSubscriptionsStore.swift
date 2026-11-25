@@ -15,13 +15,14 @@ struct SubscriptionRow: UserRow {
 /// Подписки пользователя (D31): id подкаста → дата подписки, синхронизируются с таблицей `podcast_subscriptions`.
 @MainActor
 final class SyncedSubscriptionsStore: SubscriptionsStore {
+    static let collectionName = "podcasts.subscriptions"
     let collection: SyncedCollection<Date>
     private let now: () -> Date
 
     init(defaults: UserDefaults, account: Account, remote: (any UserDataRemote<Date>)?,
          notifications: NotificationCenter = .default, now: @escaping () -> Date = Date.init) {
         self.now = now
-        collection = SyncedCollection(name: "podcasts.subscriptions", defaults: defaults, account: account, remote: remote,
+        collection = SyncedCollection(name: Self.collectionName, defaults: defaults, account: account, remote: remote,
                                       notifications: notifications, now: now)
     }
 

@@ -146,7 +146,7 @@ xcodebuild test -workspace Tribuna.xcworkspace -scheme CoreRepositories -destina
 - Низкие экраны: сначала сжимаются промежутки до play и до «Поделиться», затем карточка; волна в сжатой карточке сжимается по высоте, чтобы не наезжать на название в две строки (у радио на SE не срабатывает — места хватает).
 - Вёрстка — замер PNG: `-PodcastsMockData -PodcastPlayerMock` — в плеере «Превью 12 тура: дерби на Энфилде», 18:42 из 34:10, 1,25× (плеер без звука; перемотка и скорость меняют его состояние); `-OpenPlayer` — сразу открыть лист. Расхождения с макетом: дата «20 нояб» (выпуск мока опубликован «сегодня», как в макете «Подкасты»), под карточкой — полное название (в макете обрезано до «Превью 12 тура»), значки −15/+30 нарисованы по макету в стиле Lucide (`skip-back`/`skip-forward`; у Lucide таких нет), в мини-плеере на месте пустого квадрата макета — обложка.
 
-### D26. Логотипы и гербы — 2026-11-20
+### D26. Логотипы и гербы — 2026-11-20 (показ гербов отменён → D34)
 Пересмотр D16 по просьбе пользователя: гербы клубов и эмблемы турниров показываем (`teams.crest_url`, `competitions.emblem_url`, PNG по https).
 - Кружок команды — `Palette.surfaceHigh`, герб aspect-fit с отступом ≈18 % диаметра; пока герб не загружен или его нет — аббревиатура (`TeamBadgeView.configure(abbreviation:logoURL:)`). Маленький герб (20 pt) стоит перед названием в строках таблицы.
 - Значок турнира (`EmblemView`, 20 pt) — в заголовках секций «Сегодня» и в шапке карточки матча. Он на светлой подложке: эмблемы АПЛ и Лиги 1 тёмные и на фоне приложения не читаются.
@@ -250,6 +250,25 @@ xcodebuild test -workspace Tribuna.xcworkspace -scheme CoreRepositories -destina
 - **Трекинг (ATT)**: `NSUserTrackingUsageDescription` — «Так мы точнее подберём матчи, эфиры и подкасты под ваши интересы». Запрос один раз, в `SceneDelegate.sceneDidBecomeActive` через 1 с: сразу после активации iOS пропускает запрос без окна. Ответ пока ни на что не влияет — трекеров в приложении нет.
 - **Язык разработки — `ru`** (`CFBundleDevelopmentRegion`): иначе системные элементы (кнопка Apple, окно трекинга) по-английски.
 - **Вход через Apple** (пересмотр «Apple — позже» из D31): системная кнопка «Продолжить с Apple» на мотивации, «Вход» и «Создать профиль»; `AppleSignIn` (nonce: SHA-256 в запрос Apple, исходный — в Supabase) → `Account.signInWithApple` → `signInWithIdToken(provider: .apple)`; имя Apple отдаёт только при первом входе — пишем в `full_name`, если его ещё нет. Capability `com.apple.developer.applesignin` не включена (нужна платная команда), поэтому Apple отвечает ошибкой — подпись «Вход через Apple пока недоступен» (`AccountError.appleUnavailable`, так же `provider_disabled` от Supabase). Чтобы заработало: entitlement в `Project.swift`, провайдер Apple в Supabase (Client ID = Bundle ID), отзыв токена Apple при удалении аккаунта.
+
+
+### D34. Подготовка к ревью App Store: источники данных — 2026-11-25
+По запросу продукта; правила ревью 5.2.2 (права на данные стороннего сервиса) и 5.2.3 (права на аудиопотоки, документы по запросу).
+- **football-data.org**: условия требуют подпись «Football data provided by the Football-Data.org API» — дословно, по-английски, в конце списка «Сегодня» (только при загруженных матчах). Коммерческое использование бесплатного тарифа условия не оговаривают — перед монетизацией уточнить письмом.
+- **Гербы и эмблемы** (пересмотр D26) — товарные знаки, лицензии нет: `FootballRepository` не запрашивает `crest_url`/`emblem_url`, везде аббревиатуры. UI-код гербов оставлен (вернуть — снова выбрать колонки). В таблице турнира команда снова с 50.5 pt, как в макете.
+- **НХЛ убран**: условия NHL — только некоммерческое использование. Удалены `NHLClient`, `CombinedMatchesRepository` и их тесты; `Sport.hockey` в домене остался. Закладки на хоккей (`hockey:…`) больше не находятся: `FootballRepository.footballSourceID` отвечает nil на чужой префикс.
+- **Радио**: выключены (`enabled = false`) BBC 5 Live, WDR Bundesliga, San Jose Sharks, 630 CHED — трансляции с правами на спорт и гео-ограничениями. Остались 8 общедоступных российских станций. Риск 5.2.3 остаётся: Apple может попросить документы — нужны письма-разрешения вещателей.
+- **Обложки подкастов** (пересмотр D27): из `itunes:image` самих лент, а не `artworkUrl600` iTunes — условия iTunes Search разрешают его картинки только для продвижения магазина. Оригиналы до 1,2 МБ; `ImageLoader` всё равно уменьшает при декодировании.
+- Миграция `supabase/migrations/20261125103433_store_review.sql`, применена к `tribuna_db`.
+
+
+### D35. Capabilities к первой выкладке — 2026-11-25
+Продолжение D33, по списку продукта. Команда для App Store — **D53MGF5HR8** (платная).
+- **Платные capabilities — только в сборке `com.tribuna.app`** (`isStoreBuild` в `Project.swift`): там же `DEVELOPMENT_TEAM = D53MGF5HR8`. `./install-iphone` даёт `com.tribuna.app.<TEAM>` — без entitlements, чтобы коллеги с бесплатным Apple ID ставили как раньше (D32).
+- **Keychain-группы**: первая — прежняя группа приложения `$(AppIdentifierPrefix)$(CFBundleIdentifier)` (сессия Supabase остаётся на месте), вторая — общая `$(AppIdentifierPrefix)com.tribuna.app.shared` для будущего расширения пушей (Mindbox).
+- **iCloud KVS**: `com.apple.developer.ubiquity-kvstore-identifier` включён; кодом пока не используется. Позиция прослушивания у вошедших уже синхронизируется через Supabase (D31) — KVS нужен для того, что без входа (например, «Турниры в ленте»).
+- **Фон, `fetch`**: `BGAppRefreshTask` `<bundle id>.refresh` (`BackgroundRefresh`) — ленты подписок последнего вошедшего (`SyncedCollection.storedValue`, без аккаунта и сети) в кеш `FeedRepository`; планируется при уходе в фон, не раньше чем через час. Загрузкам выпусков фоновый режим не нужен — их ведёт фоновая `URLSession` (D30). Режим без реального использования Apple отклоняет (2.5.4), поэтому `processing` включаем вместе с Mindbox: SDK требует `fetch` + `processing` и идентификаторы `cloud.Mindbox.$(PRODUCT_BUNDLE_IDENTIFIER).GDAppRefresh`, `.GDAppProcessing`, `.DBCleanAppProcessing`.
+- **Отложено**: Associated Domains — нет домена (нужен сайт с `apple-app-site-association`; к пушам отношения не имеет); Mindbox — нет договора и endpoint (вместе с ним: SDK, `processing`, `aps-environment`, расширение пушей в общей Keychain-группе); вход через Apple — пауза по решению пользователя, хотя платная команда теперь есть (что включить — в D33).
 
 ## Грабли
 

@@ -89,38 +89,10 @@ struct FootballMappingTests {
     }
 }
 
-struct LogoMappingTests {
-    @Test func mapsCrestAndEmblem() {
-        let home = FootballRow.TeamRow(name: "A", shortName: nil, tla: "ARS", nameRu: nil, shortNameRu: nil, crestURL: "https://crests.football-data.org/57.png")
-        let row = FootballRow(
-            id: 1, utcDate: Date(), status: "TIMED", matchday: nil, homeScore: nil, awayScore: nil,
-            competition: .init(code: "PL", name: "PL", nameRu: nil, enabled: true, emblemURL: "https://crests.football-data.org/PL.png"),
-            home: home, away: nil, homeTeamID: 57, awayTeamID: nil
-        )
-        let match = FootballMapping.match(from: row)
-        #expect(match.home?.logoURL == URL(string: "https://crests.football-data.org/57.png"))
-        #expect(match.competition.emblemURL == URL(string: "https://crests.football-data.org/PL.png"))
-    }
-
-    @Test func missingUrlsAreNil() {
-        let match = FootballMapping.match(from: FootballRow(
-            id: 1, utcDate: Date(), status: "TIMED", matchday: nil, homeScore: nil, awayScore: nil,
-            competition: .init(code: "PL", name: "PL", nameRu: nil, enabled: true),
-            home: .init(name: "A", shortName: nil, tla: nil, nameRu: nil, shortNameRu: nil), away: nil, homeTeamID: nil, awayTeamID: nil
-        ))
-        #expect(match.home?.logoURL == nil && match.competition.emblemURL == nil)
-    }
-
-    @Test func decodesCrestFromJSON() throws {
-        let json = #"{"name":"A","tla":"ARS","crest_url":"https://x/1.png"}"#
-        let row = try JSONDecoder().decode(FootballRow.TeamRow.self, from: Data(json.utf8))
-        #expect(row.crestURL == "https://x/1.png")
-    }
-}
-
+/// Гербы — товарные знаки: без лицензии не запрашиваем (D34).
 struct LogoSelectTests {
-    @Test func selectsCrestAndEmblem() {
-        #expect(FootballRepository.columns.contains("emblem_url"))
-        #expect(FootballRepository.columns.components(separatedBy: "crest_url").count == 3)
+    @Test func doesNotSelectCrestsOrEmblems() {
+        #expect(!FootballRepository.columns.contains("emblem_url"))
+        #expect(!FootballRepository.columns.contains("crest_url"))
     }
 }

@@ -51,6 +51,10 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
     }
 
+    func sceneDidEnterBackground(_ scene: UIScene) {
+        BackgroundRefresh.schedule()
+    }
+
     func sceneWillEnterForeground(_ scene: UIScene) {
         reconcileReminders(dependencies.reminders.scheduled)
     }

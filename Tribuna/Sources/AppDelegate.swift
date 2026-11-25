@@ -10,6 +10,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationC
         UNUserNotificationCenter.current().delegate = self
         // Фоновая сессия поднимается до UI, чтобы система отдала ей события загрузок.
         _ = AppDependencies.backgroundDownloads
+        BackgroundRefresh.register()
         return true
     }
 

@@ -200,7 +200,14 @@ final class SyncedCollection<Item: SyncItem> {
     // MARK: - Внутреннее
 
     private var ownerKey: String { "\(name).user" }
-    private func copyKey(_ user: String) -> String { "\(name).\(user).v1" }
+    private func copyKey(_ user: String) -> String { Self.copyKey(name, user) }
+    private static func copyKey(_ name: String, _ user: String) -> String { "\(name).\(user).v1" }
+
+    /// Сохранённая копия последнего вошедшего — без аккаунта и сети, для фоновой задачи без сцены.
+    static func storedValue(name: String, defaults: UserDefaults) -> [String: Item] {
+        guard let owner = defaults.string(forKey: "\(name).user") else { return [:] }
+        return decode([String: Item].self, defaults.data(forKey: copyKey(name, owner))) ?? [:]
+    }
     private func queueKey(_ user: String) -> String { "\(name).\(user).queue.v1" }
 
     private func run(_ work: @escaping @MainActor (SyncedCollection) async -> Void) {
