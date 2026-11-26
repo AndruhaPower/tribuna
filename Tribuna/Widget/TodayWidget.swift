@@ -74,9 +74,10 @@ struct TodayWidgetView: View {
         case .systemSmall:
             VStack(alignment: .leading, spacing: 6) {
                 header
-                if let match = entry.matches.first { MatchLine(match: match, compact: false) } else { empty }
+                if let match = entry.matches.first { MatchBlock(match: match) } else { empty }
                 Spacer(minLength: 0)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         default:
             VStack(alignment: .leading, spacing: 6) {
                 header
@@ -131,6 +132,25 @@ struct MatchLine: View {
         case .cancelled: return "Отменён"
         case .scheduled: return match.kickoff.formatted(date: .omitted, time: .shortened)
         }
+    }
+}
+
+/// Маленький виджет: в строку «турнир, команды, время» не помещается — турнир, хозяева, гости и время столбиком.
+struct MatchBlock: View {
+    let match: Match
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(match.competition.name).font(.caption2).foregroundStyle(WidgetColors.secondary).lineLimit(1)
+            Text(MatchLine.team(match.home)).font(.headline)
+            Text(MatchLine.team(match.away)).font(.headline)
+            Text(MatchLine.trailing(match)).font(.title3.monospacedDigit().weight(.semibold)).padding(.top, 4)
+                .foregroundStyle(match.status == .live ? WidgetColors.accent : WidgetColors.primary)
+        }
+        .foregroundStyle(WidgetColors.primary)
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
+        .accessibilityElement(children: .combine)
     }
 }
 
