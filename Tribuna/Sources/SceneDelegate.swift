@@ -42,6 +42,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func sceneDidBecomeActive(_ scene: UIScene) {
+        Marketing.refreshPermission()
         // Трекинг (D33): спрашиваем один раз и только в активном приложении — иначе iOS молча отвечает «нет».
         // Сразу после активации iOS пропускает запрос без окна — ждём секунду.
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {

@@ -11,7 +11,12 @@ final class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationC
         // Фоновая сессия поднимается до UI, чтобы система отдала ей события загрузок.
         _ = AppDependencies.backgroundDownloads
         BackgroundRefresh.register()
+        Marketing.start(launchOptions: launchOptions)
         return true
+    }
+
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        Marketing.didRegister(deviceToken: deviceToken)
     }
 
     func application(
@@ -30,9 +35,12 @@ final class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationC
         [.banner, .sound]
     }
 
-    // shortcut: нажатие на уведомление ничего не открывает; открытие карточки матча — позже.
+    // shortcut: нажатие на уведомление ничего не открывает (и ссылку из пуша Mindbox тоже); открытие карточки матча — позже.
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
-    ) async {}
+    ) async {
+        nonisolated(unsafe) let response = response
+        await MainActor.run { Marketing.didOpen(response) }
+    }
 }

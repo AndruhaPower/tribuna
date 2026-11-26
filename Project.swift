@@ -7,6 +7,9 @@ let settings: Settings = .settings(base: ["SWIFT_VERSION": "6.0"])
 // Сборка для App Store — под командой D53MGF5HR8 с платными capabilities (D35).
 // У коллег через ./install-iphone свой Bundle ID и, возможно, бесплатный Apple ID — им этих capabilities не даём.
 let isStoreBuild = bundleId == "com.tribuna.app"
+let storeSettings: Settings = .settings(base: ["SWIFT_VERSION": "6.0", "DEVELOPMENT_TEAM": "D53MGF5HR8", "CODE_SIGN_STYLE": "Automatic"])
+// Общий контейнер приложения и расширения пушей; имя задаёт Mindbox SDK: group.cloud.Mindbox.<bundle id приложения> (D36).
+let mindboxGroup = "group.cloud.Mindbox.\(bundleId)"
 
 let features = ["Today", "Match", "Bookmarks", "Radio", "Podcasts", "Player", "Profile"].map { "Feature\($0)" }
 
@@ -162,8 +165,14 @@ let app: Target = .target(
         "UIAppFonts": ["Unbounded.ttf"],
         "UILaunchScreen": ["UIColorName": ""],
         // fetch — обновление лент подписок в фоне (D35); загрузкам выпусков фоновый режим не нужен (фоновая URLSession).
-        "UIBackgroundModes": ["audio", "fetch"],
-        "BGTaskSchedulerPermittedIdentifiers": ["$(PRODUCT_BUNDLE_IDENTIFIER).refresh"],
+        // fetch, processing, remote-notification и три задачи cloud.MindBox.* — гарантированная доставка событий Mindbox (D36).
+        "UIBackgroundModes": ["audio", "fetch", "processing", "remote-notification"],
+        "BGTaskSchedulerPermittedIdentifiers": [
+            "$(PRODUCT_BUNDLE_IDENTIFIER).refresh",
+            "cloud.MindBox.$(PRODUCT_BUNDLE_IDENTIFIER).GDAppRefresh",
+            "cloud.MindBox.$(PRODUCT_BUNDLE_IDENTIFIER).GDAppProcessing",
+            "cloud.MindBox.$(PRODUCT_BUNDLE_IDENTIFIER).DBCleanAppProcessing",
+        ],
         // Текст запроса трекинга (D33).
         "NSUserTrackingUsageDescription": "Так мы точнее подберём матчи, эфиры и подкасты под ваши интересы",
         // Макеты только портретные.
@@ -185,12 +194,36 @@ let app: Target = .target(
         // Вторая — общая с будущими расширениями (пуши Mindbox).
         "keychain-access-groups": ["$(AppIdentifierPrefix)$(CFBundleIdentifier)", "$(AppIdentifierPrefix)com.tribuna.app.shared"],
         "com.apple.developer.ubiquity-kvstore-identifier": "$(TeamIdentifierPrefix)$(CFBundleIdentifier)",
+        // Xcode при выгрузке в App Store сам ставит production.
+        "aps-environment": "development",
+        "com.apple.security.application-groups": [.string(mindboxGroup)],
     ]) : nil,
-    dependencies: [.target(name: "CoreUI"), .target(name: "CoreDomain"), .target(name: "CoreRepositories"), .target(name: "CorePlayback")] + features.map { .target(name: $0) },
-    settings: isStoreBuild ? .settings(base: ["SWIFT_VERSION": "6.0", "DEVELOPMENT_TEAM": "D53MGF5HR8", "CODE_SIGN_STYLE": "Automatic"]) : settings
+    dependencies: [.target(name: "CoreUI"), .target(name: "CoreDomain"), .target(name: "CoreRepositories"), .target(name: "CorePlayback"),
+                   .external(name: "Mindbox"), .target(name: "TribunaNotificationService")] + features.map { .target(name: $0) },
+    settings: isStoreBuild ? storeSettings : settings
+)
+
+/// Расширение пушей Mindbox: картинки и кнопки в уведомлении, отметка доставки (D36).
+let notificationService: Target = .target(
+    name: "TribunaNotificationService",
+    destinations: [.iPhone],
+    product: .appExtension,
+    bundleId: "\(bundleId).NotificationService",
+    deploymentTargets: deployment,
+    infoPlist: .extendingDefault(with: [
+        "CFBundleDisplayName": "Tribuna",
+        "NSExtension": [
+            "NSExtensionPointIdentifier": "com.apple.usernotifications.service",
+            "NSExtensionPrincipalClass": "$(PRODUCT_MODULE_NAME).NotificationService",
+        ],
+    ]),
+    sources: ["Tribuna/NotificationService/**"],
+    entitlements: isStoreBuild ? .dictionary(["com.apple.security.application-groups": [.string(mindboxGroup)]]) : nil,
+    dependencies: [.external(name: "MindboxNotificationsService")],
+    settings: isStoreBuild ? storeSettings : settings
 )
 
 let project = Project(
     name: "Tribuna",
-    targets: [app, coreUI, coreDomain, coreRepositories, coreRepositoriesTests, coreUITests, corePlayback, corePlaybackTests, featureTodayTests, featureMatchTests, featureRadioTests, featurePlayerTests, featurePodcastsTests, featureProfileTests] + featureTargets
+    targets: [app, notificationService, coreUI, coreDomain, coreRepositories, coreRepositoriesTests, coreUITests, corePlayback, corePlaybackTests, featureTodayTests, featureMatchTests, featureRadioTests, featurePlayerTests, featurePodcastsTests, featureProfileTests] + featureTargets
 )

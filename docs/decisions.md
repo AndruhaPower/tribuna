@@ -8,7 +8,7 @@
 
 ### D1. Репозиторий — 2026-11-19
 Приватный GitHub `AndruhaPower/tribuna`, основная ветка `main`. Автор коммитов — `pazit@yandex.ru`, задан локально в `.git/config`, глобальный git не трогаем.
-Bitbucket Okko и всё, что относится к ypios, сюда не переносим: это другой проект.
+Код, правила и инфраструктуру других проектов сюда не переносим.
 
 ### D2. Цель — App Store — 2026-11-19
 Проект строится как продукт для публикации и развития, не как прототип. Архитектуру закладываем сразу, без «перепишем потом».
@@ -277,7 +277,7 @@ xcodebuild test -workspace Tribuna.xcworkspace -scheme CoreRepositories -destina
 - **Radio Browser**: российских станций с тегом `sport` всего одна. Каталог придётся дополнять своим списком.
 - **RSS подкастов**: нет `ETag` и `Last-Modified`, условные запросы не работают — кешируем по своему расписанию. Уточнение 2026-11-20: mave и podster отдают `ETag`/`Last-Modified`, но условные запросы пока не делаем (D27).
 - **iTunes Search** по «спорт»/«футбол» в `country=ru` отдаёт и украино-, англоязычные подкасты, и заброшенные — язык (`<language>`) и дату последнего выпуска проверяй по самой ленте.
-- **Глобальный git** настроен на рабочую почту okko.tv. После клонирования снова задай `git config user.email pazit@yandex.ru`.
+- **Глобальный git** настроен на рабочую почту другого проекта. После клонирования снова задай `git config user.email pazit@yandex.ru`.
 - **Профиль без входа** в макетах не нарисован, хотя приложение работает без входа.
 - **Чужие проекты Supabase**: в том же аккаунте есть `swap-dev` и `trading-bot`. Tribuna принадлежит только `tribuna_db` (ref `wgwsdhyrazjzqwvnhgzk`), остальные не трогаем.
 - **Имя модуля `CoreServices` занято** системным `CoreServices.framework` из iOS SDK: пустой таргет с таким именем падает на `'CoreServices/UTCoreTypes.h' file not found`, а непустой перекрывает системный модуль для всех, кто его импортирует. Поэтому слой данных называется `CoreRepositories`. Для новых модулей не бери имена системных фреймворков (`CoreServices`, `CoreData`, `CoreLocation` и т.п.).
@@ -289,3 +289,21 @@ xcodebuild test -workspace Tribuna.xcworkspace -scheme CoreRepositories -destina
 - **`UISlider` в iOS 26** присылает последний `valueChanged` уже после `touchUpInside`. Если по `valueChanged` «брать» бегунок (режим перетаскивания), он остаётся взятым навсегда: время на экране застывает, хотя звук идёт. Обрабатывай `valueChanged` только при `slider.isTracking`.
 - **Симулятор: «Поделиться» вешает приложение** — `UIActivityViewController` синхронно ждёт XPC-ответа службы `com.apple.sharing.sharesheet` (`SFShareSheetSlotManager ensureConnectionEstablished`), главный поток стоит. Это служба симулятора, не наш код; «Поделиться» проверять на устройстве.
 - **Симулятор: `.newPassword` закрывает поле жёлтой плашкой «Automatic Strong Password cover view text»** — набранный текст не виден и не попадает в поле. В `-ProfileMock` поле нового пароля — `.password` (только DEBUG); проверять автоподстановку пароля — на устройстве.
+
+
+### D37. Исправления по приёмке (ACCEPTANCE.md от 2026-11-26) — 2026-11-26
+По прогону скилла camouflage-app-acceptance.
+- **okko-tennis удалён, а не выключен** (уточнение D36): DELETE в `20261125150000_catalog_cleanup.sql`,
+  строка убрана из seed `20261120100000_podcasts.sql` и из update artwork в `20261125103433_store_review.sql` —
+  выключенная запись с автором «Okko Tennis» всё равно оставалась в БД и репо (чек-лист п. 10).
+  После `db push` применить cleanup к `tribuna_db`.
+- **`supabase/README.md`**: разворачивание бэкенда с нуля (link → db push → functions deploy → секреты
+  `FOOTBALL_DATA_KEY`/`SYNC_SECRET` + Vault `project_url`/`sync_secret` → Auth) — закрывает п. 9 приёмки.
+- **README синхронизирован**: убраны НХЛ и Radio Browser (источники — D34), возможности iOS приведены
+  к реальным (фоновое аудио/загрузки/напоминания), запланированное помечено (SiWA, Mindbox, KVS).
+- **Черновик политики конфиденциальности** — `docs/privacy-policy.md`, состав по `PrivacyInfo.xcprivacy`;
+  публикация на публичном URL — вручную перед выкладкой (п. 12).
+- **Гербы — не проблема**: приёмка ошибочно записала их в ❌ по наличию UI-кода; по D34 колонки
+  `crest_url`/`emblem_url` не выбираются (`FootballRepository.columns`), везде аббревиатуры.
+- **Оставлено как зафиксировано**: пауза Sign in with Apple (D33/D35), Mindbox-обвязка и KVS
+  выключенными (D35/D36), ATT-запрос (D33) — не пересматривались.

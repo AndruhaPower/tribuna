@@ -357,7 +357,7 @@ extension AppDependencies {
         return (MockPodcastsRepository(podcasts: catalog), MockEpisodesRepository(feeds: feeds), services.subscriptions, services.progress, player, downloads)
     }
 
-    /// Пять подкастов из начального списка миграции `20261120100000_podcasts.sql` — пока таблицы нет на `tribuna_db`.
+    /// Четыре подкаста из начального списка миграции `20261120100000_podcasts.sql` — пока таблицы нет на `tribuna_db`.
     private static var realCatalog: [Podcast] {
         [
             Podcast(id: "skvoz-sport", title: "Сквозь Спорт", author: "Алексей Бибиков", feedURL: URL(string: "https://podster.fm/rss.xml?pid=100138")!,
@@ -368,12 +368,10 @@ extension AppDependencies {
                     artworkURL: URL(string: "https://is1-ssl.mzstatic.com/image/thumb/Podcasts211/v4/f7/84/79/f7847917-4e5d-e619-9488-05c7899dc892/mza_3324083100343931127.jpg/600x600bb.jpg")!, featuredOrder: 8),
             Podcast(id: "shaibovorot", title: "Шайбоворот Ткачева", author: "Александр Ткачев", feedURL: URL(string: "https://cloud.mave.digital/54729")!,
                     artworkURL: URL(string: "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/c6/dd/0c/c6dd0c2b-174a-5e10-0046-2642f7e7b1c5/mza_17234498207233401191.jpg/600x600bb.jpg")!, featuredOrder: 13),
-            Podcast(id: "okko-tennis", title: "Выход к сетке", author: "Okko Tennis", feedURL: URL(string: "https://cloud.mave.digital/36633")!,
-                    artworkURL: URL(string: "https://is1-ssl.mzstatic.com/image/thumb/Podcasts116/v4/f7/01/a3/f701a339-2042-3b9c-e403-9c421e9fe320/mza_2192722762668020214.jpg/600x600bb.jpg")!, featuredOrder: 14),
         ]
     }
 
-    /// Каталог — пять настоящих лент из начального списка (D27), выпуски и плеер настоящие; подписки и позиция — отдельный набор UserDefaults.
+    /// Каталог — четыре настоящие ленты из начального списка (D27), выпуски и плеер настоящие; подписки и позиция — отдельный набор UserDefaults.
     private static func realFeedsMock()
         -> (PodcastsRepository, EpisodesRepository, SubscriptionsStore, ListeningProgressStore, AudioPlayer, EpisodeDownloads) {
         let defaults = UserDefaults(suiteName: "PodcastsRealFeeds") ?? .standard

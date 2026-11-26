@@ -1,6 +1,15 @@
 {
-  "originHash" : "833b3c0059fe47916514350766d14936946eb5602d002e56122c95f2e8d2c82e",
+  "originHash" : "cb10404e6e6d4cefda1b980ecf81e3bda52d42467c6817af903264d91c4e74b1",
   "pins" : [
+    {
+      "identity" : "ios-sdk",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mindbox-cloud/ios-sdk",
+      "state" : {
+        "revision" : "c032051e03d7358c8f6c54d107711c4a5e3bd722",
+        "version" : "2.16.0"
+      }
+    },
     {
       "identity" : "snapkit",
       "kind" : "remoteSourceControl",

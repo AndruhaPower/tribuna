@@ -18,4 +18,3 @@ update podcasts set artwork_url = 'https://podster.fm/image-storage/441496/conve
 update podcasts set artwork_url = 'https://podster.fm/image-storage/427425/conversions/cqtY9FQ7yZafBokB-3xl.jpg' where id = 'football-wednesday';
 update podcasts set artwork_url = 'https://podster.fm/image-storage/213142/conversions/mSwzZES0IEktvFL1-3xl.jpg' where id = 'bettman-calls';
 update podcasts set artwork_url = 'https://cdn.mave.digital/storage/podcasts/ace979fb-8c5c-4838-a24d-2486a23364bb/images/2fcdc8fa-14c8-452d-89ee-ab3581218622.jpg' where id = 'shaibovorot';
-update podcasts set artwork_url = 'https://cdn.mave.digital/storage/podcasts/dace8bbd-5168-481e-b8dc-848de4003601/images/29484939-2c1d-4b20-96a6-a49fcc6dce2d.jpg' where id = 'okko-tennis';
