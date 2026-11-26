@@ -30,6 +30,11 @@ struct AppDependencies {
     /// Статическая — `AppDelegate` передаёт ей события сессии и при запуске в фоне, без сцены.
     static let backgroundDownloads = BackgroundEpisodeDownloads.make()
 
+    #if FEATURE_PROFILE2
+    /// Настройки профиля 1.2 (D41): статические — их читает и фоновое обновление без сцены.
+    static let profileSettings = ProfileSettingsStore.make()
+    #endif
+
     /// Единственный аккаунт и PostgREST таблиц пользователя (D31): по той же причине, что и загрузки, — не в `Services.make`.
     static let account = Services.makeAccount(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey)
 

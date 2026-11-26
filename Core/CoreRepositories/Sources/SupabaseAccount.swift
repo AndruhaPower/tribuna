@@ -221,3 +221,12 @@ extension UserProfile {
         self.init(id: user.id.uuidString.lowercased(), name: name?.isEmpty == false ? name : nil, email: user.email ?? "")
     }
 }
+
+#if FEATURE_PROFILE2
+extension SupabaseAccount: AccountRenaming {
+    /// Смена имени в профиле (1.2, D41): `user_metadata.full_name`; итог публикуется из сохранённой сессии.
+    public func updateName(_ name: String) async throws {
+        try await operation { try await auth.updateName(name) }
+    }
+}
+#endif
