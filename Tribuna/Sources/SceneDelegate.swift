@@ -9,12 +9,20 @@ import FeatureProfile
 import FeatureRadio
 import FeatureToday
 import UIKit
+#if FEATURE_WIDGET
+import WidgetKit
+#endif
 
 final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
     private let dependencies = AppDependencies()
     private var launchReconcile: AnyCancellable?
     private var cleanup: AccountCleanup?
+    private weak var tabBar: MainTabBarController?
+    private weak var today: UIViewController?
+    #if FEATURE_WIDGET
+    private var widgetBookmarks: AnyCancellable?
+    #endif
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = scene as? UIWindowScene else { return }
@@ -35,6 +43,14 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window.rootViewController = makeTabBar()
         window.makeKeyAndVisible()
         self.window = window
+        #if FEATURE_WIDGET
+        // Виджет (D40): закладки — в общий контейнер, чтобы показать их матчи первыми; виджет перерисовать.
+        widgetBookmarks = dependencies.bookmarks.bookmarksPublisher.removeDuplicates().sink { ids in
+            UserDefaults(suiteName: WidgetPlan.appGroup)?.set(ids.map(\.rawValue).sorted(), forKey: WidgetPlan.bookmarksKey)
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+        if let url = connectionOptions.urlContexts.first?.url { DispatchQueue.main.async { [weak self] in self?.open(url) } }
+        #endif
         // Напоминания хранилище читает из центра уведомлений асинхронно — пересверяем, когда они появятся.
         launchReconcile = dependencies.reminders.scheduledPublisher
             .first { !$0.isEmpty }
@@ -53,6 +69,23 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             ATTrackingManager.requestTrackingAuthorization { _ in }
         }
     }
+
+    #if FEATURE_WIDGET
+    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+        URLContexts.first.map { open($0.url) }
+    }
+
+    /// Ссылки виджета: `tribuna://match/<MatchID>` — карточка матча поверх «Сегодня», `tribuna://today` — «Сегодня».
+    private func open(_ url: URL) {
+        guard url.scheme == "tribuna", let tabBar, let navigation = today?.navigationController else { return }
+        window?.rootViewController?.dismiss(animated: false)
+        tabBar.select(0)
+        navigation.popToRootViewController(animated: false)
+        if url.host == "match", url.path.count > 1 {
+            navigation.pushViewController(makeMatch(MatchID(rawValue: String(url.path.dropFirst()))), animated: false)
+        }
+    }
+    #endif
 
     func sceneDidEnterBackground(_ scene: UIScene) {
         BackgroundRefresh.schedule()
@@ -103,6 +136,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             .init(item: .init(title: "Подкасты", icon: "tab-podcasts"), root: podcasts),
             .init(item: .init(title: "Профиль", icon: "tab-profile"), root: makeProfile()),
         ], miniPlayer: miniPlayer)
+        self.tabBar = tabBar
         #if DEBUG
         // `-RadioMockData` открывает «Эфир», если не сверяем «Сегодня» или карточку матча.
         let arguments = ProcessInfo.processInfo.arguments
@@ -172,6 +206,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             }, requireSignIn: { [weak self] in self?.requireSignIn($0, then: $1) })
         )
         today = controller
+        self.today = controller
         #if DEBUG
         if let id = AppDependencies.mockMatchOnLaunch {
             DispatchQueue.main.async { [weak self] in
