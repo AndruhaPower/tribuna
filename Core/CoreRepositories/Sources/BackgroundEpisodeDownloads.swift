@@ -37,6 +37,14 @@ extension URLSession: DownloadSession {
 
 /// Загрузки выпусков фоновой сессией `com.tribuna.app.downloads`: файлы и индекс в `Application Support/Downloads`.
 /// Делегат сессии — на главной очереди: события сразу меняют состояние, временный файл переносится, пока жив.
+/// iCloud KVS (D38): настройки, которые без входа переезжают на другие iPhone с тем же Apple ID. В тестах — словарь.
+protocol CloudSettings: AnyObject {
+    func object(forKey key: String) -> Any?
+    func set(_ value: Any?, forKey key: String)
+}
+
+extension NSUbiquitousKeyValueStore: CloudSettings {}
+
 @MainActor
 public final class BackgroundEpisodeDownloads: NSObject, EpisodeDownloads {
     static let sessionIdentifier = "com.tribuna.app.downloads"
@@ -46,6 +54,8 @@ public final class BackgroundEpisodeDownloads: NSObject, EpisodeDownloads {
 
     private let index: DownloadsIndex
     private let defaults: UserDefaults
+    private let cloud: CloudSettings?
+    private var cloudObserver: (any NSObjectProtocol)?
     private let fetchArtwork: @Sendable (URL) async throws -> Data
     private var session: (any DownloadSession)!
     private let subject: CurrentValueSubject<[DownloadedEpisode], Never>
@@ -60,20 +70,28 @@ public final class BackgroundEpisodeDownloads: NSObject, EpisodeDownloads {
     /// Одна на приложение: вторая сессия с тем же идентификатором не получит событий.
     public static func make(defaults: UserDefaults = .standard) -> BackgroundEpisodeDownloads {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return BackgroundEpisodeDownloads(
-            directory: support.appendingPathComponent("Downloads"), defaults: defaults,
+        let cloud = NSUbiquitousKeyValueStore.default
+        cloud.synchronize()
+        let downloads = BackgroundEpisodeDownloads(
+            directory: support.appendingPathComponent("Downloads"), defaults: defaults, cloud: cloud,
             fetchArtwork: FeedRepository.fetch(session: .shared)
         ) { delegate in
             let configuration = URLSessionConfiguration.background(withIdentifier: sessionIdentifier)
             configuration.sessionSendsLaunchEvents = true
             return URLSession(configuration: configuration, delegate: delegate, delegateQueue: .main)
         }
+        // Правило поменяли на другом iPhone — применяем здесь (без iCloud-entitlement уведомлений просто нет, D35).
+        downloads.cloudObserver = NotificationCenter.default.addObserver(
+            forName: NSUbiquitousKeyValueStore.didChangeExternallyNotification, object: cloud, queue: .main
+        ) { [weak downloads] _ in MainActor.assumeIsolated { downloads?.applyCloudSettings() } }
+        return downloads
     }
 
-    init(directory: URL, defaults: UserDefaults, fetchArtwork: @escaping @Sendable (URL) async throws -> Data,
+    init(directory: URL, defaults: UserDefaults, cloud: CloudSettings? = nil, fetchArtwork: @escaping @Sendable (URL) async throws -> Data,
          makeSession: (BackgroundEpisodeDownloads) -> any DownloadSession) {
         index = DownloadsIndex(directory: directory)
         self.defaults = defaults
+        self.cloud = cloud
         self.fetchArtwork = fetchArtwork
         entries = index.load()
         subject = CurrentValueSubject(entries.map(\.item))
@@ -82,6 +100,12 @@ public final class BackgroundEpisodeDownloads: NSObject, EpisodeDownloads {
         session.allTasks { [weak self] running in self?.restore(running) }
         // Обложка могла не успеть скачаться, если приложение выгрузили сразу после аудио.
         for entry in entries where entry.item.artworkFile == nil && entry.item.state.isDownloaded { loadArtwork(for: entry.item) }
+        applyCloudSettings()
+    }
+
+    /// «Только по Wi-Fi» из iCloud KVS, если его уже выбирали на каком-то устройстве.
+    func applyCloudSettings() {
+        if let value = cloud?.object(forKey: Self.wifiOnlyKey) as? Bool { wifiOnly = value }
     }
 
     public var items: [DownloadedEpisode] { subject.value }
@@ -93,6 +117,7 @@ public final class BackgroundEpisodeDownloads: NSObject, EpisodeDownloads {
         set {
             guard newValue != wifiOnly else { return }
             defaults.set(newValue, forKey: Self.wifiOnlyKey)
+            cloud?.set(newValue, forKey: Self.wifiOnlyKey)
             // Resume data хранит старый запрос с прежним правилом — идущие загрузки начинаем заново.
             // shortcut: докачка с места при смене правила не сделана; делать, если будут жалобы.
             var updated = entries

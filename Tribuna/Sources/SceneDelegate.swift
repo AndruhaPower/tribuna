@@ -44,7 +44,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func sceneDidBecomeActive(_ scene: UIScene) {
         Marketing.refreshPermission()
         // Трекинг (D33): спрашиваем один раз и только в активном приложении — иначе iOS молча отвечает «нет».
+        // Только с Mindbox (D38): без него трекинга нет, а в Info.plist нет текста запроса.
         // Сразу после активации iOS пропускает запрос без окна — ждём секунду.
+        guard Marketing.isEnabled else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
             guard UIApplication.shared.applicationState == .active,
                   ATTrackingManager.trackingAuthorizationStatus == .notDetermined else { return }

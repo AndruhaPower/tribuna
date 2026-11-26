@@ -45,8 +45,8 @@ struct DownloadsTests {
                 duration: 60, audioURL: URL(string: audio)!, artworkURL: nil, link: nil)
     }
 
-    func make(_ session: any DownloadSession, defaults: UserDefaults) -> BackgroundEpisodeDownloads {
-        BackgroundEpisodeDownloads(directory: directory, defaults: defaults, fetchArtwork: { _ in throw URLError(.notConnectedToInternet) },
+    func make(_ session: any DownloadSession, defaults: UserDefaults, cloud: CloudSettings? = nil) -> BackgroundEpisodeDownloads {
+        BackgroundEpisodeDownloads(directory: directory, defaults: defaults, cloud: cloud, fetchArtwork: { _ in throw URLError(.notConnectedToInternet) },
                                    makeSession: { _ in session })
     }
 
@@ -217,6 +217,24 @@ struct DownloadsTests {
         #expect(make(FakeSession(), defaults: defaults).wifiOnly == false)
     }
 
+    /// iCloud KVS (D38): выбор «Только по Wi-Fi» уходит в облако и приходит с другого iPhone.
+    @Test func wifiOnlySyncsThroughCloud() throws {
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { cleanUp(defaults) }
+        let cloud = FakeCloud()
+        cloud.values[BackgroundEpisodeDownloads.wifiOnlyKey] = false
+        let downloads = make(FakeSession(), defaults: defaults, cloud: cloud)
+        #expect(downloads.wifiOnly == false)
+
+        downloads.wifiOnly = true
+        #expect(cloud.values[BackgroundEpisodeDownloads.wifiOnlyKey] as? Bool == true)
+
+        cloud.values[BackgroundEpisodeDownloads.wifiOnlyKey] = false
+        downloads.applyCloudSettings()
+        #expect(downloads.wifiOnly == false)
+        #expect(make(FakeSession(), defaults: defaults, cloud: FakeCloud()).wifiOnly == false)
+    }
+
     @Test func removeAllDeletesFilesAndUsageIsZero() throws {
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { cleanUp(defaults) }
@@ -328,4 +346,10 @@ private final class DeferredSession: DownloadSession, @unchecked Sendable {
     @MainActor func deliver(_ tasks: [FakeTask]) {
         completion?(tasks.map { (id: $0.id, handle: $0 as any DownloadTaskHandle) })
     }
+}
+
+final class FakeCloud: CloudSettings {
+    var values: [String: Any] = [:]
+    func object(forKey key: String) -> Any? { values[key] }
+    func set(_ value: Any?, forKey key: String) { values[key] = value }
 }

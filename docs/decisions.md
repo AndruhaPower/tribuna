@@ -19,7 +19,7 @@
 ### D4. Tuist, проект генерируется — 2026-11-19
 `.xcodeproj` и `.xcworkspace` не хранятся в git, генерируются Tuist. Генерация одной командой из корня: `./generate`. Версия Tuist закреплена в `mise.toml`.
 
-### D5. Модуль на каждую фичу — 2026-11-19
+### D5. Модуль на каждую фичу — 2026-11-19 (`FeatureBookmarks` удалён → D38)
 - `Tribuna/` — приложение, собирает фичи (таб-бар, DI, точка входа).
 - `Features/Feature<Имя>/` — по модулю на фичу (экраны `Матч` и `Плеер` не вкладки, но тоже фичи): `FeatureToday`, `FeatureMatch`, `FeatureBookmarks`, `FeatureRadio`, `FeaturePodcasts`, `FeaturePlayer`, `FeatureProfile`.
 - `Core/Core<Имя>/` — общий код (сеть, хранилище, аудио, дизайн-система). Модуль заводим, когда он нужен первой фиче, а не заранее.
@@ -270,6 +270,47 @@ xcodebuild test -workspace Tribuna.xcworkspace -scheme CoreRepositories -destina
 - **Фон, `fetch`**: `BGAppRefreshTask` `<bundle id>.refresh` (`BackgroundRefresh`) — ленты подписок последнего вошедшего (`SyncedCollection.storedValue`, без аккаунта и сети) в кеш `FeedRepository`; планируется при уходе в фон, не раньше чем через час. Загрузкам выпусков фоновый режим не нужен — их ведёт фоновая `URLSession` (D30). Режим без реального использования Apple отклоняет (2.5.4), поэтому `processing` включаем вместе с Mindbox: SDK требует `fetch` + `processing` и идентификаторы `cloud.Mindbox.$(PRODUCT_BUNDLE_IDENTIFIER).GDAppRefresh`, `.GDAppProcessing`, `.DBCleanAppProcessing`.
 - **Отложено**: Associated Domains — нет домена (нужен сайт с `apple-app-site-association`; к пушам отношения не имеет); Mindbox — нет договора и endpoint (вместе с ним: SDK, `processing`, `aps-environment`, расширение пушей в общей Keychain-группе); вход через Apple — пауза по решению пользователя, хотя платная команда теперь есть (что включить — в D33).
 
+
+### D36. Mindbox и манифест приватности — 2026-11-25
+По просьбе пользователя: «завести всё под Mindbox», endpoint дадут позже. Документация Mindbox на сайте не открывалась — API взят из исходников SDK 2.16.0 (30.10.2026).
+- **SDK** `mindbox-cloud/ios-sdk` с 2.16.0 (`Tuist/Package.swift`): продукт `Mindbox` — приложению, `MindboxNotificationsService` — расширению. Лицензия SDK действует только при договоре подписки с Mindbox.
+- **Без `MindboxAppDelegate`**: свой `AppDelegate` остаётся, `Marketing` делает то же вручную и в том же порядке — `registerBGTasks()` и `track(.launch)` до `initialization`, токен — `apnsTokenUpdate`, нажатие — `pushClicked(response:)` + `track(.push)` только для пушей Mindbox (`isMindboxPush`), статус разрешения — `refreshNotificationPermissionStatus()` при каждой активации (выдали или отозвали в Настройках). `registerForRemoteNotifications()` — без окна; окно уведомлений по-прежнему от «Напомнить» (D22).
+- **Расширение** `TribunaNotificationService` (`com.apple.usernotifications.service`): `MindboxNotificationService` догружает картинку и кнопки, отмечает доставку; чужие пуши проходят как есть.
+- **App Group** — ровно `group.cloud.Mindbox.<bundle id приложения>`: имя задаёт SDK (`MBUtilitiesFetcher`), у приложения и расширения одинаковое. **Фон**: `processing`, `remote-notification` и задачи `cloud.MindBox.$(PRODUCT_BUNDLE_IDENTIFIER).GDAppRefresh` / `.GDAppProcessing` / `.DBCleanAppProcessing` (SDK ищет их в Info.plist по подстроке). Ссылки из пушей пока не открываются — как и нажатие на напоминание (`shortcut` в `AppDelegate`).
+- **`PrivacyInfo.xcprivacy`** приложения: трекинга нет; собираем почту, имя и пользовательский контент (закладки, подписки, позиция) — для работы приложения, со связью с человеком; API с причинами — `UserDefaults` (CA92.1) и свободное место (85F4.1, показываем в Профиле). У SnapKit, swift-crypto и Mindbox — свои манифесты. Политика конфиденциальности (`docs/privacy-policy.md`) — по этому же составу.
+
+### D37. Исправления по приёмке (ACCEPTANCE.md от 2026-11-26) — 2026-11-26
+По прогону скилла camouflage-app-acceptance.
+- **okko-tennis удалён, а не выключен** (уточнение D36): DELETE в `20261125150000_catalog_cleanup.sql`,
+  строка убрана из seed `20261120100000_podcasts.sql` и из update artwork в `20261125103433_store_review.sql` —
+  выключенная запись с автором «Okko Tennis» всё равно оставалась в БД и репо (чек-лист п. 10).
+  После `db push` применить cleanup к `tribuna_db`.
+- **`supabase/README.md`**: разворачивание бэкенда с нуля (link → db push → functions deploy → секреты
+  `FOOTBALL_DATA_KEY`/`SYNC_SECRET` + Vault `project_url`/`sync_secret` → Auth) — закрывает п. 9 приёмки.
+- **README синхронизирован**: убраны НХЛ и Radio Browser (источники — D34), возможности iOS приведены
+  к реальным (фоновое аудио/загрузки/напоминания), запланированное помечено (SiWA, Mindbox, KVS).
+- **Черновик политики конфиденциальности** — `docs/privacy-policy.md`, состав по `PrivacyInfo.xcprivacy`;
+  публикация на публичном URL — вручную перед выкладкой (п. 12).
+- **Гербы — не проблема**: приёмка ошибочно записала их в ❌ по наличию UI-кода; по D34 колонки
+  `crest_url`/`emblem_url` не выбираются (`FootballRepository.columns`), везде аббревиатуры.
+- **Оставлено как зафиксировано**: пауза Sign in with Apple (D33/D35), Mindbox-обвязка и KVS
+  выключенными (D35/D36), ATT-запрос (D33) — не пересматривались.
+
+### D38. Решения по замечаниям приёмки — 2026-11-27
+По `ACCEPTANCE.md` (п. 3 и 11), по просьбе пользователя «добить решения». Принцип пользователя: capability не удаляем — каждая в коде, используется и работает; та, чей сценарий ещё впереди (Mindbox), включается одной правкой и сразу заводится.
+- **Mindbox — по endpoint** (пересмотр D36): `mindboxEndpoint` в `Project.swift` (`TUIST_MINDBOX_ENDPOINT` или значение по умолчанию). Пусто — в сборке нет SDK, расширения, `processing`/`remote-notification`, задач `cloud.MindBox.*`, `aps-environment`, App Group и запроса трекинга; лицензия Mindbox не нужна. Endpoint попадает в Info.plist (`MindboxEndpoint`), `Marketing` компилируется и без SDK (`#if canImport(Mindbox)`). Включать вместе с договором.
+- **ATT — только с Mindbox** (пересмотр D33): без Mindbox трекинга нет, запрос и `NSUserTrackingUsageDescription` убраны; с Mindbox SDK берёт IDFA при согласии — запрос оправдан. При включении обновить App Privacy в App Store Connect и политику.
+- **Вход через Apple — флаг `signInWithApple`** (пауза D33/D35 остаётся): `false` — кнопки «Продолжить с Apple» скрыты (`TribunaSignInWithApple` в Info.plist), entitlement нет. Email-входа достаточно: правило 4.8 требует Apple только при входе через сторонние соцсети. Включить: флаг, провайдер Apple в Supabase, отзыв токена Apple в `delete-account`.
+- **iCloud KVS используется** (дополнение D35): «Только по Wi-Fi» синхронизируется между iPhone с одним Apple ID без входа — `BackgroundEpisodeDownloads` пишет выбор в `NSUbiquitousKeyValueStore`, при запуске и по `didChangeExternallyNotification` применяет пришедший. В 1.2 туда же — «Турниры в ленте». Без entitlement (сборки коллег) KVS просто не синхронизируется.
+- **Проверено с endpoint** (тестовый, 2026-11-27, симулятор): SDK стартует, отправляет `MobilePush.ApplicationInstalled` и `TrackVisit` (тестовый endpoint сервер отклоняет — ожидаемо), App Group `group.cloud.Mindbox.<bundle id>` находится, запрос трекинга показывается с нашим текстом. Без endpoint чистая сборка — 0 символов Mindbox, расширения нет.
+- **Keychain-группы остаются** (D35): сессия Supabase в Keychain — сценарий входа между запусками.
+- **Модуль `FeatureBookmarks` удалён**: это была заглушка (`PlaceholderViewController`), вкладки «Закладки» нет (D14) — закладки живут в «Сегодня» и Профиле.
+
+### D39. Флаги фич следующих обновлений — 2026-11-27
+Спека `docs/superpowers/specs/2026-11-25-updates-1.1-1.2-design.md` утверждена пользователем. Фичи 1.1 (виджет) и 1.2 (профиль) — в своих ветках от `store-review-prep`: `feature/widget-today`, `feature/profile-v2`; в каждой — описание обновления для App Store (`docs/releases/<версия>.md`).
+- **Флаг сборки**: `TUIST_FEATURES=widget,profile2 ./generate` → `-DFEATURE_WIDGET -DFEATURE_PROFILE2` в `OTHER_SWIFT_FLAGS` всех таргетов. Не `SWIFT_ACTIVE_COMPILATION_CONDITIONS`: Tuist задаёт его на уровне конфигурации (`DEBUG`), значение таргета теряется. Без переменной флагов нет, проект такой же, как раньше.
+- **Почему не удалённые тоглы**: функция, включённая после ревью, — «скрытая функция» (2.3.1); виджет из галереи во время работы не спрятать. Выпуск = флаг по умолчанию в `Project.swift`, через обновление `#if` удаляем.
+
 ## Грабли
 
 - **«swap-monorepo» в окружении** — это название сессии в приложении, а не репозиторий. Репозиторий проекта — только `AndruhaPower/tribuna`.
@@ -289,21 +330,3 @@ xcodebuild test -workspace Tribuna.xcworkspace -scheme CoreRepositories -destina
 - **`UISlider` в iOS 26** присылает последний `valueChanged` уже после `touchUpInside`. Если по `valueChanged` «брать» бегунок (режим перетаскивания), он остаётся взятым навсегда: время на экране застывает, хотя звук идёт. Обрабатывай `valueChanged` только при `slider.isTracking`.
 - **Симулятор: «Поделиться» вешает приложение** — `UIActivityViewController` синхронно ждёт XPC-ответа службы `com.apple.sharing.sharesheet` (`SFShareSheetSlotManager ensureConnectionEstablished`), главный поток стоит. Это служба симулятора, не наш код; «Поделиться» проверять на устройстве.
 - **Симулятор: `.newPassword` закрывает поле жёлтой плашкой «Automatic Strong Password cover view text»** — набранный текст не виден и не попадает в поле. В `-ProfileMock` поле нового пароля — `.password` (только DEBUG); проверять автоподстановку пароля — на устройстве.
-
-
-### D37. Исправления по приёмке (ACCEPTANCE.md от 2026-11-26) — 2026-11-26
-По прогону скилла camouflage-app-acceptance.
-- **okko-tennis удалён, а не выключен** (уточнение D36): DELETE в `20261125150000_catalog_cleanup.sql`,
-  строка убрана из seed `20261120100000_podcasts.sql` и из update artwork в `20261125103433_store_review.sql` —
-  выключенная запись с автором «Okko Tennis» всё равно оставалась в БД и репо (чек-лист п. 10).
-  После `db push` применить cleanup к `tribuna_db`.
-- **`supabase/README.md`**: разворачивание бэкенда с нуля (link → db push → functions deploy → секреты
-  `FOOTBALL_DATA_KEY`/`SYNC_SECRET` + Vault `project_url`/`sync_secret` → Auth) — закрывает п. 9 приёмки.
-- **README синхронизирован**: убраны НХЛ и Radio Browser (источники — D34), возможности iOS приведены
-  к реальным (фоновое аудио/загрузки/напоминания), запланированное помечено (SiWA, Mindbox, KVS).
-- **Черновик политики конфиденциальности** — `docs/privacy-policy.md`, состав по `PrivacyInfo.xcprivacy`;
-  публикация на публичном URL — вручную перед выкладкой (п. 12).
-- **Гербы — не проблема**: приёмка ошибочно записала их в ❌ по наличию UI-кода; по D34 колонки
-  `crest_url`/`emblem_url` не выбираются (`FootballRepository.columns`), везде аббревиатуры.
-- **Оставлено как зафиксировано**: пауза Sign in with Apple (D33/D35), Mindbox-обвязка и KVS
-  выключенными (D35/D36), ATT-запрос (D33) — не пересматривались.
