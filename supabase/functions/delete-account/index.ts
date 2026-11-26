@@ -1,5 +1,5 @@
 // Edge Function delete-account (D31): удаляет пользователя по его JWT. Строки закладок, подписок и позиций
-// уходят каскадом (on delete cascade). Отзыв токена Apple — когда появится вход через Apple.
+// уходят каскадом (on delete cascade), фото профиля — из хранилища avatars (D43). Отзыв токена Apple — когда появится вход через Apple.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 export type Deps = {
@@ -36,7 +36,11 @@ if (import.meta.main) {
         const { data, error } = await anon.auth.getUser(jwt);
         return error ? null : data.user?.id ?? null;
       },
-      deleteUser: async (id) => (await admin.auth.admin.deleteUser(id)).error?.message ?? null,
+      deleteUser: async (id) => {
+        // Фото профиля (D43) — до пользователя; нет фото — не ошибка.
+        await admin.storage.from("avatars").remove([`${id}.jpg`]);
+        return (await admin.auth.admin.deleteUser(id)).error?.message ?? null;
+      },
     })
   );
 }

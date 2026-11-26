@@ -132,7 +132,8 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private func makeProfile() -> UIViewController {
         let (bookmarks, subscriptions, progress) = (dependencies.bookmarks, dependencies.subscriptions, dependencies.progress)
         return FeatureProfile.make(
-            dependencies: .init(account: dependencies.account, bookmarks: bookmarks, subscriptions: subscriptions, downloads: dependencies.downloads),
+            dependencies: .init(account: dependencies.account, bookmarks: bookmarks, subscriptions: subscriptions, downloads: dependencies.downloads,
+                                avatars: dependencies.avatars),
             output: .init(flushUserData: { await Services.flushUserData(bookmarks: bookmarks, subscriptions: subscriptions, progress: progress) })
         )
     }

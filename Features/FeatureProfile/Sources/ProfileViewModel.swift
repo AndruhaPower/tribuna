@@ -45,6 +45,8 @@ struct ProfileState: Equatable {
     let usageFraction: Double?
     /// «Очистить загрузки» активна, пока в загрузках есть хоть одна запись (и идущая).
     let canClear: Bool
+    /// Фото профиля (JPEG); nil — буква в кружке.
+    var avatar: Data?
 }
 
 enum ProfileFormatter {
@@ -103,14 +105,36 @@ final class ProfileViewModel {
                                        subscriptions: dependencies.subscriptions.subscriptions.count,
                                        downloads: dependencies.downloads, available: available)
         Self.apply(dependencies.account.state, to: &state)
-        Publishers.Merge4(
-            dependencies.account.statePublisher.map { _ in () },
-            dependencies.bookmarks.bookmarksPublisher.map { _ in () },
-            dependencies.subscriptions.subscriptionsPublisher.map { _ in () },
-            dependencies.downloads.itemsPublisher.map { _ in () }
+        state.avatar = dependencies.avatars.image
+        Publishers.MergeMany(
+            dependencies.account.statePublisher.map { _ in () }.eraseToAnyPublisher(),
+            dependencies.bookmarks.bookmarksPublisher.map { _ in () }.eraseToAnyPublisher(),
+            dependencies.subscriptions.subscriptionsPublisher.map { _ in () }.eraseToAnyPublisher(),
+            dependencies.downloads.itemsPublisher.map { _ in () }.eraseToAnyPublisher(),
+            dependencies.avatars.imagePublisher.map { _ in () }.eraseToAnyPublisher()
         )
         .sink { [weak self] in MainActor.assumeIsolated { self?.refresh() } }
         .store(in: &subscriptions)
+    }
+
+    /// Новое фото (уже квадратный JPEG). Ошибка — текст для показа.
+    func didPickPhoto(_ jpeg: Data) async -> String? {
+        await photoAction { try await $0.upload(jpeg) }
+    }
+
+    func didRemovePhoto() async -> String? {
+        await photoAction { try await $0.remove() }
+    }
+
+    private func photoAction(_ action: @MainActor (AvatarStore) async throws -> Void) async -> String? {
+        setBusy(true)
+        defer { setBusy(false) }
+        do {
+            try await action(dependencies.avatars)
+            return nil
+        } catch {
+            return SignInTexts.message(error as? AccountError ?? .unknown)
+        }
     }
 
     func didToggleWifiOnly(_ isOn: Bool) {
@@ -187,6 +211,7 @@ final class ProfileViewModel {
                                            subscriptions: dependencies.subscriptions.subscriptions.count,
                                            downloads: dependencies.downloads, available: available)
         Self.apply(dependencies.account.state, to: &state)
+        state.avatar = dependencies.avatars.image
         state.isBusy = isBusy
         if state != self.state { self.state = state }
     }

@@ -8,12 +8,16 @@ public enum FeatureProfile {
         let bookmarks: BookmarksStore
         let subscriptions: SubscriptionsStore
         let downloads: EpisodeDownloads
+        /// Фото профиля (D43).
+        let avatars: AvatarStore
 
-        public init(account: Account, bookmarks: BookmarksStore, subscriptions: SubscriptionsStore, downloads: EpisodeDownloads) {
+        public init(account: Account, bookmarks: BookmarksStore, subscriptions: SubscriptionsStore, downloads: EpisodeDownloads,
+                    avatars: AvatarStore) {
             self.account = account
             self.bookmarks = bookmarks
             self.subscriptions = subscriptions
             self.downloads = downloads
+            self.avatars = avatars
         }
     }
 

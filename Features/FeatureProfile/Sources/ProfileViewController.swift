@@ -12,6 +12,9 @@ final class ProfileViewController: UIViewController {
     private let signedInContent = UIView()
     private let motivationCard = UIView()
     private let avatarLabel = UILabel()
+    private let avatarImage = UIImageView()
+    private let avatarButton = UIButton(type: .custom)
+    private lazy var photoSource = PhotoSource(host: self) { [weak self] in self?.didPick($0) }
     private let nameLabel = UILabel()
     private let emailLabel = UILabel()
     private let signOutButton = WidePillButton("Выйти", style: .outline, height: 34, font: Typography.text(14, .semibold))
@@ -247,6 +250,13 @@ final class ProfileViewController: UIViewController {
         avatarLabel.textColor = Palette.textPrimary
         avatarLabel.textAlignment = .center
         avatar.isAccessibilityElement = false
+        avatarImage.contentMode = .scaleAspectFill
+        avatarImage.layer.cornerRadius = 26
+        avatarImage.clipsToBounds = true
+        // Нажатие на кружок — фото профиля (D43).
+        avatarButton.accessibilityLabel = "Фото профиля"
+        avatarButton.accessibilityHint = "Сделать или выбрать фото"
+        avatarButton.addAction(UIAction { [weak self] _ in self?.showPhotoMenu() }, for: .touchUpInside)
         nameLabel.font = Typography.text(18, .semibold)
         nameLabel.textColor = Palette.textPrimary
         emailLabel.font = Typography.text(14)
@@ -254,7 +264,9 @@ final class ProfileViewController: UIViewController {
         [nameLabel, emailLabel].forEach { $0.lineBreakMode = .byTruncatingTail }
         signOutButton.addAction(UIAction { [weak self] _ in self?.confirmSignOut() }, for: .touchUpInside)
         [avatar, nameLabel, emailLabel, signOutButton].forEach(card.addSubview)
-        avatar.addSubview(avatarLabel)
+        [avatarLabel, avatarImage, avatarButton].forEach(avatar.addSubview)
+        avatarImage.snp.makeConstraints { $0.edges.equalToSuperview() }
+        avatarButton.snp.makeConstraints { $0.edges.equalToSuperview() }
         avatar.snp.makeConstraints {
             $0.leading.equalToSuperview().offset(16)
             $0.centerY.equalToSuperview()
@@ -305,10 +317,13 @@ final class ProfileViewController: UIViewController {
         motivationCard.isHidden = state.account != nil || state.isResolving
         if let card = state.account {
             avatarLabel.text = card.initial
+            avatarImage.image = state.avatar.flatMap(UIImage.init(data:))
+            avatarLabel.isHidden = avatarImage.image != nil
             nameLabel.text = card.name
             emailLabel.text = card.email
         }
         signOutButton.isEnabled = !state.isBusy
+        avatarButton.isEnabled = !state.isBusy
         deleteButton.isEnabled = !state.isBusy
         bookmarksTile.value = state.bookmarks
         subscriptionsTile.value = state.subscriptions
@@ -326,6 +341,37 @@ final class ProfileViewController: UIViewController {
         usageRow.accessibilityLabel = "Занято"
         usageRow.accessibilityValue = state.usage
         clearButton.isEnabled = state.canClear
+    }
+
+    /// Сделать фото (если есть камера), выбрать из галереи, удалить — если фото есть.
+    private func showPhotoMenu() {
+        guard presentedViewController == nil else { return }
+        let sheet = UIAlertController(title: "Фото профиля", message: nil, preferredStyle: .actionSheet)
+        if PhotoSource.hasCamera {
+            sheet.addAction(UIAlertAction(title: "Сделать фото", style: .default) { [weak self] _ in self?.photoSource.openCamera() })
+        }
+        sheet.addAction(UIAlertAction(title: "Выбрать из галереи", style: .default) { [weak self] _ in self?.photoSource.openLibrary() })
+        if viewModel.state.avatar != nil {
+            sheet.addAction(UIAlertAction(title: "Удалить фото", style: .destructive) { [weak self] _ in
+                guard let self else { return }
+                Task { self.showPhotoError(await self.viewModel.didRemovePhoto()) }
+            })
+        }
+        sheet.addAction(UIAlertAction(title: "Отмена", style: .cancel))
+        sheet.popoverPresentationController?.sourceView = avatarButton
+        present(sheet, animated: true)
+    }
+
+    private func didPick(_ image: UIImage) {
+        guard let jpeg = AvatarImage.jpeg(from: image) else { return }
+        Task { showPhotoError(await viewModel.didPickPhoto(jpeg)) }
+    }
+
+    private func showPhotoError(_ message: String?) {
+        guard let message else { return }
+        let alert = UIAlertController(title: "Не удалось сохранить фото", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .cancel))
+        present(alert, animated: true)
     }
 
     private func confirmClear() {
