@@ -3,15 +3,31 @@ import ProjectDescription
 // TUIST_BUNDLE_ID — свой ID для установки коллегами на телефон (./install-iphone), D32.
 let bundleId = Environment.bundleId.getString(default: "com.tribuna.app")
 let deployment: DeploymentTargets = .iOS("16.0")
-let settings: Settings = .settings(base: ["SWIFT_VERSION": "6.0"])
+// Фичи следующих обновлений под флагами сборки (спека docs/superpowers/specs/2026-11-25-updates-1.1-1.2-design.md):
+// TUIST_FEATURES=widget,profile2 ./generate → -DFEATURE_WIDGET -DFEATURE_PROFILE2 у всех таргетов. Флаги сборки, а не удалённые:
+// Apple отклоняет функции, включаемые после ревью (2.3.1). OTHER_SWIFT_FLAGS — потому что SWIFT_ACTIVE_COMPILATION_CONDITIONS
+// Tuist задаёт на уровне конфигурации (DEBUG), и значение таргета там бы потерялось.
+let enabledFeatures = Environment.features.getString(default: "").split(separator: ",").map(String.init)
+let swiftBase: SettingsDictionary = ["SWIFT_VERSION": "6.0"].merging(enabledFeatures.isEmpty ? [:] : [
+    "OTHER_SWIFT_FLAGS": .string((["$(inherited)"] + enabledFeatures.map { "-DFEATURE_\($0.uppercased())" }).joined(separator: " ")),
+]) { $1 }
+let settings: Settings = .settings(base: swiftBase)
 // Сборка для App Store — под командой D53MGF5HR8 с платными capabilities (D35).
 // У коллег через ./install-iphone свой Bundle ID и, возможно, бесплатный Apple ID — им этих capabilities не даём.
 let isStoreBuild = bundleId == "com.tribuna.app"
-let storeSettings: Settings = .settings(base: ["SWIFT_VERSION": "6.0", "DEVELOPMENT_TEAM": "D53MGF5HR8", "CODE_SIGN_STYLE": "Automatic"])
+let storeSettings: Settings = .settings(base: swiftBase.merging(["DEVELOPMENT_TEAM": "D53MGF5HR8", "CODE_SIGN_STYLE": "Automatic"]) { $1 })
 // Общий контейнер приложения и расширения пушей; имя задаёт Mindbox SDK: group.cloud.Mindbox.<bundle id приложения> (D36).
 let mindboxGroup = "group.cloud.Mindbox.\(bundleId)"
+// Mindbox включается endpoint-ом из кабинета Mindbox (D38): пусто — в сборке нет ни SDK, ни расширения пушей,
+// ни processing/remote-notification, ни APNs и App Group, ни запроса трекинга. Endpoint не секрет — лежит в бинарнике.
+// Включить: вписать сюда или TUIST_MINDBOX_ENDPOINT=<endpoint> ./generate. Лицензия SDK — только при договоре с Mindbox.
+let mindboxEndpoint = Environment.mindboxEndpoint.getString(default: "")
+let mindbox = !mindboxEndpoint.isEmpty
+// Вход через Apple (D38): true — entitlement и кнопки «Продолжить с Apple». До включения: провайдер Apple в Supabase
+// (Client ID = bundle id) и отзыв токена Apple при удалении аккаунта (D33). false — кнопок нет.
+let signInWithApple = false
 
-let features = ["Today", "Match", "Bookmarks", "Radio", "Podcasts", "Player", "Profile"].map { "Feature\($0)" }
+let features = ["Today", "Match", "Radio", "Podcasts", "Player", "Profile"].map { "Feature\($0)" }
 
 func module(_ name: String, path: String, resources: ResourceFileElements? = nil, dependencies: [TargetDependency]) -> Target {
     .target(
@@ -151,13 +167,42 @@ let featureTargets = features.map {
     return module($0, path: "Features/\($0)", resources: resources, dependencies: deps)
 }
 
+// Части app-таргета, зависящие от Mindbox и входа через Apple, — отдельно: одним выражением компилятор манифеста не справляется.
+let backgroundModes = ["audio", "fetch"] + (mindbox ? ["processing", "remote-notification"] : [])
+let backgroundTasks = ["$(PRODUCT_BUNDLE_IDENTIFIER).refresh"] + (mindbox ? [
+    "cloud.MindBox.$(PRODUCT_BUNDLE_IDENTIFIER).GDAppRefresh",
+    "cloud.MindBox.$(PRODUCT_BUNDLE_IDENTIFIER).GDAppProcessing",
+    "cloud.MindBox.$(PRODUCT_BUNDLE_IDENTIFIER).DBCleanAppProcessing",
+] : [])
+var appInfo: [String: Plist.Value] = [:]
+if mindbox {
+    // Текст запроса трекинга (D33) — только с Mindbox: без него трекинга нет и запрос не показываем (D38).
+    appInfo["NSUserTrackingUsageDescription"] = "Так мы точнее подберём матчи, эфиры и подкасты под ваши интересы"
+}
+var appEntitlements: [String: Plist.Value] = [
+    // Первая группа — прежняя группа приложения: сессия Supabase в Keychain остаётся на месте.
+    // Вторая — общая с будущими расширениями (пуши Mindbox).
+    "keychain-access-groups": ["$(AppIdentifierPrefix)$(CFBundleIdentifier)", "$(AppIdentifierPrefix)com.tribuna.app.shared"],
+    // iCloud KVS: «Только по Wi-Fi» на всех iPhone с тем же Apple ID (D38), в 1.2 — «Турниры в ленте».
+    "com.apple.developer.ubiquity-kvstore-identifier": "$(TeamIdentifierPrefix)$(CFBundleIdentifier)",
+]
+if mindbox {
+    // Xcode при выгрузке в App Store сам ставит production.
+    appEntitlements["aps-environment"] = "development"
+    appEntitlements["com.apple.security.application-groups"] = [.string(mindboxGroup)]
+}
+if signInWithApple { appEntitlements["com.apple.developer.applesignin"] = ["Default"] }
+let appDependencies: [TargetDependency] = [.target(name: "CoreUI"), .target(name: "CoreDomain"), .target(name: "CoreRepositories"), .target(name: "CorePlayback")]
+    + (mindbox ? [.external(name: "Mindbox"), .target(name: "TribunaNotificationService")] : [])
+    + features.map { .target(name: $0) }
+
 let app: Target = .target(
     name: "Tribuna",
     destinations: [.iPhone],
     product: .app,
     bundleId: bundleId,
     deploymentTargets: deployment,
-    infoPlist: .extendingDefault(with: [
+    infoPlist: .extendingDefault(with: appInfo.merging([
         "CFBundleDisplayName": "Tribuna",
         // Системные элементы (кнопка Apple, системные листы) — по-русски, как всё приложение.
         "CFBundleDevelopmentRegion": "ru",
@@ -165,16 +210,11 @@ let app: Target = .target(
         "UIAppFonts": ["Unbounded.ttf"],
         "UILaunchScreen": ["UIColorName": ""],
         // fetch — обновление лент подписок в фоне (D35); загрузкам выпусков фоновый режим не нужен (фоновая URLSession).
-        // fetch, processing, remote-notification и три задачи cloud.MindBox.* — гарантированная доставка событий Mindbox (D36).
-        "UIBackgroundModes": ["audio", "fetch", "processing", "remote-notification"],
-        "BGTaskSchedulerPermittedIdentifiers": [
-            "$(PRODUCT_BUNDLE_IDENTIFIER).refresh",
-            "cloud.MindBox.$(PRODUCT_BUNDLE_IDENTIFIER).GDAppRefresh",
-            "cloud.MindBox.$(PRODUCT_BUNDLE_IDENTIFIER).GDAppProcessing",
-            "cloud.MindBox.$(PRODUCT_BUNDLE_IDENTIFIER).DBCleanAppProcessing",
-        ],
-        // Текст запроса трекинга (D33).
-        "NSUserTrackingUsageDescription": "Так мы точнее подберём матчи, эфиры и подкасты под ваши интересы",
+        // processing, remote-notification и три задачи cloud.MindBox.* — гарантированная доставка событий Mindbox (D36).
+        "UIBackgroundModes": .array(backgroundModes.map { .string($0) }),
+        "BGTaskSchedulerPermittedIdentifiers": .array(backgroundTasks.map { .string($0) }),
+        "MindboxEndpoint": .string(mindboxEndpoint),
+        "TribunaSignInWithApple": .boolean(signInWithApple),
         // Макеты только портретные.
         "UISupportedInterfaceOrientations": ["UIInterfaceOrientationPortrait"],
         "UIApplicationSceneManifest": [
@@ -186,20 +226,11 @@ let app: Target = .target(
                 ]],
             ],
         ],
-    ]),
+    ]) { $1 }),
     sources: ["Tribuna/Sources/**"],
     resources: ["Tribuna/Resources/**"],
-    entitlements: isStoreBuild ? .dictionary([
-        // Первая группа — прежняя группа приложения: сессия Supabase в Keychain остаётся на месте.
-        // Вторая — общая с будущими расширениями (пуши Mindbox).
-        "keychain-access-groups": ["$(AppIdentifierPrefix)$(CFBundleIdentifier)", "$(AppIdentifierPrefix)com.tribuna.app.shared"],
-        "com.apple.developer.ubiquity-kvstore-identifier": "$(TeamIdentifierPrefix)$(CFBundleIdentifier)",
-        // Xcode при выгрузке в App Store сам ставит production.
-        "aps-environment": "development",
-        "com.apple.security.application-groups": [.string(mindboxGroup)],
-    ]) : nil,
-    dependencies: [.target(name: "CoreUI"), .target(name: "CoreDomain"), .target(name: "CoreRepositories"), .target(name: "CorePlayback"),
-                   .external(name: "Mindbox"), .target(name: "TribunaNotificationService")] + features.map { .target(name: $0) },
+    entitlements: isStoreBuild ? .dictionary(appEntitlements) : nil,
+    dependencies: appDependencies,
     settings: isStoreBuild ? storeSettings : settings
 )
 
@@ -225,5 +256,5 @@ let notificationService: Target = .target(
 
 let project = Project(
     name: "Tribuna",
-    targets: [app, notificationService, coreUI, coreDomain, coreRepositories, coreRepositoriesTests, coreUITests, corePlayback, corePlaybackTests, featureTodayTests, featureMatchTests, featureRadioTests, featurePlayerTests, featurePodcastsTests, featureProfileTests] + featureTargets
+    targets: [app] + (mindbox ? [notificationService] : []) + [coreUI, coreDomain, coreRepositories, coreRepositoriesTests, coreUITests, corePlayback, corePlaybackTests, featureTodayTests, featureMatchTests, featureRadioTests, featurePlayerTests, featurePodcastsTests, featureProfileTests] + featureTargets
 )

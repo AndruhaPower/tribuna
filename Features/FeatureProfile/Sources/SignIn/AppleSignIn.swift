@@ -77,8 +77,10 @@ final class AppleSignIn: NSObject, ASAuthorizationControllerDelegate, ASAuthoriz
 }
 
 /// Системная кнопка Apple в размер пилюль листа (50 pt, полное скругление); тёмная тема — белая кнопка.
+/// Скрыта, пока вход через Apple выключен в сборке (`TribunaSignInWithApple`, D38): в стеке скрытая кнопка места не занимает.
 @MainActor func appleButton(action: @escaping (UIWindow) -> Void) -> UIControl {
     let button = ASAuthorizationAppleIDButton(authorizationButtonType: .continue, authorizationButtonStyle: .white)
+    button.isHidden = Bundle.main.object(forInfoDictionaryKey: "TribunaSignInWithApple") as? Bool != true
     button.cornerRadius = WidePillButton.height / 2
     button.snp.makeConstraints { $0.height.equalTo(WidePillButton.height) }
     button.addAction(UIAction { [weak button] _ in
