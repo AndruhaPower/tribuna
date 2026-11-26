@@ -23,6 +23,8 @@ struct AppDependencies {
     /// Аккаунт для Профиля и ворот; настоящий, кроме `-ProfileMock` и моков вёрстки «Сегодня», «Матча» и «Подкастов»
     /// (там «вошедший» `MockAccount` — ворота пропускают, вкладки на данных макета).
     private(set) var account: Account = Self.account.account
+    /// Фото профиля (D43); у `-ProfileMock` — в памяти.
+    private(set) var avatars: AvatarStore = Self.account.avatars
 
     /// Единственная фоновая сессия загрузок: `Services.make` моки зовут несколько раз, поэтому не там.
     /// Статическая — `AppDelegate` передаёт ей события сессии и при запуске в фоне, без сцены.
@@ -50,6 +52,7 @@ struct AppDependencies {
         if let mock = Self.profileMock() {
             (matches, standings, bookmarks, reminders, stations, podcasts, episodes, subscriptions, progress, account, downloads) = mock
             player = MockAudioPlayer(playing: nil)
+            avatars = MockAvatarStore()
             return
         }
         if let mock = Self.podcastsMock() {
@@ -414,5 +417,17 @@ extension AppDependencies {
         return (MockMatchesRepository(matches: []), MockStandingsRepository(), services.bookmarks, services.reminders, services.stations,
                 services.podcasts, services.episodes, services.subscriptions, services.progress, account, MockEpisodeDownloads(items: items))
     }
+}
+#endif
+
+#if DEBUG
+/// Фото профиля в памяти для `-ProfileMock` (D43): камера и галерея проверяются без сервера.
+@MainActor
+final class MockAvatarStore: AvatarStore {
+    private let subject = CurrentValueSubject<Data?, Never>(nil)
+    var image: Data? { subject.value }
+    var imagePublisher: AnyPublisher<Data?, Never> { subject.eraseToAnyPublisher() }
+    func upload(_ jpeg: Data) async throws { subject.value = jpeg }
+    func remove() async throws { subject.value = nil }
 }
 #endif

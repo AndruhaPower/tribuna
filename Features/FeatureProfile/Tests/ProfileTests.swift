@@ -68,12 +68,13 @@ struct ProfileTests {
     let subscriptions = FakeSubscriptionsStore()
     let downloads = FakeDownloads()
     let account = FakeAccount(.signedIn(UserProfile(id: "u", name: "Алексей", email: "a@b.ru")))
+    let avatars = FakeAvatarStore()
     let log = Box<[String]>([])
 
     func makeViewModel() -> ProfileViewModel {
         account.log = { [log] in log.value.append($0) }
         return ProfileViewModel(
-            dependencies: .init(account: account, bookmarks: bookmarks, subscriptions: subscriptions, downloads: downloads),
+            dependencies: .init(account: account, bookmarks: bookmarks, subscriptions: subscriptions, downloads: downloads, avatars: avatars),
             output: .init(flushUserData: { [log] in log.value.append("flush") })
         )
     }
@@ -93,7 +94,7 @@ struct ProfileTests {
     @Test func signOutDoesNotWaitForHangingFlush() async {
         let hang = Box<CheckedContinuation<Void, Never>?>(nil)
         let viewModel = ProfileViewModel(
-            dependencies: .init(account: account, bookmarks: bookmarks, subscriptions: subscriptions, downloads: downloads),
+            dependencies: .init(account: account, bookmarks: bookmarks, subscriptions: subscriptions, downloads: downloads, avatars: avatars),
             output: .init(flushUserData: { await withCheckedContinuation { hang.value = $0 } }),
             flushTimeout: 0.05
         )

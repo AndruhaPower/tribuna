@@ -215,6 +215,8 @@ let app: Target = .target(
         "BGTaskSchedulerPermittedIdentifiers": .array(backgroundTasks.map { .string($0) }),
         "MindboxEndpoint": .string(mindboxEndpoint),
         "TribunaSignInWithApple": .boolean(signInWithApple),
+        // Фото профиля (D43). Галерея — системное окно выбора, ему разрешение не нужно, поэтому NSPhotoLibraryUsageDescription нет.
+        "NSCameraUsageDescription": "Чтобы сделать фото для вашего профиля",
         // Макеты только портретные.
         "UISupportedInterfaceOrientations": ["UIInterfaceOrientationPortrait"],
         "UIApplicationSceneManifest": [

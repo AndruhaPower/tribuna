@@ -29,7 +29,7 @@
 > • Напоминание за 15 минут до начала матча из закладок.
 > • Эфир: разговорные и новостные радиостанции — в фоне и на экране блокировки.
 > • Подкасты: русскоязычные спортивные подкасты — подписка, новые выпуски, загрузка и прослушивание без интернета, продолжение с того же места.
-> • Профиль по почте: закладки, подписки и позиция прослушивания сохраняются и переезжают на новый iPhone. Смотреть и слушать можно и без профиля.
+> • Профиль по почте с фото: закладки, подписки и позиция прослушивания сохраняются и переезжают на новый iPhone. Смотреть и слушать можно и без профиля.
 >
 > Данные о матчах — football-data.org.
 
@@ -43,7 +43,7 @@
 > 1. «Сегодня» (Today): pick a day, open a match — score, status, league table. Tap «Напомнить» to get a local notification 15 minutes before kick-off (the notification permission prompt appears here).
 > 2. «Эфир» (Radio): play any station; audio continues in background and on the lock screen.
 > 3. «Подкасты»: subscribe to a podcast and download an episode — downloads and subscriptions require a profile, so sign in with the demo account when asked.
-> 4. «Профиль»: bookmarks and subscriptions counters, downloads storage, sign out, and «Удалить аккаунт» (deletes the account and all its data on our server).
+> 4. «Профиль»: tap the avatar circle to take a profile photo with the camera (permission prompt) or pick one in the system photo picker (no library permission needed); bookmarks and subscriptions counters, downloads storage, sign out, and «Удалить аккаунт» (deletes the account, its photo and all its data on our server).
 >
 > **Content rights:**
 > - Match data comes from the football-data.org API (free tier). Attribution "Football data provided by the Football-Data.org API" is shown at the bottom of the Today screen, as their terms require. Requests to the API are made by our backend; no API key is shipped in the app. Club crests and league logos are not used.

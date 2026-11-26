@@ -73,7 +73,8 @@ public enum Services {
 
     /// Аккаунт и PostgREST для таблиц пользователя (запросы с его токеном, D31). Звать один раз:
     /// второй `AuthClient` делил бы с первым сессию в Keychain и обновлял её наперегонки.
-    @MainActor public static func makeAccount(supabaseURL: URL, supabaseKey: String) -> (account: Account, userClient: PostgrestClient) {
+    @MainActor public static func makeAccount(supabaseURL: URL, supabaseKey: String)
+        -> (account: Account, userClient: PostgrestClient, avatars: AvatarStore) {
         let auth = AuthClient(configuration: .init(
             url: supabaseURL.appendingPathComponent("auth/v1"),
             headers: ["apikey": supabaseKey],
@@ -103,6 +104,15 @@ public enum Services {
             apiKey: supabaseKey,
             fetch: { try await URLSession.shared.data(for: $0) }
         )
-        return (account, userClient)
+        // Фото профиля (D43) — с токеном того же `AuthClient`.
+        let avatars = SupabaseAvatarStore(
+            account: account,
+            storageURL: supabaseURL.appendingPathComponent("storage/v1"),
+            apiKey: supabaseKey,
+            cacheDirectory: caches.appendingPathComponent("avatars"),
+            token: { try await auth.session.accessToken },
+            fetch: { try await URLSession.shared.data(for: $0) }
+        )
+        return (account, userClient, avatars)
     }
 }
