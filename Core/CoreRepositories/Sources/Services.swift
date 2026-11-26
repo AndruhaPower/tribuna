@@ -45,7 +45,7 @@ public enum Services {
     }
 
     /// Каталоги — без входа: publishable-ключ идёт заголовком apikey.
-    private static func catalogClient(supabaseURL: URL, supabaseKey: String) -> PostgrestClient {
+    static func catalogClient(supabaseURL: URL, supabaseKey: String) -> PostgrestClient {
         PostgrestClient(
             url: supabaseURL.appendingPathComponent("rest/v1"),
             headers: ["apikey": supabaseKey],

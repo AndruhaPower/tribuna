@@ -12,6 +12,9 @@ let swiftBase: SettingsDictionary = ["SWIFT_VERSION": "6.0"].merging(enabledFeat
     "OTHER_SWIFT_FLAGS": .string((["$(inherited)"] + enabledFeatures.map { "-DFEATURE_\($0.uppercased())" }).joined(separator: " ")),
 ]) { $1 }
 let settings: Settings = .settings(base: swiftBase)
+// 1.1: виджет «Сегодня» (D40) — таргет TribunaWidget, App Group group.com.tribuna.app, ссылки tribuna://.
+let widget = enabledFeatures.contains("widget")
+let widgetGroup = "group.com.tribuna.app"
 // Сборка для App Store — под командой D53MGF5HR8 с платными capabilities (D35).
 // У коллег через ./install-iphone свой Bundle ID и, возможно, бесплатный Apple ID — им этих capabilities не даём.
 let isStoreBuild = bundleId == "com.tribuna.app"
@@ -175,6 +178,9 @@ let backgroundTasks = ["$(PRODUCT_BUNDLE_IDENTIFIER).refresh"] + (mindbox ? [
     "cloud.MindBox.$(PRODUCT_BUNDLE_IDENTIFIER).DBCleanAppProcessing",
 ] : [])
 var appInfo: [String: Plist.Value] = [:]
+if widget {
+    appInfo["CFBundleURLTypes"] = [["CFBundleURLName": "com.tribuna.app", "CFBundleURLSchemes": ["tribuna"]]]
+}
 if mindbox {
     // Текст запроса трекинга (D33) — только с Mindbox: без него трекинга нет и запрос не показываем (D38).
     appInfo["NSUserTrackingUsageDescription"] = "Так мы точнее подберём матчи, эфиры и подкасты под ваши интересы"
@@ -189,11 +195,13 @@ var appEntitlements: [String: Plist.Value] = [
 if mindbox {
     // Xcode при выгрузке в App Store сам ставит production.
     appEntitlements["aps-environment"] = "development"
-    appEntitlements["com.apple.security.application-groups"] = [.string(mindboxGroup)]
 }
+let appGroups = (mindbox ? [mindboxGroup] : []) + (widget ? [widgetGroup] : [])
+if !appGroups.isEmpty { appEntitlements["com.apple.security.application-groups"] = .array(appGroups.map { .string($0) }) }
 if signInWithApple { appEntitlements["com.apple.developer.applesignin"] = ["Default"] }
 let appDependencies: [TargetDependency] = [.target(name: "CoreUI"), .target(name: "CoreDomain"), .target(name: "CoreRepositories"), .target(name: "CorePlayback")]
     + (mindbox ? [.external(name: "Mindbox"), .target(name: "TribunaNotificationService")] : [])
+    + (widget ? [.target(name: "TribunaWidget")] : [])
     + features.map { .target(name: $0) }
 
 let app: Target = .target(
@@ -254,7 +262,25 @@ let notificationService: Target = .target(
     settings: isStoreBuild ? storeSettings : settings
 )
 
+/// Виджет «Сегодня» (1.1, D40): матчи дня из Supabase, закладки — из общего App Group.
+let todayWidget: Target = .target(
+    name: "TribunaWidget",
+    destinations: [.iPhone],
+    product: .appExtension,
+    bundleId: "\(bundleId).TodayWidget",
+    deploymentTargets: deployment,
+    infoPlist: .extendingDefault(with: [
+        "CFBundleDisplayName": "Tribuna",
+        "NSExtension": ["NSExtensionPointIdentifier": "com.apple.widgetkit-extension"],
+    ]),
+    // AppConfig — общий с приложением: тот же Supabase и publishable-ключ.
+    sources: ["Tribuna/Widget/**", "Tribuna/Sources/AppConfig.swift"],
+    entitlements: isStoreBuild ? .dictionary(["com.apple.security.application-groups": [.string(widgetGroup)]]) : nil,
+    dependencies: [.target(name: "CoreDomain"), .target(name: "CoreRepositories")],
+    settings: isStoreBuild ? storeSettings : settings
+)
+
 let project = Project(
     name: "Tribuna",
-    targets: [app] + (mindbox ? [notificationService] : []) + [coreUI, coreDomain, coreRepositories, coreRepositoriesTests, coreUITests, corePlayback, corePlaybackTests, featureTodayTests, featureMatchTests, featureRadioTests, featurePlayerTests, featurePodcastsTests, featureProfileTests] + featureTargets
+    targets: [app] + (mindbox ? [notificationService] : []) + (widget ? [todayWidget] : []) + [coreUI, coreDomain, coreRepositories, coreRepositoriesTests, coreUITests, corePlayback, corePlaybackTests, featureTodayTests, featureMatchTests, featureRadioTests, featurePlayerTests, featurePodcastsTests, featureProfileTests] + featureTargets
 )
