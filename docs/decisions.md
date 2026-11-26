@@ -311,6 +311,9 @@ xcodebuild test -workspace Tribuna.xcworkspace -scheme CoreRepositories -destina
 - **Флаг сборки**: `TUIST_FEATURES=widget,profile2 ./generate` → `-DFEATURE_WIDGET -DFEATURE_PROFILE2` в `OTHER_SWIFT_FLAGS` всех таргетов. Не `SWIFT_ACTIVE_COMPILATION_CONDITIONS`: Tuist задаёт его на уровне конфигурации (`DEBUG`), значение таргета теряется. Без переменной флагов нет, проект такой же, как раньше.
 - **Почему не удалённые тоглы**: функция, включённая после ревью, — «скрытая функция» (2.3.1); виджет из галереи во время работы не спрятать. Выпуск = флаг по умолчанию в `Project.swift`, через обновление `#if` удаляем.
 
+### D42. Иконка приложения — 2026-11-27
+Буква «Т» шрифтом Unbounded (ось `wght` 800, `textPrimary`) на градиенте `#22305A` → `background` и оранжевый мяч (`accent`) у ножки — рифма с оранжевой точкой логотипа «● TRIBUNA». Одна картинка 1024×1024 без альфа-канала (`AppIcon.png`), остальные размеры Xcode строит сам. Генератор — `docs/design/app-icon.swift` (CoreGraphics + CoreText), правки иконки — в нём, а не в PNG. Временная, до иконки от дизайна.
+
 ## Грабли
 
 - **«swap-monorepo» в окружении** — это название сессии в приложении, а не репозиторий. Репозиторий проекта — только `AndruhaPower/tribuna`.
