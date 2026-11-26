@@ -32,20 +32,32 @@ public enum Services {
 
     /// Фоновое обновление (D35): ленты подписок последнего вошедшего — в кеш `FeedRepository`,
     /// чтобы новые выпуски были на экране сразу при открытии. Отмена задачи — выходим между лентами.
-    @MainActor public static func refreshSubscribedFeeds(supabaseURL: URL, supabaseKey: String, defaults: UserDefaults = .standard) async {
+    /// Возвращает выпуски, вышедшие с прошлого обновления (с флагом 1.2 — для уведомлений «Новые выпуски», D41).
+    @discardableResult
+    @MainActor public static func refreshSubscribedFeeds(supabaseURL: URL, supabaseKey: String,
+                                                         defaults: UserDefaults = .standard) async -> [(podcast: Podcast, episode: Episode)] {
         let subscribed = SyncedCollection<Date>.storedValue(name: SyncedSubscriptionsStore.collectionName, defaults: defaults)
         guard !subscribed.isEmpty,
               let podcasts = try? await podcastsRepository(catalogClient(supabaseURL: supabaseURL, supabaseKey: supabaseKey)).podcasts()
-        else { return }
+        else { return [] }
         let feeds = feedRepository()
+        var newest: [Episode] = []
         for podcast in podcasts where subscribed[podcast.id] != nil {
-            guard !Task.isCancelled else { return }
-            _ = try? await feeds.episodes(for: podcast, forceRefresh: true)
+            guard !Task.isCancelled else { break }
+            if let latest = try? await feeds.episodes(for: podcast, forceRefresh: true).first { newest.append(latest) }
         }
+        #if FEATURE_PROFILE2
+        let saved = defaults.dictionary(forKey: NewEpisodes.lastSeenKey) as? [String: Date] ?? [:]
+        let (new, lastSeen) = NewEpisodes.detect(newest: newest, lastSeen: saved)
+        defaults.set(lastSeen, forKey: NewEpisodes.lastSeenKey)
+        return new.compactMap { episode in podcasts.first { $0.id == episode.podcastID }.map { ($0, episode) } }
+        #else
+        return []
+        #endif
     }
 
     /// Каталоги — без входа: publishable-ключ идёт заголовком apikey.
-    private static func catalogClient(supabaseURL: URL, supabaseKey: String) -> PostgrestClient {
+    static func catalogClient(supabaseURL: URL, supabaseKey: String) -> PostgrestClient {
         PostgrestClient(
             url: supabaseURL.appendingPathComponent("rest/v1"),
             headers: ["apikey": supabaseKey],

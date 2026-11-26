@@ -9,12 +9,16 @@ import FeatureProfile
 import FeatureRadio
 import FeatureToday
 import UIKit
+import UserNotifications
 
 final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
     private let dependencies = AppDependencies()
     private var launchReconcile: AnyCancellable?
     private var cleanup: AccountCleanup?
+    #if FEATURE_PROFILE2
+    private var bookmarkReminders: BookmarkReminders?
+    #endif
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = scene as? UIWindowScene else { return }
@@ -35,6 +39,10 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window.rootViewController = makeTabBar()
         window.makeKeyAndVisible()
         self.window = window
+        #if FEATURE_PROFILE2
+        bookmarkReminders = BookmarkReminders(settings: AppDependencies.profileSettings, bookmarks: dependencies.bookmarks,
+                                              reminders: dependencies.reminders, matches: dependencies.matches)
+        #endif
         // Напоминания хранилище читает из центра уведомлений асинхронно — пересверяем, когда они появятся.
         launchReconcile = dependencies.reminders.scheduledPublisher
             .first { !$0.isEmpty }
@@ -131,11 +139,28 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     private func makeProfile() -> UIViewController {
         let (bookmarks, subscriptions, progress) = (dependencies.bookmarks, dependencies.subscriptions, dependencies.progress)
+        #if FEATURE_PROFILE2
+        return FeatureProfile.make(
+            dependencies: .init(account: dependencies.account, bookmarks: bookmarks, subscriptions: subscriptions, downloads: dependencies.downloads,
+                                avatars: dependencies.avatars, settings: AppDependencies.profileSettings,
+                                competitions: Services.competitions(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseKey),
+                                renaming: dependencies.account as? AccountRenaming),
+            output: .init(
+                flushUserData: { await Services.flushUserData(bookmarks: bookmarks, subscriptions: subscriptions, progress: progress) },
+                requestNotifications: { (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])) ?? false },
+                openSettings: {
+                    guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+                    UIApplication.shared.open(url)
+                }
+            )
+        )
+        #else
         return FeatureProfile.make(
             dependencies: .init(account: dependencies.account, bookmarks: bookmarks, subscriptions: subscriptions, downloads: dependencies.downloads,
                                 avatars: dependencies.avatars),
             output: .init(flushUserData: { await Services.flushUserData(bookmarks: bookmarks, subscriptions: subscriptions, progress: progress) })
         )
+        #endif
     }
 
     /// Ворота (D31): вошёл — сразу `action`; иначе лист входа поверх верхнего экрана, `action` — только после входа.
@@ -165,8 +190,16 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     private func makeToday() -> UIViewController {
         weak var today: UIViewController?
+        #if FEATURE_PROFILE2
+        // «Турниры в ленте» (D41): скрытые турниры не попадают на «Сегодня»; применяется при каждом показе вкладки.
+        let matches = HiddenCompetitionsMatches(base: dependencies.matches) {
+            await MainActor.run { AppDependencies.profileSettings.hiddenCompetitions }
+        }
+        #else
+        let matches = dependencies.matches
+        #endif
         let controller = FeatureToday.make(
-            dependencies: .init(matches: dependencies.matches, bookmarks: dependencies.bookmarks),
+            dependencies: .init(matches: matches, bookmarks: dependencies.bookmarks),
             output: .init(openMatch: { [weak self] id in
                 guard let self, let navigation = today?.navigationController else { return }
                 navigation.pushViewController(makeMatch(id), animated: true)

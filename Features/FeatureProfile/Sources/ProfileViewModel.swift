@@ -47,6 +47,11 @@ struct ProfileState: Equatable {
     let canClear: Bool
     /// Фото профиля (JPEG); nil — буква в кружке.
     var avatar: Data?
+    #if FEATURE_PROFILE2
+    /// «Уведомления» (1.2, D41).
+    var remindBookmarks = false
+    var notifyNewEpisodes = false
+    #endif
 }
 
 enum ProfileFormatter {
@@ -115,6 +120,10 @@ final class ProfileViewModel {
         )
         .sink { [weak self] in MainActor.assumeIsolated { self?.refresh() } }
         .store(in: &subscriptions)
+        #if FEATURE_PROFILE2
+        Self.applySettings(dependencies.settings, to: &state)
+        dependencies.settings.changes.sink { [weak self] in MainActor.assumeIsolated { self?.refresh() } }.store(in: &subscriptions)
+        #endif
     }
 
     /// Новое фото (уже квадратный JPEG). Ошибка — текст для показа.
@@ -136,6 +145,53 @@ final class ProfileViewModel {
             return SignInTexts.message(error as? AccountError ?? .unknown)
         }
     }
+
+    #if FEATURE_PROFILE2
+    var competitions: CompetitionsRepository { dependencies.competitions }
+    var settings: ProfileSettings { dependencies.settings }
+    var canRename: Bool { dependencies.renaming != nil }
+
+    /// «Начало событий». Включение спрашивает разрешение; false — запрещены, переключатель остаётся выключенным.
+    func didToggleRemindBookmarks(_ isOn: Bool) async -> Bool {
+        await toggleNotification(isOn) { $0.remindBookmarks = $1 }
+    }
+
+    /// «Новые выпуски» — так же.
+    func didToggleNewEpisodes(_ isOn: Bool) async -> Bool {
+        await toggleNotification(isOn) { $0.notifyNewEpisodes = $1 }
+    }
+
+    private func toggleNotification(_ isOn: Bool, _ set: (ProfileSettings, Bool) -> Void) async -> Bool {
+        if isOn, !(await output.requestNotifications()) {
+            refresh()
+            return false
+        }
+        set(dependencies.settings, isOn)
+        refresh()
+        return true
+    }
+
+    func openSettings() { output.openSettings() }
+
+    /// Новое имя; ошибка — текст для показа. Пустое имя — без запроса: карточка покажет «Болельщик».
+    func didRename(_ name: String) async -> String? {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let renaming = dependencies.renaming, !trimmed.isEmpty else { return nil }
+        setBusy(true)
+        defer { setBusy(false) }
+        do {
+            try await renaming.updateName(trimmed)
+            return nil
+        } catch {
+            return SignInTexts.message(error as? AccountError ?? .unknown)
+        }
+    }
+
+    private static func applySettings(_ settings: ProfileSettings, to state: inout ProfileState) {
+        state.remindBookmarks = settings.remindBookmarks
+        state.notifyNewEpisodes = settings.notifyNewEpisodes
+    }
+    #endif
 
     func didToggleWifiOnly(_ isOn: Bool) {
         dependencies.downloads.wifiOnly = isOn
@@ -213,6 +269,9 @@ final class ProfileViewModel {
         Self.apply(dependencies.account.state, to: &state)
         state.avatar = dependencies.avatars.image
         state.isBusy = isBusy
+        #if FEATURE_PROFILE2
+        Self.applySettings(dependencies.settings, to: &state)
+        #endif
         if state != self.state { self.state = state }
     }
 }

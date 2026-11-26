@@ -4,7 +4,7 @@ import CoreUI
 import SnapKit
 import UIKit
 
-/// Профиль по макету «Профиль» без уведомлений. Со входом: карточка аккаунта, плитки-счётчики, «ЗАГРУЗКИ», «Удалить аккаунт».
+/// Профиль по макету «Профиль» (с флагом 1.2 — с «Уведомлениями» и подвалом, D41). Со входом: карточка аккаунта, плитки-счётчики, «ЗАГРУЗКИ», «Удалить аккаунт».
 /// Без входа: заголовок и карточка мотивации. Отступы — замер макета от верха безопасной зоны и от низа плиток.
 final class ProfileViewController: UIViewController {
     private let viewModel: ProfileViewModel
@@ -30,6 +30,11 @@ final class ProfileViewController: UIViewController {
     private let usageRow = UIView()
     private let clearButton = UIButton(type: .system)
     private var cancellables: Set<AnyCancellable> = []
+    #if FEATURE_PROFILE2
+    private let remindRow = SwitchRow(title: "Начало событий", subtitle: "За 15 минут, для закладок")
+    private let episodesRow = SwitchRow(title: "Новые выпуски", subtitle: "Из моих подписок")
+    private lazy var signedOutFooter = makeFooter()
+    #endif
 
     init(viewModel: ProfileViewModel, account: Account) {
         self.viewModel = viewModel
@@ -117,6 +122,44 @@ final class ProfileViewController: UIViewController {
 
         [titleLabel, signedInContent, motivationCard].forEach(safe.addSubview)
         [accountCard, bookmarksTile, subscriptionsTile, section, card, deleteButton].forEach(signedInContent.addSubview)
+        // Без 1.2 «Загрузки» идут сразу под плитками; с 1.2 — под «Уведомлениями» (D41).
+        #if FEATURE_PROFILE2
+        let notificationsSection = UILabel()
+        notificationsSection.attributedText = NSAttributedString(string: "УВЕДОМЛЕНИЯ", attributes: [
+            .font: sectionFont, .foregroundColor: Palette.textSecondary, .kern: 0.3,
+        ])
+        notificationsSection.accessibilityTraits = .header
+        let notificationsCard = cardStack([remindRow, episodesRow])
+        remindRow.toggle.addAction(UIAction { [weak self] action in
+            guard let self, let toggle = action.sender as? UISwitch else { return }
+            Task { if !(await self.viewModel.didToggleRemindBookmarks(toggle.isOn)) { self.offerSettings() } }
+        }, for: .valueChanged)
+        episodesRow.toggle.addAction(UIAction { [weak self] action in
+            guard let self, let toggle = action.sender as? UISwitch else { return }
+            Task { if !(await self.viewModel.didToggleNewEpisodes(toggle.isOn)) { self.offerSettings() } }
+        }, for: .valueChanged)
+        [notificationsSection, notificationsCard].forEach(signedInContent.addSubview)
+        notificationsSection.snp.makeConstraints {
+            $0.leading.equalToSuperview().offset(20)
+            $0.lastBaseline.equalTo(bookmarksTile.snp.bottom).offset(32.5)
+        }
+        notificationsCard.snp.makeConstraints {
+            $0.top.equalTo(bookmarksTile.snp.bottom).offset(44)
+            $0.leading.trailing.equalToSuperview().inset(20)
+        }
+        let downloadsAnchor = notificationsCard.snp.bottom
+        // Подвал — со входом под «Удалить аккаунт», без входа — под мотивацией: турниры работают и без профиля.
+        let signedInFooter = makeFooter()
+        signedInContent.addSubview(signedInFooter)
+        safe.addSubview(signedOutFooter)
+        signedOutFooter.snp.makeConstraints {
+            $0.top.equalTo(motivationCard.snp.bottom).offset(16)
+            $0.leading.equalToSuperview().offset(20)
+            $0.trailing.lessThanOrEqualToSuperview().inset(20)
+        }
+        #else
+        let downloadsAnchor = bookmarksTile.snp.bottom
+        #endif
         [wifiRow, usageRow, clearButton].forEach(card.addSubview)
         [wifiLabel, wifiSwitch].forEach(wifiRow.addSubview)
         [usageTitle, usageLabel, usageTrack].forEach(usageRow.addSubview)
@@ -157,17 +200,27 @@ final class ProfileViewController: UIViewController {
         }
         section.snp.makeConstraints {
             $0.leading.equalToSuperview().offset(20)
-            $0.lastBaseline.equalTo(bookmarksTile.snp.bottom).offset(32.5)
+            $0.lastBaseline.equalTo(downloadsAnchor).offset(32.5)
         }
         card.snp.makeConstraints {
-            $0.top.equalTo(bookmarksTile.snp.bottom).offset(44)
+            $0.top.equalTo(downloadsAnchor).offset(44)
             $0.leading.trailing.equalToSuperview().inset(20)
         }
         deleteButton.snp.makeConstraints {
             $0.top.equalTo(card.snp.bottom).offset(20)
             $0.leading.equalToSuperview().offset(20)
+            #if !FEATURE_PROFILE2
+            $0.bottom.equalToSuperview().inset(16)
+            #endif
+        }
+        #if FEATURE_PROFILE2
+        signedInFooter.snp.makeConstraints {
+            $0.top.equalTo(deleteButton.snp.bottom).offset(12)
+            $0.leading.equalToSuperview().offset(20)
+            $0.trailing.lessThanOrEqualToSuperview().inset(20)
             $0.bottom.equalToSuperview().inset(16)
         }
+        #endif
         wifiRow.snp.makeConstraints {
             $0.top.leading.trailing.equalToSuperview()
             $0.height.equalTo(58)
@@ -230,6 +283,50 @@ final class ProfileViewController: UIViewController {
         navigationController?.setNavigationBarHidden(true, animated: animated)
     }
 
+    #if FEATURE_PROFILE2
+    private func makeFooter() -> UIView {
+        profileFooter(openCompetitions: { [weak self] in
+            guard let self else { return }
+            navigationController?.pushViewController(
+                CompetitionsViewController(settings: viewModel.settings, repository: viewModel.competitions), animated: true)
+        }, openAbout: { [weak self] in
+            self?.navigationController?.pushViewController(AboutViewController(), animated: true)
+        })
+    }
+
+    /// Уведомления запрещены — объяснить и предложить Настройки (как «Напомнить» в карточке матча).
+    private func offerSettings() {
+        let alert = UIAlertController(title: "Уведомления выключены",
+                                      message: "Чтобы получать уведомления, разрешите их для Tribuna в Настройках.", preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Не сейчас", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Настройки", style: .default) { [weak self] _ in self?.viewModel.openSettings() })
+        present(alert, animated: true)
+    }
+
+    /// Нажатие на имя: смена имени (`user_metadata.full_name`).
+    @objc private func editName() {
+        guard viewModel.canRename, presentedViewController == nil else { return }
+        let alert = UIAlertController(title: "Как вас зовут?", message: nil, preferredStyle: .alert)
+        alert.addTextField { [weak self] field in
+            field.text = self?.nameLabel.text == "Болельщик" ? nil : self?.nameLabel.text
+            field.placeholder = "Имя"
+            field.autocapitalizationType = .words
+            field.textContentType = .name
+        }
+        alert.addAction(UIAlertAction(title: "Отмена", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Сохранить", style: .default) { [weak self, weak alert] _ in
+            guard let self, let name = alert?.textFields?.first?.text else { return }
+            Task {
+                guard let message = await self.viewModel.didRename(name) else { return }
+                let error = UIAlertController(title: "Не удалось сохранить имя", message: message, preferredStyle: .alert)
+                error.addAction(UIAlertAction(title: "OK", style: .cancel))
+                self.present(error, animated: true)
+            }
+        })
+        present(alert, animated: true)
+    }
+    #endif
+
     private func rowLabel(_ text: String) -> UILabel {
         let label = UILabel()
         label.text = text
@@ -288,6 +385,13 @@ final class ProfileViewController: UIViewController {
             $0.centerY.equalToSuperview()
         }
         signOutButton.setContentCompressionResistancePriority(.required, for: .horizontal)
+        #if FEATURE_PROFILE2
+        // Имя меняется нажатием на имя; кружок — фото профиля (D43), «Выйти» — своя кнопка.
+        nameLabel.isUserInteractionEnabled = true
+        nameLabel.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(editName)))
+        nameLabel.accessibilityTraits = .button
+        nameLabel.accessibilityHint = "Изменить имя"
+        #endif
         return card
     }
 
@@ -315,6 +419,9 @@ final class ProfileViewController: UIViewController {
     private func render(_ state: ProfileState) {
         signedInContent.isHidden = state.account == nil
         motivationCard.isHidden = state.account != nil || state.isResolving
+        #if FEATURE_PROFILE2
+        signedOutFooter.isHidden = motivationCard.isHidden
+        #endif
         if let card = state.account {
             avatarLabel.text = card.initial
             avatarImage.image = state.avatar.flatMap(UIImage.init(data:))
@@ -328,6 +435,10 @@ final class ProfileViewController: UIViewController {
         bookmarksTile.value = state.bookmarks
         subscriptionsTile.value = state.subscriptions
         if wifiSwitch.isOn != state.wifiOnly { wifiSwitch.setOn(state.wifiOnly, animated: false) }
+        #if FEATURE_PROFILE2
+        if remindRow.toggle.isOn != state.remindBookmarks { remindRow.toggle.setOn(state.remindBookmarks, animated: true) }
+        if episodesRow.toggle.isOn != state.notifyNewEpisodes { episodesRow.toggle.setOn(state.notifyNewEpisodes, animated: true) }
+        #endif
         usageLabel.text = state.usage
         usageTrack.isHidden = state.usageFraction == nil
         // Множитель у ограничения не меняется — пересобираем, только когда доля другая.

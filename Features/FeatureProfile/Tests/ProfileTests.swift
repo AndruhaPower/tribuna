@@ -71,12 +71,29 @@ struct ProfileTests {
     let avatars = FakeAvatarStore()
     let log = Box<[String]>([])
 
+    #if FEATURE_PROFILE2
+    let settings = FakeProfileSettings()
+    let notificationsGranted = Box(true)
+
+    var dependencies: FeatureProfile.Dependencies {
+        .init(account: account, bookmarks: bookmarks, subscriptions: subscriptions, downloads: downloads, avatars: avatars,
+              settings: settings, competitions: FakeCompetitions(), renaming: account)
+    }
+
+    func output(flush: @escaping @MainActor () async -> Void) -> FeatureProfile.Output {
+        .init(flushUserData: flush, requestNotifications: { [notificationsGranted] in notificationsGranted.value }, openSettings: {})
+    }
+    #else
+    var dependencies: FeatureProfile.Dependencies {
+        .init(account: account, bookmarks: bookmarks, subscriptions: subscriptions, downloads: downloads, avatars: avatars)
+    }
+
+    func output(flush: @escaping @MainActor () async -> Void) -> FeatureProfile.Output { .init(flushUserData: flush) }
+    #endif
+
     func makeViewModel() -> ProfileViewModel {
         account.log = { [log] in log.value.append($0) }
-        return ProfileViewModel(
-            dependencies: .init(account: account, bookmarks: bookmarks, subscriptions: subscriptions, downloads: downloads, avatars: avatars),
-            output: .init(flushUserData: { [log] in log.value.append("flush") })
-        )
+        return ProfileViewModel(dependencies: dependencies, output: output { [log] in log.value.append("flush") })
     }
 
     @Test func signedOutShowsMotivationOnly() {
@@ -94,8 +111,8 @@ struct ProfileTests {
     @Test func signOutDoesNotWaitForHangingFlush() async {
         let hang = Box<CheckedContinuation<Void, Never>?>(nil)
         let viewModel = ProfileViewModel(
-            dependencies: .init(account: account, bookmarks: bookmarks, subscriptions: subscriptions, downloads: downloads, avatars: avatars),
-            output: .init(flushUserData: { await withCheckedContinuation { hang.value = $0 } }),
+            dependencies: dependencies,
+            output: output { await withCheckedContinuation { hang.value = $0 } },
             flushTimeout: 0.05
         )
         await viewModel.didConfirmSignOut()
