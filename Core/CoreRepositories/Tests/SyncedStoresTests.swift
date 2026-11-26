@@ -346,6 +346,14 @@ struct SyncedStoresTests {
         #expect(received == [[:], ["p1": clock.now], [:]])
     }
 
+    /// Фоновая задача (D35) видит подписки без аккаунта и сети.
+    @Test func storedSubscriptionsReadableWithoutStore() {
+        defer { cleanup() }
+        #expect(SyncedCollection<Date>.storedValue(name: SyncedSubscriptionsStore.collectionName, defaults: defaults).isEmpty)
+        subscriptions(FakeAccount(user("u1"))).toggle("p1")
+        #expect(SyncedCollection<Date>.storedValue(name: SyncedSubscriptionsStore.collectionName, defaults: defaults) == ["p1": clock.now])
+    }
+
     @Test func progressNotStartedByDefaultAndPersists() {
         defer { cleanup() }
         let store = progress(FakeAccount(user("u1")))

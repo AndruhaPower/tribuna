@@ -12,29 +12,56 @@ public enum Services {
                                        defaults: UserDefaults = .standard)
         -> (matches: MatchesRepository, standings: StandingsRepository, bookmarks: BookmarksStore, reminders: RemindersStore, stations: StationsRepository,
             podcasts: PodcastsRepository, episodes: EpisodesRepository, subscriptions: SubscriptionsStore, progress: ListeningProgressStore) {
-        // Каталоги — без входа: publishable-ключ идёт заголовком apikey.
-        let postgrest = PostgrestClient(
+        let postgrest = catalogClient(supabaseURL: supabaseURL, supabaseKey: supabaseKey)
+        // НХЛ убран до лицензии: условия NHL запрещают коммерческое использование (D34).
+        let football = FootballRepository(client: postgrest)
+        // Локальные хранилища до профиля (D31): без входа данных нет, не переносим.
+        for key in ["bookmarks.v1", "podcasts.subscriptions.v1", "podcasts.progress.v1"] { defaults.removeObject(forKey: key) }
+        return (
+            football,
+            football,
+            SyncedBookmarksStore(defaults: defaults, account: account, remote: userClient.map(PostgrestUserDataRemote<BookmarkRow>.init)),
+            LocalRemindersStore(center: UNUserNotificationCenter.current()),
+            SupabaseStationsRepository(client: postgrest),
+            podcastsRepository(postgrest),
+            feedRepository(),
+            SyncedSubscriptionsStore(defaults: defaults, account: account, remote: userClient.map(PostgrestUserDataRemote<SubscriptionRow>.init)),
+            SyncedListeningProgressStore(defaults: defaults, account: account, remote: userClient.map(PostgrestUserDataRemote<ProgressRow>.init))
+        )
+    }
+
+    /// Фоновое обновление (D35): ленты подписок последнего вошедшего — в кеш `FeedRepository`,
+    /// чтобы новые выпуски были на экране сразу при открытии. Отмена задачи — выходим между лентами.
+    @MainActor public static func refreshSubscribedFeeds(supabaseURL: URL, supabaseKey: String, defaults: UserDefaults = .standard) async {
+        let subscribed = SyncedCollection<Date>.storedValue(name: SyncedSubscriptionsStore.collectionName, defaults: defaults)
+        guard !subscribed.isEmpty,
+              let podcasts = try? await podcastsRepository(catalogClient(supabaseURL: supabaseURL, supabaseKey: supabaseKey)).podcasts()
+        else { return }
+        let feeds = feedRepository()
+        for podcast in podcasts where subscribed[podcast.id] != nil {
+            guard !Task.isCancelled else { return }
+            _ = try? await feeds.episodes(for: podcast, forceRefresh: true)
+        }
+    }
+
+    /// Каталоги — без входа: publishable-ключ идёт заголовком apikey.
+    private static func catalogClient(supabaseURL: URL, supabaseKey: String) -> PostgrestClient {
+        PostgrestClient(
             url: supabaseURL.appendingPathComponent("rest/v1"),
             headers: ["apikey": supabaseKey],
             logger: nil,
             decoder: FootballRepository.decoder
         )
-        let football = FootballRepository(client: postgrest)
-        let matches = CombinedMatchesRepository(football: football, hockey: NHLClient(session: .shared))
-        // Локальные хранилища до профиля (D31): без входа данных нет, не переносим.
-        for key in ["bookmarks.v1", "podcasts.subscriptions.v1", "podcasts.progress.v1"] { defaults.removeObject(forKey: key) }
-        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        return (
-            matches,
-            football, // таблицы только у футбола; для НХЛ запрос вернёт пусто
-            SyncedBookmarksStore(defaults: defaults, account: account, remote: userClient.map(PostgrestUserDataRemote<BookmarkRow>.init)),
-            LocalRemindersStore(center: UNUserNotificationCenter.current()),
-            SupabaseStationsRepository(client: postgrest),
-            SupabasePodcastsRepository(client: postgrest, cacheFile: caches.appendingPathComponent("podcasts.json")),
-            FeedRepository(directory: caches.appendingPathComponent("feeds"), fetch: FeedRepository.fetch(session: .shared)),
-            SyncedSubscriptionsStore(defaults: defaults, account: account, remote: userClient.map(PostgrestUserDataRemote<SubscriptionRow>.init)),
-            SyncedListeningProgressStore(defaults: defaults, account: account, remote: userClient.map(PostgrestUserDataRemote<ProgressRow>.init))
-        )
+    }
+
+    private static var caches: URL { FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0] }
+
+    private static func podcastsRepository(_ client: PostgrestClient) -> SupabasePodcastsRepository {
+        SupabasePodcastsRepository(client: client, cacheFile: caches.appendingPathComponent("podcasts.json"))
+    }
+
+    private static func feedRepository() -> FeedRepository {
+        FeedRepository(directory: caches.appendingPathComponent("feeds"), fetch: FeedRepository.fetch(session: .shared))
     }
 
     /// Отправить очереди закладок, подписок и позиции — перед выходом (D31). Сбой оставляет очередь, выход её сотрёт.

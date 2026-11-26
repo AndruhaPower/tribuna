@@ -9,12 +9,12 @@ final class TodayViewController: UIViewController {
     /// Идентификаторы стабильные (код турнира, дата, id матча), содержимое — в `payload`:
     /// так при смене счёта или закладки ячейка перенастраивается на месте, не теряя фокус VoiceOver и прокрутку дней.
     private enum Section: Hashable {
-        case header, days, events, status
+        case header, days, events, status, attribution
         case competition(String)
     }
 
     private enum Item: Hashable {
-        case header, status
+        case header, status, attribution
         case day(Date)
         case event(MatchID)
         case row(MatchID)
@@ -41,7 +41,7 @@ final class TodayViewController: UIViewController {
         /// Содержимое элемента для сравнения со старым; nil — элемента не было.
         func value(for item: Item) -> AnyHashable? {
             switch item {
-            case .header: nil
+            case .header, .attribution: nil
             case .status: status.map(AnyHashable.init)
             case let .day(id): days[id].map(AnyHashable.init)
             case let .event(id): events[id].map(AnyHashable.init)
@@ -142,6 +142,10 @@ final class TodayViewController: UIViewController {
             snapshot.appendSections([.status])
             snapshot.appendItems([.status], toSection: .status)
         }
+        if case .loaded = state.content {
+            snapshot.appendSections([.attribution])
+            snapshot.appendItems([.attribution], toSection: .attribution)
+        }
 
         let old = payload
         payload = new
@@ -182,6 +186,17 @@ final class TodayViewController: UIViewController {
             cell.onRetry = { self?.viewModel.didTapRetry() }
         }
 
+        // Текст подписи требуют условия football-data.org дословно (D34).
+        let attributionCell = UICollectionView.CellRegistration<UICollectionViewListCell, Item> { cell, _, _ in
+            var content = UIListContentConfiguration.cell()
+            content.text = "Football data provided by the Football-Data.org API"
+            content.textProperties.font = Typography.text(13)
+            content.textProperties.color = Palette.textSecondary
+            content.textProperties.alignment = .center
+            cell.contentConfiguration = content
+            cell.backgroundConfiguration = .clear()
+        }
+
         let dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) { collectionView, indexPath, item in
             switch item {
             case .header:
@@ -194,6 +209,8 @@ final class TodayViewController: UIViewController {
                 collectionView.dequeueConfiguredReusableCell(using: rowCell, for: indexPath, item: item)
             case .status:
                 collectionView.dequeueConfiguredReusableCell(using: statusCell, for: indexPath, item: item)
+            case .attribution:
+                collectionView.dequeueConfiguredReusableCell(using: attributionCell, for: indexPath, item: item)
             }
         }
         let header = UICollectionView.SupplementaryRegistration<SectionHeaderView>(
@@ -263,6 +280,10 @@ final class TodayViewController: UIViewController {
         case .status:
             let result = list(height: StatusCell.height, spacing: 0)
             result.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: inset, bottom: 0, trailing: inset)
+            return result
+        case .attribution:
+            let result = list(height: 44, spacing: 0)
+            result.contentInsets = NSDirectionalEdgeInsets(top: 12, leading: inset, bottom: 0, trailing: inset)
             return result
         }
     }

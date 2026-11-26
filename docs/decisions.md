@@ -8,7 +8,7 @@
 
 ### D1. Репозиторий — 2026-11-19
 Приватный GitHub `AndruhaPower/tribuna`, основная ветка `main`. Автор коммитов — `pazit@yandex.ru`, задан локально в `.git/config`, глобальный git не трогаем.
-Bitbucket Okko и всё, что относится к ypios, сюда не переносим: это другой проект.
+Код, правила и инфраструктуру других проектов сюда не переносим.
 
 ### D2. Цель — App Store — 2026-11-19
 Проект строится как продукт для публикации и развития, не как прототип. Архитектуру закладываем сразу, без «перепишем потом».
@@ -146,7 +146,7 @@ xcodebuild test -workspace Tribuna.xcworkspace -scheme CoreRepositories -destina
 - Низкие экраны: сначала сжимаются промежутки до play и до «Поделиться», затем карточка; волна в сжатой карточке сжимается по высоте, чтобы не наезжать на название в две строки (у радио на SE не срабатывает — места хватает).
 - Вёрстка — замер PNG: `-PodcastsMockData -PodcastPlayerMock` — в плеере «Превью 12 тура: дерби на Энфилде», 18:42 из 34:10, 1,25× (плеер без звука; перемотка и скорость меняют его состояние); `-OpenPlayer` — сразу открыть лист. Расхождения с макетом: дата «20 нояб» (выпуск мока опубликован «сегодня», как в макете «Подкасты»), под карточкой — полное название (в макете обрезано до «Превью 12 тура»), значки −15/+30 нарисованы по макету в стиле Lucide (`skip-back`/`skip-forward`; у Lucide таких нет), в мини-плеере на месте пустого квадрата макета — обложка.
 
-### D26. Логотипы и гербы — 2026-11-20
+### D26. Логотипы и гербы — 2026-11-20 (показ гербов отменён → D34)
 Пересмотр D16 по просьбе пользователя: гербы клубов и эмблемы турниров показываем (`teams.crest_url`, `competitions.emblem_url`, PNG по https).
 - Кружок команды — `Palette.surfaceHigh`, герб aspect-fit с отступом ≈18 % диаметра; пока герб не загружен или его нет — аббревиатура (`TeamBadgeView.configure(abbreviation:logoURL:)`). Маленький герб (20 pt) стоит перед названием в строках таблицы.
 - Значок турнира (`EmblemView`, 20 pt) — в заголовках секций «Сегодня» и в шапке карточки матча. Он на светлой подложке: эмблемы АПЛ и Лиги 1 тёмные и на фоне приложения не читаются.
@@ -251,6 +251,25 @@ xcodebuild test -workspace Tribuna.xcworkspace -scheme CoreRepositories -destina
 - **Язык разработки — `ru`** (`CFBundleDevelopmentRegion`): иначе системные элементы (кнопка Apple, окно трекинга) по-английски.
 - **Вход через Apple** (пересмотр «Apple — позже» из D31): системная кнопка «Продолжить с Apple» на мотивации, «Вход» и «Создать профиль»; `AppleSignIn` (nonce: SHA-256 в запрос Apple, исходный — в Supabase) → `Account.signInWithApple` → `signInWithIdToken(provider: .apple)`; имя Apple отдаёт только при первом входе — пишем в `full_name`, если его ещё нет. Capability `com.apple.developer.applesignin` не включена (нужна платная команда), поэтому Apple отвечает ошибкой — подпись «Вход через Apple пока недоступен» (`AccountError.appleUnavailable`, так же `provider_disabled` от Supabase). Чтобы заработало: entitlement в `Project.swift`, провайдер Apple в Supabase (Client ID = Bundle ID), отзыв токена Apple при удалении аккаунта.
 
+
+### D34. Подготовка к ревью App Store: источники данных — 2026-11-25
+По запросу продукта; правила ревью 5.2.2 (права на данные стороннего сервиса) и 5.2.3 (права на аудиопотоки, документы по запросу).
+- **football-data.org**: условия требуют подпись «Football data provided by the Football-Data.org API» — дословно, по-английски, в конце списка «Сегодня» (только при загруженных матчах). Коммерческое использование бесплатного тарифа условия не оговаривают — перед монетизацией уточнить письмом.
+- **Гербы и эмблемы** (пересмотр D26) — товарные знаки, лицензии нет: `FootballRepository` не запрашивает `crest_url`/`emblem_url`, везде аббревиатуры. UI-код гербов оставлен (вернуть — снова выбрать колонки). В таблице турнира команда снова с 50.5 pt, как в макете.
+- **НХЛ убран**: условия NHL — только некоммерческое использование. Удалены `NHLClient`, `CombinedMatchesRepository` и их тесты; `Sport.hockey` в домене остался. Закладки на хоккей (`hockey:…`) больше не находятся: `FootballRepository.footballSourceID` отвечает nil на чужой префикс.
+- **Радио**: выключены (`enabled = false`) BBC 5 Live, WDR Bundesliga, San Jose Sharks, 630 CHED — трансляции с правами на спорт и гео-ограничениями. Остались 8 общедоступных российских станций. Риск 5.2.3 остаётся: Apple может попросить документы — нужны письма-разрешения вещателей.
+- **Обложки подкастов** (пересмотр D27): из `itunes:image` самих лент, а не `artworkUrl600` iTunes — условия iTunes Search разрешают его картинки только для продвижения магазина. Оригиналы до 1,2 МБ; `ImageLoader` всё равно уменьшает при декодировании.
+- Миграция `supabase/migrations/20261125103433_store_review.sql`, применена к `tribuna_db`.
+
+
+### D35. Capabilities к первой выкладке — 2026-11-25
+Продолжение D33, по списку продукта. Команда для App Store — **D53MGF5HR8** (платная).
+- **Платные capabilities — только в сборке `com.tribuna.app`** (`isStoreBuild` в `Project.swift`): там же `DEVELOPMENT_TEAM = D53MGF5HR8`. `./install-iphone` даёт `com.tribuna.app.<TEAM>` — без entitlements, чтобы коллеги с бесплатным Apple ID ставили как раньше (D32).
+- **Keychain-группы**: первая — прежняя группа приложения `$(AppIdentifierPrefix)$(CFBundleIdentifier)` (сессия Supabase остаётся на месте), вторая — общая `$(AppIdentifierPrefix)com.tribuna.app.shared` для будущего расширения пушей (Mindbox).
+- **iCloud KVS**: `com.apple.developer.ubiquity-kvstore-identifier` включён; кодом пока не используется. Позиция прослушивания у вошедших уже синхронизируется через Supabase (D31) — KVS нужен для того, что без входа (например, «Турниры в ленте»).
+- **Фон, `fetch`**: `BGAppRefreshTask` `<bundle id>.refresh` (`BackgroundRefresh`) — ленты подписок последнего вошедшего (`SyncedCollection.storedValue`, без аккаунта и сети) в кеш `FeedRepository`; планируется при уходе в фон, не раньше чем через час. Загрузкам выпусков фоновый режим не нужен — их ведёт фоновая `URLSession` (D30). Режим без реального использования Apple отклоняет (2.5.4), поэтому `processing` включаем вместе с Mindbox: SDK требует `fetch` + `processing` и идентификаторы `cloud.Mindbox.$(PRODUCT_BUNDLE_IDENTIFIER).GDAppRefresh`, `.GDAppProcessing`, `.DBCleanAppProcessing`.
+- **Отложено**: Associated Domains — нет домена (нужен сайт с `apple-app-site-association`; к пушам отношения не имеет); Mindbox — нет договора и endpoint (вместе с ним: SDK, `processing`, `aps-environment`, расширение пушей в общей Keychain-группе); вход через Apple — пауза по решению пользователя, хотя платная команда теперь есть (что включить — в D33).
+
 ## Грабли
 
 - **«swap-monorepo» в окружении** — это название сессии в приложении, а не репозиторий. Репозиторий проекта — только `AndruhaPower/tribuna`.
@@ -258,7 +277,7 @@ xcodebuild test -workspace Tribuna.xcworkspace -scheme CoreRepositories -destina
 - **Radio Browser**: российских станций с тегом `sport` всего одна. Каталог придётся дополнять своим списком.
 - **RSS подкастов**: нет `ETag` и `Last-Modified`, условные запросы не работают — кешируем по своему расписанию. Уточнение 2026-11-20: mave и podster отдают `ETag`/`Last-Modified`, но условные запросы пока не делаем (D27).
 - **iTunes Search** по «спорт»/«футбол» в `country=ru` отдаёт и украино-, англоязычные подкасты, и заброшенные — язык (`<language>`) и дату последнего выпуска проверяй по самой ленте.
-- **Глобальный git** настроен на рабочую почту okko.tv. После клонирования снова задай `git config user.email pazit@yandex.ru`.
+- **Глобальный git** настроен на рабочую почту другого проекта. После клонирования снова задай `git config user.email pazit@yandex.ru`.
 - **Профиль без входа** в макетах не нарисован, хотя приложение работает без входа.
 - **Чужие проекты Supabase**: в том же аккаунте есть `swap-dev` и `trading-bot`. Tribuna принадлежит только `tribuna_db` (ref `wgwsdhyrazjzqwvnhgzk`), остальные не трогаем.
 - **Имя модуля `CoreServices` занято** системным `CoreServices.framework` из iOS SDK: пустой таргет с таким именем падает на `'CoreServices/UTCoreTypes.h' file not found`, а непустой перекрывает системный модуль для всех, кто его импортирует. Поэтому слой данных называется `CoreRepositories`. Для новых модулей не бери имена системных фреймворков (`CoreServices`, `CoreData`, `CoreLocation` и т.п.).
@@ -270,3 +289,21 @@ xcodebuild test -workspace Tribuna.xcworkspace -scheme CoreRepositories -destina
 - **`UISlider` в iOS 26** присылает последний `valueChanged` уже после `touchUpInside`. Если по `valueChanged` «брать» бегунок (режим перетаскивания), он остаётся взятым навсегда: время на экране застывает, хотя звук идёт. Обрабатывай `valueChanged` только при `slider.isTracking`.
 - **Симулятор: «Поделиться» вешает приложение** — `UIActivityViewController` синхронно ждёт XPC-ответа службы `com.apple.sharing.sharesheet` (`SFShareSheetSlotManager ensureConnectionEstablished`), главный поток стоит. Это служба симулятора, не наш код; «Поделиться» проверять на устройстве.
 - **Симулятор: `.newPassword` закрывает поле жёлтой плашкой «Automatic Strong Password cover view text»** — набранный текст не виден и не попадает в поле. В `-ProfileMock` поле нового пароля — `.password` (только DEBUG); проверять автоподстановку пароля — на устройстве.
+
+
+### D37. Исправления по приёмке (ACCEPTANCE.md от 2026-11-26) — 2026-11-26
+По прогону скилла camouflage-app-acceptance.
+- **okko-tennis удалён, а не выключен** (уточнение D36): DELETE в `20261125150000_catalog_cleanup.sql`,
+  строка убрана из seed `20261120100000_podcasts.sql` и из update artwork в `20261125103433_store_review.sql` —
+  выключенная запись с автором «Okko Tennis» всё равно оставалась в БД и репо (чек-лист п. 10).
+  После `db push` применить cleanup к `tribuna_db`.
+- **`supabase/README.md`**: разворачивание бэкенда с нуля (link → db push → functions deploy → секреты
+  `FOOTBALL_DATA_KEY`/`SYNC_SECRET` + Vault `project_url`/`sync_secret` → Auth) — закрывает п. 9 приёмки.
+- **README синхронизирован**: убраны НХЛ и Radio Browser (источники — D34), возможности iOS приведены
+  к реальным (фоновое аудио/загрузки/напоминания), запланированное помечено (SiWA, Mindbox, KVS).
+- **Черновик политики конфиденциальности** — `docs/privacy-policy.md`, состав по `PrivacyInfo.xcprivacy`;
+  публикация на публичном URL — вручную перед выкладкой (п. 12).
+- **Гербы — не проблема**: приёмка ошибочно записала их в ❌ по наличию UI-кода; по D34 колонки
+  `crest_url`/`emblem_url` не выбираются (`FootballRepository.columns`), везде аббревиатуры.
+- **Оставлено как зафиксировано**: пауза Sign in with Apple (D33/D35), Mindbox-обвязка и KVS
+  выключенными (D35/D36), ATT-запрос (D33) — не пересматривались.
